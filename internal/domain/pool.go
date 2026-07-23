@@ -1,5 +1,7 @@
 package domain
 
+import "fmt"
+
 // PoolSlot identifies a single slot inside the mappool.
 type PoolSlot struct {
 	Mod   PieceMod `json:"mod" bson:"mod"`
@@ -59,6 +61,17 @@ func (m Mappool) ActiveSlotsByMod(mod PieceMod) []Piece {
 		}
 	}
 	return active
+}
+
+// ParsePoolSlot parses a string such as "NM-1" into a PoolSlot.
+func ParsePoolSlot(s string) (PoolSlot, bool) {
+	var mod PieceMod
+	var idx int
+	_, err := fmt.Sscanf(s, "%s-%d", &mod, &idx)
+	if err != nil || idx < 1 {
+		return PoolSlot{}, false
+	}
+	return PoolSlot{Mod: mod, Index: idx}, true
 }
 
 func itoa(n int) string {
