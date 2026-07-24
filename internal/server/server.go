@@ -15,7 +15,10 @@ import (
 	"rctHubBackend/internal/database"
 	"rctHubBackend/internal/handler"
 	"rctHubBackend/internal/middleware"
+	"rctHubBackend/internal/oauth"
 	"rctHubBackend/internal/repository"
+	"rctHubBackend/internal/service"
+	"rctHubBackend/pkg/jwtutil"
 )
 
 // Server wraps the HTTP server and its dependencies.
@@ -36,6 +39,8 @@ type Deps struct {
 	MoveRepo         repository.MoveRepository
 	ResultRepo       repository.ResultRepository
 	AnnouncementRepo repository.AnnouncementRepository
+	AuthService      service.AuthService
+	JWTSigner        *jwtutil.Signer
 }
 
 // New creates a new Server with routes configured.
@@ -61,15 +66,27 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 
 	router.Use(middleware.ErrorHandler())
 
+	signer := jwtutil.NewSigner(cfg.JWT.Secret, "rcthub-backend")
+	oauthClient := oauth.NewClient(oauth.Config{
+		ClientID:     cfg.Osu.ClientID,
+		ClientSecret: cfg.Osu.ClientSecret,
+		RedirectURI:  cfg.Osu.RedirectURI,
+		APIBase:      cfg.Osu.APIBase,
+	}, db.Redis)
+
+	userRepo := repository.NewUserRepository(db.MongoDB)
+
 	deps := &Deps{
 		Cfg:              cfg,
 		DB:               db,
-		UserRepo:         repository.NewUserRepository(db.MongoDB),
+		UserRepo:         userRepo,
 		BeatmapRepo:      repository.NewBeatmapRepository(db.MongoDB),
 		MatchRepo:        repository.NewMatchRepository(db.MongoDB),
 		MoveRepo:         repository.NewMoveRepository(db.MongoDB),
 		ResultRepo:       repository.NewResultRepository(db.MongoDB),
 		AnnouncementRepo: repository.NewAnnouncementRepository(db.MongoDB),
+		AuthService:      service.NewAuthService(oauthClient, userRepo, signer, cfg.JWT.Expiry),
+		JWTSigner:        signer,
 	}
 
 	s := &Server{
@@ -90,9 +107,19 @@ func (s *Server) registerRoutes() {
 	health := handler.NewHealthHandler(s.deps.DB)
 	s.router.GET("/health", health.Check)
 
+	auth := handler.NewAuthHandler(s.deps.AuthService)
+	s.router.GET("/auth/osu", auth.OsuLogin)
+	s.router.GET("/auth/osu/callback", auth.OsuCallback)
+
 	api := s.router.Group("/api/v1")
 	{
 		api.GET("/health", health.Check)
+
+		authorized := api.Group("")
+		authorized.Use(middleware.Auth(s.deps.JWTSigner))
+		{
+			authorized.GET("/auth/me", auth.Me)
+		}
 	}
 }
 

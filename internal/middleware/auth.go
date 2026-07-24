@@ -2,12 +2,14 @@ package middleware
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+
+	"rctHubBackend/internal/domain"
 	"rctHubBackend/pkg/jwtutil"
 	"rctHubBackend/pkg/response"
-
-	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -53,4 +55,27 @@ func ClaimsFromContext(c *gin.Context) (*jwtutil.Claims, bool) {
 	}
 	claims, ok := v.(*jwtutil.Claims)
 	return claims, ok
+}
+
+// RequireRole ensures the authenticated user has at least one of the required roles.
+// It must be used after the Auth middleware.
+func RequireRole(roles ...domain.UserRole) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims, ok := ClaimsFromContext(c)
+		if !ok {
+			response.Unauthorized(c, "missing authentication")
+			c.Abort()
+			return
+		}
+
+		for _, required := range roles {
+			if slices.Contains(claims.Roles, required) {
+				c.Next()
+				return
+			}
+		}
+
+		response.Forbidden(c, "insufficient permissions")
+		c.Abort()
+	}
 }

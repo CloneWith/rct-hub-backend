@@ -3,11 +3,14 @@ package jwtutil
 import (
 	"testing"
 	"time"
+
+	"rctHubBackend/internal/domain"
 )
 
 func TestSignerRoundTrip(t *testing.T) {
 	signer := NewSigner("a-32-byte-secret-key-for-test-purpose", "rcthub-test")
-	token, err := signer.Generate("user-123", 42, "tester", time.Hour)
+	roles := []domain.UserRole{domain.RolePlayer, domain.RoleAdmin}
+	token, err := signer.Generate("user-123", 42, "tester", roles, time.Hour)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -26,11 +29,14 @@ func TestSignerRoundTrip(t *testing.T) {
 	if claims.Username != "tester" {
 		t.Errorf("expected username tester, got %s", claims.Username)
 	}
+	if len(claims.Roles) != 2 || claims.Roles[0] != domain.RolePlayer || claims.Roles[1] != domain.RoleAdmin {
+		t.Errorf("expected roles [player admin], got %v", claims.Roles)
+	}
 }
 
 func TestSignerExpiredToken(t *testing.T) {
 	signer := NewSigner("a-32-byte-secret-key-for-test-purpose", "rcthub-test")
-	token, err := signer.Generate("user-123", 42, "tester", -time.Hour)
+	token, err := signer.Generate("user-123", 42, "tester", nil, -time.Hour)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}
@@ -43,7 +49,7 @@ func TestSignerExpiredToken(t *testing.T) {
 
 func TestSignerInvalidSignature(t *testing.T) {
 	signer := NewSigner("a-32-byte-secret-key-for-test-purpose", "rcthub-test")
-	token, err := signer.Generate("user-123", 42, "tester", time.Hour)
+	token, err := signer.Generate("user-123", 42, "tester", nil, time.Hour)
 	if err != nil {
 		t.Fatalf("generate token: %v", err)
 	}

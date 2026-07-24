@@ -5,13 +5,16 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"rctHubBackend/internal/domain"
 )
 
 // Claims holds the data stored inside a JWT.
 type Claims struct {
-	UserID   string `json:"user_id"`
-	OsuID    int64  `json:"osu_id"`
-	Username string `json:"username"`
+	UserID   string            `json:"user_id"`
+	OsuID    int64             `json:"osu_id"`
+	Username string            `json:"username"`
+	Roles    []domain.UserRole `json:"roles"`
 	jwt.RegisteredClaims
 }
 
@@ -26,12 +29,13 @@ func NewSigner(secret string, issuer string) *Signer {
 }
 
 // Generate creates a new JWT for a user.
-func (s *Signer) Generate(userID string, osuID int64, username string, expiry time.Duration) (string, error) {
+func (s *Signer) Generate(userID string, osuID int64, username string, roles []domain.UserRole, expiry time.Duration) (string, error) {
 	now := time.Now().UTC()
 	claims := Claims{
 		UserID:   userID,
 		OsuID:    osuID,
 		Username: username,
+		Roles:    roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
 			IssuedAt:  jwt.NewNumericDate(now),

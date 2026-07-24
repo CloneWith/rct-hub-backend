@@ -11,6 +11,7 @@ require (
 	github.com/redis/go-redis/v9 v9.21.0
 	go.mongodb.org/mongo-driver/v2 v2.8.0
 	go.uber.org/zap v1.28.0
+	golang.org/x/oauth2 v0.36.0
 )
 
 require (
