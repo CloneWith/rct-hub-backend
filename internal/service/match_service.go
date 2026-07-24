@@ -10,6 +10,7 @@ import (
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/repository"
 	"rctHubBackend/pkg/errs"
+	"rctHubBackend/pkg/paginate"
 )
 
 // MatchService handles match lifecycle and board operations.
@@ -22,6 +23,11 @@ type MatchService struct {
 // NewMatchService creates a new MatchService.
 func NewMatchService(matches repository.MatchRepository, rooms repository.RoomRepository, moves repository.MoveRepository) *MatchService {
 	return &MatchService{matches: matches, rooms: rooms, moves: moves}
+}
+
+// List returns a paginated list of matches filtered by optional status.
+func (s *MatchService) List(ctx context.Context, params paginate.Params, status *domain.MatchStatus) (paginate.Result[domain.Match], error) {
+	return s.matches.List(ctx, params, status)
 }
 
 // GetMatch fetches a match by id.
@@ -256,6 +262,16 @@ func (s *MatchService) CheckWinCondition(ctx context.Context, matchID bson.Objec
 		return nil, err
 	}
 	return match.WinningTeamID(), nil
+}
+
+// ListByMatch returns paginated moves for a match.
+func (s *MatchService) ListByMatch(ctx context.Context, matchID bson.ObjectID, params paginate.Params) (paginate.Result[domain.Move], error) {
+	return s.moves.ByMatch(ctx, matchID, params)
+}
+
+// LatestByMatch returns the most recent moves for a match.
+func (s *MatchService) LatestByMatch(ctx context.Context, matchID bson.ObjectID, limit int64) ([]domain.Move, error) {
+	return s.moves.LatestByMatch(ctx, matchID, limit)
 }
 
 func (s *MatchService) saveMatchAndMove(ctx context.Context, match *domain.Match, move domain.Move) error {

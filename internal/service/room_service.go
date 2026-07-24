@@ -11,6 +11,7 @@ import (
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/repository"
 	"rctHubBackend/pkg/errs"
+	"rctHubBackend/pkg/paginate"
 )
 
 // RoomService handles room lifecycle and configuration.
@@ -44,6 +45,11 @@ func (s *RoomService) CreateRoom(ctx context.Context, ownerID int64, roomType do
 		return nil, err
 	}
 	return room, nil
+}
+
+// GetRooms returns a paginated list of rooms filtered by optional type.
+func (s *RoomService) GetRooms(ctx context.Context, params paginate.Params, roomType *domain.RoomType) (paginate.Result[domain.Room], error) {
+	return s.rooms.List(ctx, params, roomType)
 }
 
 // GetRoom fetches a room by id.
