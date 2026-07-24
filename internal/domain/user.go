@@ -18,14 +18,24 @@ const (
 	RoleAdmin      UserRole = "admin"
 )
 
+type VerifyStatus string
+
+const (
+	Verified   VerifyStatus = "verified"
+	Pending    VerifyStatus = "pending"
+	Unverified VerifyStatus = "unverified"
+)
+
 // User is the local representation of an osu! player or staff member.
 type User struct {
 	ID bson.ObjectID `json:"_id" bson:"_id,omitempty"`
 
-	IsVerified bool `json:"is_verified" bson:"is_verified"`
-	IsBanned   bool `json:"is_banned" bson:"is_banned"`
+	VerifyStatus VerifyStatus `json:"verify_status" bson:"verify_status"`
+	IsBanned     bool         `json:"is_banned" bson:"is_banned"`
 
 	OnlineID    int64      `json:"id" bson:"id"`
+	GlobalRank  int64      `json:"global_rank" bson:"global_rank"` // Only consider the rank of osu!std
+	PP          float32    `json:"pp" bson:"pp"`
 	Username    string     `json:"username" bson:"username"`
 	AvatarURL   string     `json:"avatar_url" bson:"avatar_url"`
 	CountryCode string     `json:"country_code" bson:"country_code"`

@@ -100,10 +100,14 @@ func ensureSchemaValidation(ctx context.Context, db *mongo.Database) error {
 	userValidator := bson.M{
 		"$jsonSchema": bson.M{
 			"bsonType": "object",
-			"required": []string{"id", "username", "roles", "created_at", "updated_at"},
+			"required": []string{"id", "username", "roles", "verify_status", "created_at", "updated_at"},
 			"properties": bson.M{
 				"id":       bson.M{"bsonType": "long"},
 				"username": bson.M{"bsonType": "string"},
+				"verify_status": bson.M{
+					"bsonType": "string",
+					"items":    bson.M{"enum": []string{"verified", "pending", "unverified"}},
+				},
 				"roles": bson.M{
 					"bsonType": "array",
 					"items":    bson.M{"enum": []string{"player", "strategist", "referee", "streamer", "admin"}},
@@ -148,15 +152,18 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 
 	users := db.Collection("users")
 	if _, err := users.InsertOne(ctx, domain.User{
-		ID:          bson.NewObjectID(),
-		OnlineID:    1,
-		Username:    "admin_seed",
-		AvatarURL:   "https://a.ppy.sh/1",
-		CountryCode: "CN",
-		Roles:       []domain.UserRole{domain.RoleAdmin},
-		IsBanned:    false,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:           bson.NewObjectID(),
+		OnlineID:     1,
+		Username:     "admin_seed",
+		AvatarURL:    "https://a.ppy.sh/1",
+		CountryCode:  "CN",
+		Roles:        []domain.UserRole{domain.RoleAdmin},
+		VerifyStatus: domain.Verified,
+		IsBanned:     false,
+		GlobalRank:   1024,
+		PP:           114.51,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}); err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			log.Info("seed admin user already exists, skipping")
