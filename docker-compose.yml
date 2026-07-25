@@ -1,23 +1,42 @@
 services:
   mongodb:
-    image: mongo:7
+    image: mongo:7.0.39
     container_name: rcthub-mongo
     restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
     environment:
       MONGO_INITDB_DATABASE: rcthub
     volumes:
       - rcthub-mongo-data:/data/db
+      - ./deploy/mongodb/healthcheck.js:/opt/rcthub/healthcheck.js:ro
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - mongodb://localhost:27017/admin?directConnection=true
+        - --quiet
+        - --file
+        - /opt/rcthub/healthcheck.js
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.9-alpine
     container_name: rcthub-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - rcthub-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
 
 volumes:
   rcthub-mongo-data:

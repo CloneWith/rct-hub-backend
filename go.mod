@@ -2,6 +2,8 @@ module rctHubBackend
 
 go 1.26
 
+toolchain go1.26.0
+
 require (
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-contrib/zap v1.1.7

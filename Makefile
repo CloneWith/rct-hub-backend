@@ -1,4 +1,4 @@
-.PHONY: dev test lint build run docker-up docker-down initdb initdb-seed
+.PHONY: verify dev test lint build run docker-up docker-down initdb initdb-seed initdb-drop
 
 # Load environment variables from .env if it exists
 ifneq (,$(wildcard .env))
@@ -7,6 +7,9 @@ ifneq (,$(wildcard .env))
 endif
 
 PORT ?= 8080
+
+verify:
+	go run ./tools/verify
 
 build:
 	go build -o ./bin/server ./cmd/server
@@ -25,10 +28,10 @@ lint:
 	@if command -v staticcheck >/dev/null 2>&1; then staticcheck ./...; fi
 
 docker-up:
-	docker-compose up -d
+	docker compose up -d --wait
 
 docker-down:
-	docker-compose down
+	docker compose down
 
 initdb:
 	go run ./cmd/initdb
