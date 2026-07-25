@@ -9,49 +9,16 @@ import (
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/middleware"
 	"rctHubBackend/internal/service"
-	"rctHubBackend/pkg/paginate"
 	"rctHubBackend/pkg/response"
 )
 
-// AnnouncementHandler exposes announcement management endpoints.
+// AnnouncementHandler exposes announcement management endpoints (admin CRUD only).
 type AnnouncementHandler struct {
 	svc *service.AnnouncementService
 }
 
 func NewAnnouncementHandler(svc *service.AnnouncementService) *AnnouncementHandler {
 	return &AnnouncementHandler{svc: svc}
-}
-
-// List returns visible announcements.
-func (h *AnnouncementHandler) List(c *gin.Context) {
-	var params paginate.Params
-	if err := c.ShouldBindQuery(&params); err != nil {
-		response.BadRequest(c, "invalid pagination params")
-		return
-	}
-
-	result, err := h.svc.ListVisible(c.Request.Context(), params)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	response.JSON(c, result)
-}
-
-// Get returns a single announcement by id.
-func (h *AnnouncementHandler) Get(c *gin.Context) {
-	id, err := bson.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid announcement id")
-		return
-	}
-
-	a, err := h.svc.Get(c.Request.Context(), id)
-	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
-		return
-	}
-	response.JSON(c, a)
 }
 
 // Create creates a new announcement (admin only).

@@ -112,7 +112,7 @@ func (s *Server) registerRoutes() {
 	s.router.GET("/auth/osu", auth.OsuLogin)
 	s.router.GET("/auth/osu/callback", auth.OsuCallback)
 
-	// GraphQL endpoint (Phase 1 — 只读查询)
+	// GraphQL endpoint — all reads, client views, and in-game commands
 	// GET  /graphql → GraphiQL Playground
 	// POST /graphql → GraphQL Query/Mutation
 	gqlResolver := graphql.NewResolver(s.deps.Services)
@@ -123,33 +123,17 @@ func (s *Server) registerRoutes() {
 	users := handler.NewUserHandler(s.deps.UserSvc)
 	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc)
 	rooms := handler.NewRoomHandler(s.deps.Services.Rooms)
-	matches := handler.NewMatchHandler(s.deps.Services.Matchs)
 	announcements := handler.NewAnnouncementHandler(s.deps.AnnounceSvc)
 
 	api := s.router.Group("/api/v1")
 	{
 		api.GET("/health", health.Check)
 
-		// Public endpoints
-		api.GET("/announcements", announcements.List)
-		api.GET("/announcements/:id", announcements.Get)
-		api.GET("/beatmaps", beatmaps.List)
-		api.GET("/beatmaps/:id", beatmaps.Get)
-		api.GET("/beatmaps/osu/:osu_id", beatmaps.GetByOsuID)
-		api.GET("/rooms/:code", rooms.GetByCode)
-		api.GET("/matches/:code", matches.GetByCode)
-
-		// Authenticated endpoints
+		// Authenticated endpoints — room configuration (pre-game setup)
+		// All read operations and in-game commands are served via GraphQL (/graphql).
 		authorized := api.Group("")
 		authorized.Use(middleware.Auth(s.deps.JWTSigner))
 		{
-			authorized.GET("/auth/me", auth.Me)
-			authorized.GET("/users/me", users.Me)
-			authorized.GET("/users/:id", users.Get)
-			authorized.GET("/users", users.List)
-
-			authorized.GET("/rooms", rooms.List)
-			authorized.GET("/rooms/:id", rooms.Get)
 			authorized.POST("/rooms", rooms.Create)
 			authorized.PATCH("/rooms/:id/strategists", rooms.SetStrategists)
 			authorized.PATCH("/rooms/:id/streamer", rooms.SetStreamer)
@@ -158,17 +142,9 @@ func (s *Server) registerRoutes() {
 			authorized.PATCH("/rooms/:id/mp-link", rooms.SetMPLink)
 			authorized.PATCH("/rooms/:id/stream-link", rooms.SetStreamLink)
 			authorized.POST("/rooms/:id/start-match", rooms.StartMatch)
-
-			authorized.GET("/matches", matches.List)
-			authorized.GET("/matches/:id", matches.Get)
-			authorized.GET("/matches/:id/moves", matches.ListMoves)
-			authorized.GET("/matches/:id/moves/latest", matches.LatestMoves)
-			authorized.POST("/matches/:id/end", matches.EndMatch)
-			authorized.POST("/matches/:id/advance-turn", matches.AdvanceTurn)
-			authorized.GET("/matches/:id/win-condition", matches.CheckWinCondition)
 		}
 
-		// Admin-only endpoints
+		// Admin-only endpoints — CRUD operations (curl/script friendly)
 		admin := authorized.Group("")
 		admin.Use(middleware.RequireRole(domain.RoleAdmin))
 		{

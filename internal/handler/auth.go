@@ -5,12 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"rctHubBackend/internal/middleware"
 	"rctHubBackend/internal/service"
 	"rctHubBackend/pkg/response"
 )
 
-// AuthHandler exposes osu! OAuth and session endpoints.
+// AuthHandler exposes osu! OAuth endpoints.
 type AuthHandler struct {
 	authService service.AuthService
 }
@@ -48,21 +47,4 @@ func (h *AuthHandler) OsuCallback(c *gin.Context) {
 	// Redirect to the frontend with the JWT in the URL fragment.
 	// The frontend is responsible for storing the token securely.
 	c.Redirect(http.StatusTemporaryRedirect, "/auth/callback?token="+token)
-}
-
-// Me returns the currently authenticated user.
-func (h *AuthHandler) Me(c *gin.Context) {
-	claims, ok := middleware.ClaimsFromContext(c)
-	if !ok {
-		response.Unauthorized(c, "missing authentication")
-		return
-	}
-
-	user, err := h.authService.Me(c.Request.Context(), claims.UserID)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	response.JSON(c, user)
 }
