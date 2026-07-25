@@ -25,9 +25,10 @@ models:
   # ObjectID → string (bson.ObjectID.Hex(), 在 resolver 中手动转换)
   ObjectID:
     model: github.com/99designs/gqlgen/graphql.String
+  # JSON → map[string]interface{} (gqlgen 内置 Scalar)
+  JSON:
+    model: github.com/99designs/gqlgen/graphql.Map
 
-# Phase 1+ 会在此添加 domain 类型绑定:
-#   UserRole: rctHubBackend/internal/domain.UserRole
-#   VerifyStatus: rctHubBackend/internal/domain.VerifyStatus
-#   User: rctHubBackend/internal/domain.User
-#   ...
+# Phase 2: directive 实现在 directive.go 中
+# @requireRole: 检查 JWT claims 中的角色
+# @public: no-op pass-through

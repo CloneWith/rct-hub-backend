@@ -30,6 +30,20 @@ type AnnouncementPage struct {
 	TotalPages int             `json:"totalPages"`
 }
 
+type AuditEntry struct {
+	ActionID         string    `json:"actionId"`
+	MatchID          string    `json:"matchId"`
+	Sequence         int       `json:"sequence"`
+	ActorID          int       `json:"actorId"`
+	ActorRole        UserRole  `json:"actorRole"`
+	CommandType      string    `json:"commandType"`
+	PreviousVersion  int       `json:"previousVersion"`
+	ResultingVersion int       `json:"resultingVersion"`
+	Timestamp        time.Time `json:"timestamp"`
+	IsAdminOverride  bool      `json:"isAdminOverride"`
+	Reason           *string   `json:"reason,omitempty"`
+}
+
 type BPOrder struct {
 	FirstPick TeamSide `json:"firstPick"`
 	FirstBan  TeamSide `json:"firstBan"`
@@ -84,31 +98,70 @@ type BoardCell struct {
 	TeamID   *string   `json:"teamID,omitempty"`
 }
 
+type BoardRenderData struct {
+	Cells            [][]*CellRender `json:"cells"`
+	LastChangedCells []*Position     `json:"lastChangedCells"`
+}
+
+type BoardSummary struct {
+	Cells [][]*CellSummary `json:"cells"`
+}
+
+type CellRender struct {
+	Position *Position    `json:"position"`
+	Zone     BoardZone    `json:"zone"`
+	Piece    *PieceRender `json:"piece,omitempty"`
+}
+
+type CellSummary struct {
+	Position *Position     `json:"position"`
+	Piece    *PieceSummary `json:"piece,omitempty"`
+}
+
+type ClientConnection struct {
+	UserID      int        `json:"userID"`
+	Username    string     `json:"username"`
+	Role        UserRole   `json:"role"`
+	TeamSide    *TeamSide  `json:"teamSide,omitempty"`
+	IsConnected bool       `json:"isConnected"`
+	LastSeenAt  *time.Time `json:"lastSeenAt,omitempty"`
+}
+
+type DomainEventSnapshot struct {
+	Type      string         `json:"type"`
+	Payload   map[string]any `json:"payload"`
+	Timestamp time.Time      `json:"timestamp"`
+}
+
 type Mappool struct {
 	Slots []*PoolSlotGroup `json:"slots"`
 }
 
 type Match struct {
-	ID         string      `json:"id"`
-	Code       string      `json:"code"`
-	Name       string      `json:"name"`
-	RoomType   RoomType    `json:"roomType"`
-	RoomID     string      `json:"roomID"`
-	Status     MatchStatus `json:"status"`
-	Phase      *MatchPhase `json:"phase,omitempty"`
-	ActiveTeam *TeamSide   `json:"activeTeam,omitempty"`
-	Board      *Board      `json:"board,omitempty"`
-	Pool       *Mappool    `json:"pool,omitempty"`
-	Teams      *MatchTeams `json:"teams"`
-	BpOrder    *BPOrder    `json:"bpOrder,omitempty"`
-	TurnState  *TurnState  `json:"turnState,omitempty"`
-	Timer      *TimerState `json:"timer,omitempty"`
-	Moves      []*Move     `json:"moves"`
-	RecentMove *Move       `json:"recentMove,omitempty"`
-	Room       *Room       `json:"room,omitempty"`
-	CreatedAt  time.Time   `json:"createdAt"`
-	StartedAt  *time.Time  `json:"startedAt,omitempty"`
-	FinishedAt *time.Time  `json:"finishedAt,omitempty"`
+	ID             string          `json:"id"`
+	Code           string          `json:"code"`
+	Name           string          `json:"name"`
+	RoomType       RoomType        `json:"roomType"`
+	RoomID         string          `json:"roomID"`
+	Status         MatchStatus     `json:"status"`
+	Phase          *MatchPhase     `json:"phase,omitempty"`
+	ActiveTeam     *TeamSide       `json:"activeTeam,omitempty"`
+	Board          *Board          `json:"board,omitempty"`
+	Pool           *Mappool        `json:"pool,omitempty"`
+	Teams          *MatchTeams     `json:"teams"`
+	BpOrder        *BPOrder        `json:"bpOrder,omitempty"`
+	TurnState      *TurnState      `json:"turnState,omitempty"`
+	Timer          *TimerState     `json:"timer,omitempty"`
+	Moves          []*Move         `json:"moves"`
+	RecentMove     *Move           `json:"recentMove,omitempty"`
+	Room           *Room           `json:"room,omitempty"`
+	StrategistView *StrategistView `json:"strategistView"`
+	SpectatorView  *SpectatorView  `json:"spectatorView"`
+	OverlayView    *OverlayView    `json:"overlayView"`
+	RefereeView    *RefereeView    `json:"refereeView"`
+	CreatedAt      time.Time       `json:"createdAt"`
+	StartedAt      *time.Time      `json:"startedAt,omitempty"`
+	FinishedAt     *time.Time      `json:"finishedAt,omitempty"`
 }
 
 type MatchPage struct {
@@ -141,12 +194,32 @@ type Move struct {
 	CreatedAt  time.Time    `json:"createdAt"`
 }
 
+type OverlayView struct {
+	Board     *BoardRenderData     `json:"board"`
+	Scores    *TeamScores          `json:"scores"`
+	Timer     *TimerDisplay        `json:"timer"`
+	LastEvent *DomainEventSnapshot `json:"lastEvent,omitempty"`
+}
+
 type Piece struct {
 	BeatmapID *int       `json:"beatmapID,omitempty"`
 	State     PieceState `json:"state"`
 	TeamID    *string    `json:"teamID,omitempty"`
 	ForceMod  *string    `json:"forceMod,omitempty"`
 	Position  *Position  `json:"position,omitempty"`
+}
+
+type PieceRender struct {
+	Mod          PieceMod   `json:"mod"`
+	State        PieceState `json:"state"`
+	Owner        *TeamSide  `json:"owner,omitempty"`
+	BeatmapCover *string    `json:"beatmapCover,omitempty"`
+}
+
+type PieceSummary struct {
+	Mod   PieceMod   `json:"mod"`
+	State PieceState `json:"state"`
+	Owner *TeamSide  `json:"owner,omitempty"`
 }
 
 type PlayerScore struct {
@@ -179,6 +252,16 @@ type Position struct {
 }
 
 type Query struct {
+}
+
+type RefereeView struct {
+	Board            *Board              `json:"board"`
+	Pool             *Mappool            `json:"pool"`
+	Teams            *MatchTeams         `json:"teams"`
+	TurnState        *TurnState          `json:"turnState"`
+	Timer            *TimerState         `json:"timer"`
+	AuditLog         []*AuditEntry       `json:"auditLog"`
+	ConnectionStatus []*ClientConnection `json:"connectionStatus"`
 }
 
 type Room struct {
@@ -217,6 +300,26 @@ type RoomSettings struct {
 	StreamLink           *string   `json:"streamLink,omitempty"`
 }
 
+type SpectatorView struct {
+	Board        *BoardSummary `json:"board"`
+	Scores       *TeamScores   `json:"scores"`
+	CurrentPhase MatchPhase    `json:"currentPhase"`
+	ActiveTeam   *TeamSide     `json:"activeTeam,omitempty"`
+	TurnNumber   *int          `json:"turnNumber,omitempty"`
+	RecentMoves  []*Move       `json:"recentMoves"`
+}
+
+type StrategistView struct {
+	IsMyTurn             bool       `json:"isMyTurn"`
+	MyTeam               *TeamSide  `json:"myTeam,omitempty"`
+	AllowedActions       []string   `json:"allowedActions"`
+	DisallowedActions    []string   `json:"disallowedActions"`
+	SelectablePoolSlots  []string   `json:"selectablePoolSlots"`
+	SelectableBoardCells []string   `json:"selectableBoardCells"`
+	Timer                *TimerInfo `json:"timer"`
+	RobberyInProgress    bool       `json:"robberyInProgress"`
+}
+
 type Team struct {
 	ID           string   `json:"id"`
 	Side         TeamSide `json:"side"`
@@ -227,6 +330,24 @@ type Team struct {
 	LeaderID     *int     `json:"leaderID,omitempty"`
 	StrategistID *int     `json:"strategistID,omitempty"`
 	Players      []int    `json:"players"`
+}
+
+type TeamScores struct {
+	Red  int `json:"red"`
+	Blue int `json:"blue"`
+}
+
+type TimerDisplay struct {
+	RemainingSeconds int  `json:"remainingSeconds"`
+	IsPaused         bool `json:"isPaused"`
+	IsWarning        bool `json:"isWarning"`
+}
+
+type TimerInfo struct {
+	StartedAt        time.Time `json:"startedAt"`
+	DurationSeconds  int       `json:"durationSeconds"`
+	RemainingSeconds int       `json:"remainingSeconds"`
+	IsPaused         bool      `json:"isPaused"`
 }
 
 type TimerState struct {

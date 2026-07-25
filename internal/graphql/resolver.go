@@ -294,6 +294,53 @@ func (r *matchResolver) Room(ctx context.Context, obj *Match) (*Room, error) {
 }
 
 // ============================================================================
+// Match 客户端视图 Resolver (Phase 2 — Read Model §9.10)
+// ============================================================================
+
+// StrategistView 策略师视图: @requireRole(role: STRATEGIST) 保证只有策略师可访问。
+// 从 GraphQL *Match 类型计算，不重新查库。
+func (r *matchResolver) StrategistView(ctx context.Context, obj *Match) (*StrategistView, error) {
+	claims, ok := ClaimsFromCtx(ctx)
+	if !ok || claims == nil {
+		// 正常不应到达此处：@requireRole directive 已拒绝未认证请求
+		return nil, fmt.Errorf("AUTH_REQUIRED")
+	}
+	return computeStrategistView(obj, claims.OsuID), nil
+}
+
+// SpectatorView 观众视图: 公开可访问。
+// recentMoves 需要调用 MoveService 获取最近 5 条操作记录。
+func (r *matchResolver) SpectatorView(ctx context.Context, obj *Match) (*SpectatorView, error) {
+	view := computeSpectatorView(obj)
+
+	// 填充 recentMoves (最近 5 条)
+	matchID, err := bson.ObjectIDFromHex(obj.ID)
+	if err == nil {
+		params := paginate.Params{Page: 1, PerPage: 5}
+		params.Normalize()
+		result, err := r.svc.Moves.ListByMatch(ctx, matchID, params)
+		if err == nil && len(result.Data) > 0 {
+			view.RecentMoves = make([]*Move, len(result.Data))
+			for i := range result.Data {
+				view.RecentMoves[i] = mapMove(&result.Data[i])
+			}
+		}
+	}
+
+	return view, nil
+}
+
+// OverlayView OBS Overlay 视图: 公开可访问，极简渲染数据。
+func (r *matchResolver) OverlayView(ctx context.Context, obj *Match) (*OverlayView, error) {
+	return computeOverlayView(obj), nil
+}
+
+// RefereeView 裁判视图: @requireRole(role: REFEREE, admin: true) 保证只有裁判/管理员可访问。
+func (r *matchResolver) RefereeView(ctx context.Context, obj *Match) (*RefereeView, error) {
+	return computeRefereeView(obj), nil
+}
+
+// ============================================================================
 // Room 嵌套字段 Resolver
 // ============================================================================
 

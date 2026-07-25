@@ -22,6 +22,10 @@ import (
 func NewHandler(resolver *Resolver) *handler.Server {
 	config := Config{
 		Resolvers: resolver,
+		Directives: DirectiveRoot{
+			RequireRole: RequireRole,
+			Public:      Public,
+		},
 	}
 	execSchema := NewExecutableSchema(config)
 

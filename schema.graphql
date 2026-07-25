@@ -8,9 +8,16 @@
 
 scalar Time     # time.Time — gqlgen 内置支持 (graphql.Time)
 scalar ObjectID # bson.ObjectID hex — 映射为 string
+scalar JSON     # 任意 JSON 值 — 用于事件 payload 等
 
 # gqlgen 内置 directive: 控制字段生成行为
 directive @goField(forceResolver: Boolean, name: String) on FIELD_DEFINITION
+
+# 鉴权 directive (Phase 2 — §9.10 Read Model 角色裁剪)
+# @requireRole: 检查 JWT claims 中的角色；admin=true 时也接受 ADMIN 角色
+directive @requireRole(role: UserRole!, admin: Boolean = false) on FIELD_DEFINITION
+# @public: 标记字段公开可访问 (no-op, 文档语义)
+directive @public on FIELD_DEFINITION
 
 # =============================================================================
 # 枚举 (值用大写，domain 用小写/混合大小写，mapper 中转换)
@@ -174,6 +181,13 @@ type Match {
   recentMove: Move @goField(forceResolver: true)
   room: Room @goField(forceResolver: true)
 
+  # 客户端专属视图 (Phase 2 — Read Model §9.10)
+  # 视图字段需要 forceResolver，因为计算逻辑需要重新获取 domain.Match
+  strategistView: StrategistView! @requireRole(role: STRATEGIST) @goField(forceResolver: true)
+  spectatorView: SpectatorView! @goField(forceResolver: true)
+  overlayView: OverlayView! @goField(forceResolver: true)
+  refereeView: RefereeView! @requireRole(role: REFEREE, admin: true) @goField(forceResolver: true)
+
   createdAt: Time!
   startedAt: Time
   finishedAt: Time
@@ -331,6 +345,134 @@ type Announcement {
   publishedAt: Time
   createdAt: Time!
   updatedAt: Time!
+}
+
+# =============================================================================
+# 客户端视图类型 (Phase 2 — Read Model §9.10)
+# 每类客户端获取不同裁剪的数据视图，避免过度获取和欠获取
+# =============================================================================
+
+# --- 策略师视图: 当前可执行操作、可选格子、计时器 ---
+type StrategistView {
+  isMyTurn: Boolean!
+  myTeam: TeamSide                # null 如果用户不是本比赛的策略师
+  allowedActions: [String!]!
+  disallowedActions: [String!]!
+  selectablePoolSlots: [String!]! # 格式: "MOD-INDEX" 如 "NM-1"
+  selectableBoardCells: [String!]! # 格式: "row,col" 如 "0,1"
+  timer: TimerInfo!
+  robberyInProgress: Boolean!
+}
+
+# --- 观众视图: 公开安全的棋盘摘要和比分 ---
+type SpectatorView {
+  board: BoardSummary!
+  scores: TeamScores!
+  currentPhase: MatchPhase!
+  activeTeam: TeamSide
+  turnNumber: Int
+  recentMoves: [Move!]!
+}
+
+# --- OBS Overlay 视图: 极简渲染数据 ---
+type OverlayView {
+  board: BoardRenderData!
+  scores: TeamScores!
+  timer: TimerDisplay!
+  lastEvent: DomainEventSnapshot  # null: WebSocket 事件系统尚未实现
+}
+
+# --- 裁判视图: 完整比赛数据 + 审计 ---
+type RefereeView {
+  board: Board!
+  pool: Mappool!
+  teams: MatchTeams!
+  turnState: TurnState!
+  timer: TimerState!
+  auditLog(limit: Int = 50): [AuditEntry!]!    # 空: 审计系统尚未实现
+  connectionStatus: [ClientConnection!]!        # 空: WebSocket 连接追踪尚未实现
+}
+
+# --- 视图支撑类型 ---
+
+type BoardSummary {
+  cells: [[CellSummary!]!]!
+}
+
+type CellSummary {
+  position: Position!
+  piece: PieceSummary              # null if cell is empty
+}
+
+type PieceSummary {
+  mod: PieceMod!
+  state: PieceState!
+  owner: TeamSide                  # null if not owned
+}
+
+type BoardRenderData {
+  cells: [[CellRender!]!]!
+  lastChangedCells: [Position!]!   # 空: 变更追踪尚未实现
+}
+
+type CellRender {
+  position: Position!
+  zone: BoardZone!
+  piece: PieceRender               # null if cell is empty
+}
+
+type PieceRender {
+  mod: PieceMod!
+  state: PieceState!
+  owner: TeamSide
+  beatmapCover: String             # 谱面封面 URL
+}
+
+type TeamScores {
+  red: Int!
+  blue: Int!
+}
+
+type TimerInfo {
+  startedAt: Time!
+  durationSeconds: Int!
+  remainingSeconds: Int!
+  isPaused: Boolean!
+}
+
+type TimerDisplay {
+  remainingSeconds: Int!
+  isPaused: Boolean!
+  isWarning: Boolean!              # 剩余 < 10s 时为 true
+}
+
+type DomainEventSnapshot {
+  type: String!
+  payload: JSON!
+  timestamp: Time!
+}
+
+type AuditEntry {
+  actionId: ObjectID!
+  matchId: ObjectID!
+  sequence: Int!
+  actorId: Int!
+  actorRole: UserRole!
+  commandType: String!
+  previousVersion: Int!
+  resultingVersion: Int!
+  timestamp: Time!
+  isAdminOverride: Boolean!
+  reason: String
+}
+
+type ClientConnection {
+  userID: Int!
+  username: String!
+  role: UserRole!
+  teamSide: TeamSide
+  isConnected: Boolean!
+  lastSeenAt: Time
 }
 
 # =============================================================================
