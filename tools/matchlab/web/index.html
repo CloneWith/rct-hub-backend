@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RCTS1 MatchEngine Lab</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="brand">RCTS1 <span>MatchEngine Lab</span></div>
+      <div class="statusline" id="statusline">正在连接本地引擎...</div>
+    </div>
+    <div class="clock-block">
+      <span class="clock-label">虚拟时钟</span>
+      <strong id="clock">--:--:--</strong>
+      <span class="timer" id="timer">--</span>
+    </div>
+  </header>
+
+  <nav class="scenario-bar" aria-label="测试场景">
+    <span>场景</span>
+    <button data-scenario="ready">Ready</button>
+    <button data-scenario="first-pick">首个 Pick</button>
+    <button data-scenario="robbery-ready">可夺棋</button>
+    <button data-scenario="turn-13">Turn 13</button>
+    <button data-scenario="stalemate-final">流局终手</button>
+    <span class="divider"></span>
+    <button data-time="10">+10s</button>
+    <button data-time="30">+30s</button>
+    <button data-time="60">+60s</button>
+  </nav>
+
+  <main class="workspace">
+    <section class="board-region" aria-labelledby="board-title">
+      <div class="section-heading">
+        <div>
+          <h1 id="board-title">比赛棋盘</h1>
+          <p id="turn-summary">等待状态</p>
+        </div>
+        <div class="counts" id="counts"></div>
+      </div>
+      <div class="board-shell">
+        <div class="axis corner"></div>
+        <div class="axis">A</div><div class="axis">B</div><div class="axis">C</div><div class="axis">D</div>
+        <div class="axis">1</div><button class="cell" data-cell="A1"></button><button class="cell" data-cell="B1"></button><button class="cell" data-cell="C1"></button><button class="cell" data-cell="D1"></button>
+        <div class="axis">2</div><button class="cell" data-cell="A2"></button><button class="cell" data-cell="B2"></button><button class="cell" data-cell="C2"></button><button class="cell" data-cell="D2"></button>
+        <div class="axis">3</div><button class="cell" data-cell="A3"></button><button class="cell" data-cell="B3"></button><button class="cell" data-cell="C3"></button><button class="cell" data-cell="D3"></button>
+        <div class="axis">4</div><button class="cell" data-cell="A4"></button><button class="cell" data-cell="B4"></button><button class="cell" data-cell="C4"></button><button class="cell" data-cell="D4"></button>
+      </div>
+      <div class="zone-key">
+        <span><i class="zone-dt"></i>DT</span>
+        <span><i class="zone-hd"></i>HD</span>
+        <span><i class="zone-hr"></i>HR</span>
+      </div>
+
+      <div class="pool-section">
+        <div class="section-heading compact">
+          <h2>棋池</h2>
+          <span id="pool-summary"></span>
+        </div>
+        <div class="pool" id="pool"></div>
+      </div>
+    </section>
+
+    <aside class="command-region" aria-labelledby="command-title">
+      <div class="section-heading compact">
+        <div>
+          <h2 id="command-title">执行命令</h2>
+        </div>
+      </div>
+      <div class="actor-switch" role="group" aria-label="操作者">
+        <button data-actor="REFEREE" class="active">裁判</button>
+        <button data-actor="RED">红方</button>
+        <button data-actor="BLUE">蓝方</button>
+      </div>
+      <form id="command-form">
+        <label>Command
+          <select id="command-type"></select>
+        </label>
+        <div id="command-fields"></div>
+        <button class="primary" type="submit">执行命令</button>
+      </form>
+      <div class="error-banner" id="error" hidden></div>
+
+      <details open>
+        <summary>引擎分析</summary>
+        <div class="analysis" id="analysis"></div>
+      </details>
+      <details>
+        <summary>原始 State JSON</summary>
+        <pre id="raw-state"></pre>
+      </details>
+    </aside>
+
+    <section class="event-region" aria-labelledby="event-title">
+      <div class="section-heading compact">
+        <h2 id="event-title">Domain Events</h2>
+        <span id="event-count">0</span>
+      </div>
+      <ol id="events" class="events"></ol>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -17,4 +17,5 @@ logs/
 Thumbs.db
 coverage.html
 coverage.out
+output/
 .agents/
