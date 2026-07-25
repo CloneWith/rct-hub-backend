@@ -235,8 +235,7 @@ func (r *matchResolver) Moves(ctx context.Context, obj *Match, limit *int, offse
 		return nil, fmt.Errorf("invalid match ID: %w", err)
 	}
 
-	// 将 limit/offset 转换为 page/perPage
-	params := buildPageParams(limit, limit) // 用 limit 作为 perPage
+	params := buildPageParams(limit, limit)
 	if offset != nil && *offset > 0 {
 		perPage := params.PerPage
 		if perPage <= 0 {
@@ -297,23 +296,17 @@ func (r *matchResolver) Room(ctx context.Context, obj *Match) (*Room, error) {
 // Match 客户端视图 Resolver (Phase 2 — Read Model §9.10)
 // ============================================================================
 
-// StrategistView 策略师视图: @requireRole(role: STRATEGIST) 保证只有策略师可访问。
-// 从 GraphQL *Match 类型计算，不重新查库。
 func (r *matchResolver) StrategistView(ctx context.Context, obj *Match) (*StrategistView, error) {
 	claims, ok := ClaimsFromCtx(ctx)
 	if !ok || claims == nil {
-		// 正常不应到达此处：@requireRole directive 已拒绝未认证请求
 		return nil, fmt.Errorf("AUTH_REQUIRED")
 	}
 	return computeStrategistView(obj, claims.OsuID), nil
 }
 
-// SpectatorView 观众视图: 公开可访问。
-// recentMoves 需要调用 MoveService 获取最近 5 条操作记录。
 func (r *matchResolver) SpectatorView(ctx context.Context, obj *Match) (*SpectatorView, error) {
 	view := computeSpectatorView(obj)
 
-	// 填充 recentMoves (最近 5 条)
 	matchID, err := bson.ObjectIDFromHex(obj.ID)
 	if err == nil {
 		params := paginate.Params{Page: 1, PerPage: 5}
@@ -330,12 +323,10 @@ func (r *matchResolver) SpectatorView(ctx context.Context, obj *Match) (*Spectat
 	return view, nil
 }
 
-// OverlayView OBS Overlay 视图: 公开可访问，极简渲染数据。
 func (r *matchResolver) OverlayView(ctx context.Context, obj *Match) (*OverlayView, error) {
 	return computeOverlayView(obj), nil
 }
 
-// RefereeView 裁判视图: @requireRole(role: REFEREE, admin: true) 保证只有裁判/管理员可访问。
 func (r *matchResolver) RefereeView(ctx context.Context, obj *Match) (*RefereeView, error) {
 	return computeRefereeView(obj), nil
 }
@@ -370,10 +361,9 @@ func (r *roomResolver) Match(ctx context.Context, obj *Room) (*Match, error) {
 
 func (r *poolSlotResolver) Beatmap(ctx context.Context, obj *PoolSlot) (*Beatmap, error) {
 	if obj.BeatmapID == nil || *obj.BeatmapID <= 0 {
-		return nil, nil // Shiro 或已移除
+		return nil, nil
 	}
 
-	// 优先使用请求级 DataLoader（防 N+1）
 	loader := BeatmapLoaderFromCtx(ctx)
 	if loader != nil {
 		b, err := loader.Load(ctx, *obj.BeatmapID)
@@ -383,7 +373,6 @@ func (r *poolSlotResolver) Beatmap(ctx context.Context, obj *PoolSlot) (*Beatmap
 		return mapBeatmap(b), nil
 	}
 
-	// Fallback: 直接调 service（不应发生，handler 应注入 loader）
 	b, err := r.svc.Beatmaps.GetByOsuID(ctx, int64(*obj.BeatmapID))
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -399,12 +388,14 @@ func (r *poolSlotResolver) Beatmap(ctx context.Context, obj *PoolSlot) (*Beatmap
 // ============================================================================
 
 func (r *Resolver) Match() MatchResolver       { return &matchResolver{r} }
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 func (r *Resolver) PoolSlot() PoolSlotResolver { return &poolSlotResolver{r} }
 func (r *Resolver) Query() QueryResolver       { return &queryResolver{r} }
 func (r *Resolver) Room() RoomResolver         { return &roomResolver{r} }
 
 type (
 	matchResolver    struct{ *Resolver }
+	mutationResolver struct{ *Resolver }
 	poolSlotResolver struct{ *Resolver }
 	queryResolver    struct{ *Resolver }
 	roomResolver     struct{ *Resolver }
@@ -414,8 +405,6 @@ type (
 // 辅助函数
 // ============================================================================
 
-// buildPageParams 将 GraphQL 分页参数 (*int, *int) 转换为 paginate.Params。
-// nil 值使用默认值 (page=1, perPage=20)。
 func buildPageParams(page, perPage *int) paginate.Params {
 	params := paginate.Params{}
 	if page != nil {

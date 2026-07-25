@@ -82,6 +82,19 @@ func (b *Board) CellAt(p Position) *Cell {
 	return &b.Cells[p.Y][p.X]
 }
 
+// FindByPieceID returns the position of the cell with the given pieceID, if any.
+func (b *Board) FindByPieceID(pieceID string) (Position, bool) {
+	for y := range b.Cells {
+		for x := range b.Cells[y] {
+			c := &b.Cells[y][x]
+			if c.PieceID != nil && *c.PieceID == pieceID {
+				return c.Position, true
+			}
+		}
+	}
+	return Position{}, false
+}
+
 // IsEmpty reports whether the cell at p is empty.
 func (b *Board) IsEmpty(p Position) bool {
 	c := b.CellAt(p)

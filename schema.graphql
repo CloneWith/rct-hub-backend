@@ -553,3 +553,153 @@ type Query {
   announcements(page: Int = 1, perPage: Int = 20): AnnouncementPage!
   announcement(id: ID!): Announcement
 }
+
+# =============================================================================
+# Mutation (Phase 3 — Command Mutations)
+# 复用现有 MatchService 方法，不引入新业务逻辑分支
+# =============================================================================
+
+# --- 通用 Command 元数据 (文档 §13) ---
+input CommandMeta {
+  matchId: ID!
+  expectedVersion: Int!            # 乐观锁版本号 (当前预留，暂不强制校验)
+  commandId: String!               # 客户端生成的幂等键
+}
+
+# --- Input 类型 ---
+
+input PoolSlotRef {
+  mod: PieceMod!
+  index: Int!
+}
+
+input PositionInput {
+  row: Int!                         # domain: Y
+  col: Int!                         # domain: X
+}
+
+input BanPoolSlotInput {
+  meta: CommandMeta!
+  slot: PoolSlotRef!
+}
+
+input UnbanPoolSlotInput {
+  meta: CommandMeta!
+  slot: PoolSlotRef!
+}
+
+input PlacePieceInput {
+  meta: CommandMeta!
+  slot: PoolSlotRef!
+  position: PositionInput!
+  forceMod: String                  # FM 槽位的强制 mod
+}
+
+input GrantWinInput {
+  meta: CommandMeta!
+  team: TeamSide!
+}
+
+input ConfirmWinnerInput {
+  meta: CommandMeta!
+  team: TeamSide!
+}
+
+input BeginRobberyInput {
+  meta: CommandMeta!
+}
+
+input CompleteRobberyInput {
+  meta: CommandMeta!
+  sacrificePieceIds: [String!]!
+  targetPieceId: String!
+}
+
+input CancelRobberyInput {
+  meta: CommandMeta!
+}
+
+input DeclareTbInput {
+  meta: CommandMeta!
+  winner: TeamSide!
+}
+
+input SurrenderInput {
+  meta: CommandMeta!
+  team: TeamSide!
+}
+
+input UndoInput {
+  meta: CommandMeta!
+  targetActionId: ID!
+  reason: String!
+}
+
+# --- Result 类型 ---
+
+interface CommandResult {
+  success: Boolean!
+  match: Match
+  events: [DomainEventSnapshot!]!   # 预留: WebSocket 事件系统尚未实现，返回空数组
+  error: MatchError
+}
+
+type MatchError {
+  code: String!
+  message: String!
+  field: String
+}
+
+type BanPoolSlotResult implements CommandResult {
+  success: Boolean!
+  match: Match
+  events: [DomainEventSnapshot!]!
+  error: MatchError
+}
+
+type PlacePieceResult implements CommandResult {
+  success: Boolean!
+  match: Match
+  events: [DomainEventSnapshot!]!
+  error: MatchError
+}
+
+type CompleteRobberyResult implements CommandResult {
+  success: Boolean!
+  match: Match
+  events: [DomainEventSnapshot!]!
+  error: MatchError
+}
+
+type SimpleCommandResult implements CommandResult {
+  success: Boolean!
+  match: Match
+  events: [DomainEventSnapshot!]!
+  error: MatchError
+}
+
+# --- Mutation ---
+
+type Mutation {
+  # 棋盘操作 (文档 §12.1)
+  banPoolSlot(input: BanPoolSlotInput!): BanPoolSlotResult!
+  unbanPoolSlot(input: UnbanPoolSlotInput!): SimpleCommandResult!
+  placePiece(input: PlacePieceInput!): PlacePieceResult!
+  grantWinPermission(input: GrantWinInput!): SimpleCommandResult!
+  confirmPieceWinner(input: ConfirmWinnerInput!): SimpleCommandResult!
+  beginRobbery(input: BeginRobberyInput!): SimpleCommandResult!
+  completeRobbery(input: CompleteRobberyInput!): CompleteRobberyResult!
+  cancelRobbery(input: CancelRobberyInput!): SimpleCommandResult!
+
+  # 终局
+  declareTbWinner(input: DeclareTbInput!): SimpleCommandResult!
+  declareSurrender(input: SurrenderInput!): SimpleCommandResult!
+
+  # 回合控制
+  advanceTurn(input: CommandMeta!): SimpleCommandResult!
+  pauseMatch(input: CommandMeta!): SimpleCommandResult!
+  resumeMatch(input: CommandMeta!): SimpleCommandResult!
+
+  # 撤销
+  undoAction(input: UndoInput!): SimpleCommandResult!
+}

@@ -10,6 +10,14 @@ import (
 	"time"
 )
 
+type CommandResult interface {
+	IsCommandResult()
+	GetSuccess() bool
+	GetMatch() *Match
+	GetEvents() []*DomainEventSnapshot
+	GetError() *MatchError
+}
+
 type Announcement struct {
 	ID          string     `json:"id"`
 	Pinned      bool       `json:"pinned"`
@@ -49,6 +57,33 @@ type BPOrder struct {
 	FirstBan  TeamSide `json:"firstBan"`
 }
 
+type BanPoolSlotInput struct {
+	Meta *CommandMeta `json:"meta"`
+	Slot *PoolSlotRef `json:"slot"`
+}
+
+type BanPoolSlotResult struct {
+	Success bool                   `json:"success"`
+	Match   *Match                 `json:"match,omitempty"`
+	Events  []*DomainEventSnapshot `json:"events"`
+	Error   *MatchError            `json:"error,omitempty"`
+}
+
+func (BanPoolSlotResult) IsCommandResult()      {}
+func (this BanPoolSlotResult) GetSuccess() bool { return this.Success }
+func (this BanPoolSlotResult) GetMatch() *Match { return this.Match }
+func (this BanPoolSlotResult) GetEvents() []*DomainEventSnapshot {
+	if this.Events == nil {
+		return nil
+	}
+	interfaceSlice := make([]*DomainEventSnapshot, 0, len(this.Events))
+	for _, concrete := range this.Events {
+		interfaceSlice = append(interfaceSlice, concrete)
+	}
+	return interfaceSlice
+}
+func (this BanPoolSlotResult) GetError() *MatchError { return this.Error }
+
 type Beatmap struct {
 	ID                string    `json:"id"`
 	OnlineID          int       `json:"onlineID"`
@@ -84,6 +119,10 @@ type BeatmapPage struct {
 	TotalPages int        `json:"totalPages"`
 }
 
+type BeginRobberyInput struct {
+	Meta *CommandMeta `json:"meta"`
+}
+
 type Board struct {
 	Rows  int            `json:"rows"`
 	Cols  int            `json:"cols"`
@@ -107,6 +146,10 @@ type BoardSummary struct {
 	Cells [][]*CellSummary `json:"cells"`
 }
 
+type CancelRobberyInput struct {
+	Meta *CommandMeta `json:"meta"`
+}
+
 type CellRender struct {
 	Position *Position    `json:"position"`
 	Zone     BoardZone    `json:"zone"`
@@ -127,10 +170,59 @@ type ClientConnection struct {
 	LastSeenAt  *time.Time `json:"lastSeenAt,omitempty"`
 }
 
+type CommandMeta struct {
+	MatchID         string `json:"matchId"`
+	ExpectedVersion int    `json:"expectedVersion"`
+	CommandID       string `json:"commandId"`
+}
+
+type CompleteRobberyInput struct {
+	Meta              *CommandMeta `json:"meta"`
+	SacrificePieceIds []string     `json:"sacrificePieceIds"`
+	TargetPieceID     string       `json:"targetPieceId"`
+}
+
+type CompleteRobberyResult struct {
+	Success bool                   `json:"success"`
+	Match   *Match                 `json:"match,omitempty"`
+	Events  []*DomainEventSnapshot `json:"events"`
+	Error   *MatchError            `json:"error,omitempty"`
+}
+
+func (CompleteRobberyResult) IsCommandResult()      {}
+func (this CompleteRobberyResult) GetSuccess() bool { return this.Success }
+func (this CompleteRobberyResult) GetMatch() *Match { return this.Match }
+func (this CompleteRobberyResult) GetEvents() []*DomainEventSnapshot {
+	if this.Events == nil {
+		return nil
+	}
+	interfaceSlice := make([]*DomainEventSnapshot, 0, len(this.Events))
+	for _, concrete := range this.Events {
+		interfaceSlice = append(interfaceSlice, concrete)
+	}
+	return interfaceSlice
+}
+func (this CompleteRobberyResult) GetError() *MatchError { return this.Error }
+
+type ConfirmWinnerInput struct {
+	Meta *CommandMeta `json:"meta"`
+	Team TeamSide     `json:"team"`
+}
+
+type DeclareTbInput struct {
+	Meta   *CommandMeta `json:"meta"`
+	Winner TeamSide     `json:"winner"`
+}
+
 type DomainEventSnapshot struct {
 	Type      string         `json:"type"`
 	Payload   map[string]any `json:"payload"`
 	Timestamp time.Time      `json:"timestamp"`
+}
+
+type GrantWinInput struct {
+	Meta *CommandMeta `json:"meta"`
+	Team TeamSide     `json:"team"`
 }
 
 type Mappool struct {
@@ -164,6 +256,12 @@ type Match struct {
 	FinishedAt     *time.Time      `json:"finishedAt,omitempty"`
 }
 
+type MatchError struct {
+	Code    string  `json:"code"`
+	Message string  `json:"message"`
+	Field   *string `json:"field,omitempty"`
+}
+
 type MatchPage struct {
 	Items      []*Match `json:"items"`
 	Page       int      `json:"page"`
@@ -194,6 +292,9 @@ type Move struct {
 	CreatedAt  time.Time    `json:"createdAt"`
 }
 
+type Mutation struct {
+}
+
 type OverlayView struct {
 	Board     *BoardRenderData     `json:"board"`
 	Scores    *TeamScores          `json:"scores"`
@@ -222,6 +323,35 @@ type PieceSummary struct {
 	Owner *TeamSide  `json:"owner,omitempty"`
 }
 
+type PlacePieceInput struct {
+	Meta     *CommandMeta   `json:"meta"`
+	Slot     *PoolSlotRef   `json:"slot"`
+	Position *PositionInput `json:"position"`
+	ForceMod *string        `json:"forceMod,omitempty"`
+}
+
+type PlacePieceResult struct {
+	Success bool                   `json:"success"`
+	Match   *Match                 `json:"match,omitempty"`
+	Events  []*DomainEventSnapshot `json:"events"`
+	Error   *MatchError            `json:"error,omitempty"`
+}
+
+func (PlacePieceResult) IsCommandResult()      {}
+func (this PlacePieceResult) GetSuccess() bool { return this.Success }
+func (this PlacePieceResult) GetMatch() *Match { return this.Match }
+func (this PlacePieceResult) GetEvents() []*DomainEventSnapshot {
+	if this.Events == nil {
+		return nil
+	}
+	interfaceSlice := make([]*DomainEventSnapshot, 0, len(this.Events))
+	for _, concrete := range this.Events {
+		interfaceSlice = append(interfaceSlice, concrete)
+	}
+	return interfaceSlice
+}
+func (this PlacePieceResult) GetError() *MatchError { return this.Error }
+
 type PlayerScore struct {
 	UserID   int     `json:"userID"`
 	Score    int     `json:"score"`
@@ -246,7 +376,17 @@ type PoolSlotGroup struct {
 	Pieces []*PoolSlot `json:"pieces"`
 }
 
+type PoolSlotRef struct {
+	Mod   PieceMod `json:"mod"`
+	Index int      `json:"index"`
+}
+
 type Position struct {
+	Row int `json:"row"`
+	Col int `json:"col"`
+}
+
+type PositionInput struct {
 	Row int `json:"row"`
 	Col int `json:"col"`
 }
@@ -300,6 +440,28 @@ type RoomSettings struct {
 	StreamLink           *string   `json:"streamLink,omitempty"`
 }
 
+type SimpleCommandResult struct {
+	Success bool                   `json:"success"`
+	Match   *Match                 `json:"match,omitempty"`
+	Events  []*DomainEventSnapshot `json:"events"`
+	Error   *MatchError            `json:"error,omitempty"`
+}
+
+func (SimpleCommandResult) IsCommandResult()      {}
+func (this SimpleCommandResult) GetSuccess() bool { return this.Success }
+func (this SimpleCommandResult) GetMatch() *Match { return this.Match }
+func (this SimpleCommandResult) GetEvents() []*DomainEventSnapshot {
+	if this.Events == nil {
+		return nil
+	}
+	interfaceSlice := make([]*DomainEventSnapshot, 0, len(this.Events))
+	for _, concrete := range this.Events {
+		interfaceSlice = append(interfaceSlice, concrete)
+	}
+	return interfaceSlice
+}
+func (this SimpleCommandResult) GetError() *MatchError { return this.Error }
+
 type SpectatorView struct {
 	Board        *BoardSummary `json:"board"`
 	Scores       *TeamScores   `json:"scores"`
@@ -318,6 +480,11 @@ type StrategistView struct {
 	SelectableBoardCells []string   `json:"selectableBoardCells"`
 	Timer                *TimerInfo `json:"timer"`
 	RobberyInProgress    bool       `json:"robberyInProgress"`
+}
+
+type SurrenderInput struct {
+	Meta *CommandMeta `json:"meta"`
+	Team TeamSide     `json:"team"`
 }
 
 type Team struct {
@@ -369,6 +536,17 @@ type TurnState struct {
 	TimeLimit  *int       `json:"timeLimit,omitempty"`
 	BonusTime  *int       `json:"bonusTime,omitempty"`
 	BonusUsed  bool       `json:"bonusUsed"`
+}
+
+type UnbanPoolSlotInput struct {
+	Meta *CommandMeta `json:"meta"`
+	Slot *PoolSlotRef `json:"slot"`
+}
+
+type UndoInput struct {
+	Meta           *CommandMeta `json:"meta"`
+	TargetActionID string       `json:"targetActionId"`
+	Reason         string       `json:"reason"`
 }
 
 type User struct {

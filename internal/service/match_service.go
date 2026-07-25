@@ -274,6 +274,71 @@ func (s *MatchService) LatestByMatch(ctx context.Context, matchID bson.ObjectID,
 	return s.moves.LatestByMatch(ctx, matchID, limit)
 }
 
+// ResolveMember determines the RoomMember for a user based on the match's room settings.
+// This is a data-resolution helper, not new business logic.
+func (s *MatchService) ResolveMember(ctx context.Context, matchID bson.ObjectID, userID int64) (domain.RoomMember, error) {
+	match, err := s.matches.ByID(ctx, matchID)
+	if err != nil {
+		return domain.RoomMember{}, err
+	}
+	room, err := s.rooms.ByID(ctx, match.RoomID)
+	if err != nil {
+		return domain.RoomMember{}, err
+	}
+
+	member := domain.RoomMember{
+		UserID:   userID,
+		RoomID:   match.RoomID,
+		JoinedAt: time.Now().UTC(),
+	}
+
+	// Determine role from room settings.
+	switch {
+	case room.OwnerID == userID:
+		member.Role = domain.RoomRoleAdmin
+	case room.Settings.RedStrategistUserID != nil && *room.Settings.RedStrategistUserID == userID:
+		member.Role = domain.RoomRoleStrategist
+		side := domain.TeamSideRed
+		member.TeamSide = &side
+	case room.Settings.BlueStrategistUserID != nil && *room.Settings.BlueStrategistUserID == userID:
+		member.Role = domain.RoomRoleStrategist
+		side := domain.TeamSideBlue
+		member.TeamSide = &side
+	case room.Settings.StreamerUserID != nil && *room.Settings.StreamerUserID == userID:
+		member.Role = domain.RoomRoleStreamer
+	default:
+		member.Role = domain.RoomRoleSpectator
+	}
+
+	return member, nil
+}
+
+// PauseMatch pauses the match timer. Thin wrapper around TimerState.Pause.
+func (s *MatchService) PauseMatch(ctx context.Context, matchID bson.ObjectID) error {
+	match, err := s.matches.ByID(ctx, matchID)
+	if err != nil {
+		return err
+	}
+	if match.Timer.IsPaused {
+		return fmt.Errorf("%w: match already paused", errs.ErrInvalidInput)
+	}
+	match.Timer.Pause()
+	return s.matches.Update(ctx, match)
+}
+
+// ResumeMatch resumes the match timer. Thin wrapper around TimerState.Resume.
+func (s *MatchService) ResumeMatch(ctx context.Context, matchID bson.ObjectID) error {
+	match, err := s.matches.ByID(ctx, matchID)
+	if err != nil {
+		return err
+	}
+	if !match.Timer.IsPaused {
+		return fmt.Errorf("%w: match not paused", errs.ErrInvalidInput)
+	}
+	match.Timer.Resume()
+	return s.matches.Update(ctx, match)
+}
+
 func (s *MatchService) saveMatchAndMove(ctx context.Context, match *domain.Match, move domain.Move) error {
 	match.UpdatedAt = time.Now().UTC()
 	if err := s.matches.Update(ctx, match); err != nil {
