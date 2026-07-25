@@ -1,0 +1,33 @@
+# gqlgen 配置 — rctHubBackend GraphQL 代码生成
+# 文档: https://gqlgen.com/config/
+
+schema:
+  - schema.graphql
+
+exec:
+  filename: internal/graphql/generated.go
+  package: graphql
+
+model:
+  filename: internal/graphql/models_gen.go
+  package: graphql
+
+resolver:
+  filename: internal/graphql/resolver.go
+  type: Resolver
+  package: graphql
+
+# 自定义标量映射
+models:
+  # Time → time.Time (gqlgen 内置, 序列化为 RFC3339 字符串)
+  Time:
+    model: github.com/99designs/gqlgen/graphql.Time
+  # ObjectID → string (bson.ObjectID.Hex(), 在 resolver 中手动转换)
+  ObjectID:
+    model: github.com/99designs/gqlgen/graphql.String
+
+# Phase 1+ 会在此添加 domain 类型绑定:
+#   UserRole: rctHubBackend/internal/domain.UserRole
+#   VerifyStatus: rctHubBackend/internal/domain.VerifyStatus
+#   User: rctHubBackend/internal/domain.User
+#   ...

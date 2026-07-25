@@ -1,4 +1,4 @@
-.PHONY: dev test lint build run docker-up docker-down initdb initdb-seed
+.PHONY: dev test lint build run docker-up docker-down initdb initdb-seed generate
 
 # Load environment variables from .env if it exists
 ifneq (,$(wildcard .env))
@@ -38,3 +38,7 @@ initdb-seed:
 
 initdb-drop:
 	go run ./cmd/initdb -drop -seed
+
+# GraphQL 代码生成 (gqlgen)
+generate:
+	go run github.com/99designs/gqlgen generate
