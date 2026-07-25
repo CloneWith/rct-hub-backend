@@ -1,6 +1,6 @@
 # rctHubBackend GraphQL Schema
-# Phase 0 — 脚手架: 仅包含 ping 验证 + me 查询 + User 核心类型
-# 完整 Schema 见 docs/schema-full.graphql (Phase 1-3 逐步合并)
+# Phase 1 — 只读查询: 覆盖全部 domain 类型的 Query + 嵌套查询
+# 完整 Schema (含 Phase 2/3 类型) 见 docs/schema-full.graphql
 
 # =============================================================================
 # 自定义标量
@@ -9,8 +9,11 @@
 scalar Time     # time.Time — gqlgen 内置支持 (graphql.Time)
 scalar ObjectID # bson.ObjectID hex — 映射为 string
 
+# gqlgen 内置 directive: 控制字段生成行为
+directive @goField(forceResolver: Boolean, name: String) on FIELD_DEFINITION
+
 # =============================================================================
-# 枚举 (对应 domain 包中的类型，值用大写，domain 用小写，resolver 中转换)
+# 枚举 (值用大写，domain 用小写/混合大小写，mapper 中转换)
 # =============================================================================
 
 enum UserRole {
@@ -25,6 +28,82 @@ enum VerifyStatus {
   VERIFIED
   PENDING
   UNVERIFIED
+}
+
+enum RoomType {
+  PRIVATE
+  CASUAL
+  MATCH
+}
+
+enum TeamSide {
+  RED
+  BLUE
+}
+
+enum MatchStatus {
+  PENDING
+  ACTIVE
+  FINISHED
+  CANCELED
+}
+
+enum MatchPhase {
+  SETUP
+  ROLL
+  BAN
+  PICK
+  WIN
+  TB
+  ENDED
+}
+
+enum PieceMod {
+  NM
+  HD
+  HR
+  DT
+  FM
+  SHIRO
+  TB
+}
+
+enum PieceState {
+  NORMAL
+  BANNED
+  PICKED
+  WON
+  DEAD
+}
+
+enum MoveType {
+  PICK
+  UNPICK
+  BAN
+  UNBAN
+  CLAIM
+  WIN
+  UNWIN
+  ROB
+  UNROB
+  DEAD
+  UNDEAD
+  SURRENDER
+}
+
+enum WinReason {
+  FOUR_IN_A_ROW
+  TIE_BREAKER
+  SURRENDER
+  DRAW
+  FORFEIT
+}
+
+enum BoardZone {
+  NM
+  HD
+  HR
+  DT
 }
 
 # =============================================================================
@@ -46,14 +125,289 @@ type User {
   updatedAt: Time!
 }
 
+type Room {
+  id: ObjectID!
+  code: String!
+  name: String!
+  type: RoomType!
+  ownerID: Int!
+  settings: RoomSettings!
+  matchID: ID               # 内部关联, null 表示尚未开始比赛
+  match: Match @goField(forceResolver: true)
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+type RoomSettings {
+  redStrategistUserID: Int
+  blueStrategistUserID: Int
+  streamerUserID: Int
+  mappool: Mappool!
+  firstPick: TeamSide
+  firstBan: TeamSide
+  redPlayers: [Int!]!
+  bluePlayers: [Int!]!
+  redLeader: Int
+  blueLeader: Int
+  mpLink: String
+  streamLink: String
+}
+
+type Match {
+  id: ObjectID!
+  code: String!
+  name: String!
+  roomType: RoomType!
+  roomID: ID!               # 内部关联
+  status: MatchStatus!
+  phase: MatchPhase          # 计算字段: from TurnState.Phase
+  activeTeam: TeamSide       # 计算字段: from TurnState.ActiveTeam
+  board: Board
+  pool: Mappool
+  teams: MatchTeams!
+  bpOrder: BPOrder
+  turnState: TurnState
+  timer: TimerState
+
+  # 嵌套查询 — 需要 service 调用
+  moves(limit: Int = 50, offset: Int = 0): [Move!]! @goField(forceResolver: true)
+  recentMove: Move @goField(forceResolver: true)
+  room: Room @goField(forceResolver: true)
+
+  createdAt: Time!
+  startedAt: Time
+  finishedAt: Time
+}
+
+type MatchTeams {
+  red: Team!
+  blue: Team!
+}
+
+type Team {
+  id: ObjectID!
+  side: TeamSide!
+  name: String!
+  description: String!
+  seed: String!
+  color: String!
+  leaderID: Int
+  strategistID: Int
+  players: [Int!]!
+}
+
+type Board {
+  rows: Int!
+  cols: Int!
+  cells: [[BoardCell!]!]!
+}
+
+type BoardCell {
+  position: Position!
+  zone: BoardZone!
+  state: String!
+  pieceID: String
+  teamID: String
+}
+
+type Piece {
+  beatmapID: Int
+  state: PieceState!
+  teamID: String
+  forceMod: String
+  position: Position
+}
+
+type Position {
+  row: Int!   # domain: Y
+  col: Int!   # domain: X
+}
+
+type Mappool {
+  slots: [PoolSlotGroup!]!
+}
+
+type PoolSlotGroup {
+  mod: PieceMod!
+  pieces: [PoolSlot!]!
+}
+
+type PoolSlot {
+  mod: PieceMod!
+  index: Int!
+  beatmapID: Int           # osu! beatmap ID, null for Shiro/removed
+  beatmap: Beatmap @goField(forceResolver: true)
+  state: PieceState!
+  teamID: String
+  forceMod: String
+  position: Position
+}
+
+type Beatmap {
+  id: ObjectID!
+  onlineID: Int!
+  beatmapsetID: Int!
+  title: String!
+  artist: String!
+  difficultyName: String!
+  status: String!
+  authorID: Int!
+  rulesetID: Int!
+  starRating: Float!
+  bpm: Float!
+  totalLength: Int!
+  drainRate: Float!
+  circleSize: Float!
+  approachRate: Float!
+  overallDifficulty: Float!
+  coverURL: String!
+  modString: String!
+  modIndex: Int!
+  skill: String
+  comment: String
+  isOriginal: Boolean!
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+type Move {
+  id: ObjectID!
+  matchID: ObjectID!
+  roomID: ObjectID!
+  type: MoveType!
+  teamSide: TeamSide
+  operatorID: Int!
+  slot: PoolSlot
+  from: Position
+  to: Position
+  forceMod: String
+  redScore: PlayerScore
+  blueScore: PlayerScore
+  comment: String!
+  createdAt: Time!
+}
+
+type PlayerScore {
+  userID: Int!
+  score: Int!
+  accuracy: Float!
+  combo: Int!
+  misses: Int
+}
+
+type BPOrder {
+  firstPick: TeamSide!
+  firstBan: TeamSide!
+}
+
+type TurnState {
+  phase: MatchPhase!
+  counter: Int!
+  activeTeam: TeamSide
+  action: String
+  startedAt: Time
+  timeLimit: Int    # seconds (domain: time.Duration)
+  bonusTime: Int    # seconds
+  bonusUsed: Boolean!
+}
+
+type TimerState {
+  startedAt: Time
+  timeLimit: Int!   # seconds (domain: time.Duration)
+  bonusTime: Int!   # seconds
+  bonusUsed: Boolean!
+  isPaused: Boolean!
+  pausedAt: Time
+  remainingAtPause: Int  # seconds
+}
+
+type Announcement {
+  id: ObjectID!
+  pinned: Boolean!
+  visible: Boolean!
+  title: String!
+  content: String!
+  authorID: Int!
+  publishedAt: Time
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+# =============================================================================
+# 分页类型
+# =============================================================================
+
+type MatchPage {
+  items: [Match!]!
+  page: Int!
+  perPage: Int!
+  total: Int!
+  totalPages: Int!
+}
+
+type RoomPage {
+  items: [Room!]!
+  page: Int!
+  perPage: Int!
+  total: Int!
+  totalPages: Int!
+}
+
+type BeatmapPage {
+  items: [Beatmap!]!
+  page: Int!
+  perPage: Int!
+  total: Int!
+  totalPages: Int!
+}
+
+type UserPage {
+  items: [User!]!
+  page: Int!
+  perPage: Int!
+  total: Int!
+  totalPages: Int!
+}
+
+type AnnouncementPage {
+  items: [Announcement!]!
+  page: Int!
+  perPage: Int!
+  total: Int!
+  totalPages: Int!
+}
+
 # =============================================================================
 # Query
 # =============================================================================
 
 type Query {
-  # 健康检查 / 脚手架验证
+  # 健康检查
   ping: String!
 
-  # 当前认证用户 (需要 JWT)
+  # 认证
   me: User
+
+  # 比赛
+  match(id: ID!): Match
+  matchByCode(code: String!): Match
+  matches(status: MatchStatus, page: Int = 1, perPage: Int = 20): MatchPage!
+
+  # 房间
+  room(id: ID!): Room
+  roomByCode(code: String!): Room
+  rooms(type: RoomType, page: Int = 1, perPage: Int = 20): RoomPage!
+
+  # 谱面
+  beatmap(id: ID!): Beatmap
+  beatmapByOsuId(osuId: Int!): Beatmap
+  beatmaps(page: Int = 1, perPage: Int = 20): BeatmapPage!
+
+  # 用户
+  user(id: ID!): User
+  users(page: Int = 1, perPage: Int = 20): UserPage!
+
+  # 公告
+  announcements(page: Int = 1, perPage: Int = 20): AnnouncementPage!
+  announcement(id: ID!): Announcement
 }

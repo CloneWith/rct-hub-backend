@@ -112,13 +112,13 @@ func (s *Server) registerRoutes() {
 	s.router.GET("/auth/osu", auth.OsuLogin)
 	s.router.GET("/auth/osu/callback", auth.OsuCallback)
 
-	// GraphQL endpoint (Phase 0 脚手架)
+	// GraphQL endpoint (Phase 1 — 只读查询)
 	// GET  /graphql → GraphiQL Playground
 	// POST /graphql → GraphQL Query/Mutation
-	gqlResolver := graphql.NewResolver(s.deps.UserSvc)
+	gqlResolver := graphql.NewResolver(s.deps.Services)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
-	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner))
+	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.Services.Beatmaps))
 
 	users := handler.NewUserHandler(s.deps.UserSvc)
 	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc)

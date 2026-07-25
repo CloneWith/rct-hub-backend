@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vektah/gqlparser/v2/ast"
 
+	"rctHubBackend/internal/service"
 	"rctHubBackend/pkg/jwtutil"
 )
 
@@ -46,13 +47,16 @@ func NewHandler(resolver *Resolver) *handler.Server {
 	return srv
 }
 
-// GinGraphQL 将 gqlgen handler 包装为 Gin handler，并注入可选 JWT 认证。
+// GinGraphQL 将 gqlgen handler 包装为 Gin handler，并注入可选 JWT 认证 + 请求级 DataLoader。
 //
 // 认证策略（可选认证）：
 //   - 如果 Authorization header 存在且 JWT 有效 → claims 注入 context
 //   - 如果 header 不存在或 JWT 无效 → 请求继续但不带 claims
 //   - ping 等公开查询不需要 token；me 等查询在 resolver 中检查 claims 是否存在
-func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer) gin.HandlerFunc {
+//
+// DataLoader 策略：
+//   - 每个请求创建独立的 BeatmapLoader，防止 N+1 重复查询
+func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, beatmapSvc *service.BeatmapService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
@@ -66,6 +70,9 @@ func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer) gin.HandlerF
 				}
 			}
 		}
+
+		// 请求级 BeatmapLoader
+		ctx = WithBeatmapLoader(ctx, NewBeatmapLoader(beatmapSvc))
 
 		c.Request = c.Request.WithContext(ctx)
 		gqlHandler.ServeHTTP(c.Writer, c.Request)

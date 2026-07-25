@@ -10,7 +10,244 @@ import (
 	"time"
 )
 
+type Announcement struct {
+	ID          string     `json:"id"`
+	Pinned      bool       `json:"pinned"`
+	Visible     bool       `json:"visible"`
+	Title       string     `json:"title"`
+	Content     string     `json:"content"`
+	AuthorID    int        `json:"authorID"`
+	PublishedAt *time.Time `json:"publishedAt,omitempty"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
+}
+
+type AnnouncementPage struct {
+	Items      []*Announcement `json:"items"`
+	Page       int             `json:"page"`
+	PerPage    int             `json:"perPage"`
+	Total      int             `json:"total"`
+	TotalPages int             `json:"totalPages"`
+}
+
+type BPOrder struct {
+	FirstPick TeamSide `json:"firstPick"`
+	FirstBan  TeamSide `json:"firstBan"`
+}
+
+type Beatmap struct {
+	ID                string    `json:"id"`
+	OnlineID          int       `json:"onlineID"`
+	BeatmapsetID      int       `json:"beatmapsetID"`
+	Title             string    `json:"title"`
+	Artist            string    `json:"artist"`
+	DifficultyName    string    `json:"difficultyName"`
+	Status            string    `json:"status"`
+	AuthorID          int       `json:"authorID"`
+	RulesetID         int       `json:"rulesetID"`
+	StarRating        float64   `json:"starRating"`
+	Bpm               float64   `json:"bpm"`
+	TotalLength       int       `json:"totalLength"`
+	DrainRate         float64   `json:"drainRate"`
+	CircleSize        float64   `json:"circleSize"`
+	ApproachRate      float64   `json:"approachRate"`
+	OverallDifficulty float64   `json:"overallDifficulty"`
+	CoverURL          string    `json:"coverURL"`
+	ModString         string    `json:"modString"`
+	ModIndex          int       `json:"modIndex"`
+	Skill             *string   `json:"skill,omitempty"`
+	Comment           *string   `json:"comment,omitempty"`
+	IsOriginal        bool      `json:"isOriginal"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
+}
+
+type BeatmapPage struct {
+	Items      []*Beatmap `json:"items"`
+	Page       int        `json:"page"`
+	PerPage    int        `json:"perPage"`
+	Total      int        `json:"total"`
+	TotalPages int        `json:"totalPages"`
+}
+
+type Board struct {
+	Rows  int            `json:"rows"`
+	Cols  int            `json:"cols"`
+	Cells [][]*BoardCell `json:"cells"`
+}
+
+type BoardCell struct {
+	Position *Position `json:"position"`
+	Zone     BoardZone `json:"zone"`
+	State    string    `json:"state"`
+	PieceID  *string   `json:"pieceID,omitempty"`
+	TeamID   *string   `json:"teamID,omitempty"`
+}
+
+type Mappool struct {
+	Slots []*PoolSlotGroup `json:"slots"`
+}
+
+type Match struct {
+	ID         string      `json:"id"`
+	Code       string      `json:"code"`
+	Name       string      `json:"name"`
+	RoomType   RoomType    `json:"roomType"`
+	RoomID     string      `json:"roomID"`
+	Status     MatchStatus `json:"status"`
+	Phase      *MatchPhase `json:"phase,omitempty"`
+	ActiveTeam *TeamSide   `json:"activeTeam,omitempty"`
+	Board      *Board      `json:"board,omitempty"`
+	Pool       *Mappool    `json:"pool,omitempty"`
+	Teams      *MatchTeams `json:"teams"`
+	BpOrder    *BPOrder    `json:"bpOrder,omitempty"`
+	TurnState  *TurnState  `json:"turnState,omitempty"`
+	Timer      *TimerState `json:"timer,omitempty"`
+	Moves      []*Move     `json:"moves"`
+	RecentMove *Move       `json:"recentMove,omitempty"`
+	Room       *Room       `json:"room,omitempty"`
+	CreatedAt  time.Time   `json:"createdAt"`
+	StartedAt  *time.Time  `json:"startedAt,omitempty"`
+	FinishedAt *time.Time  `json:"finishedAt,omitempty"`
+}
+
+type MatchPage struct {
+	Items      []*Match `json:"items"`
+	Page       int      `json:"page"`
+	PerPage    int      `json:"perPage"`
+	Total      int      `json:"total"`
+	TotalPages int      `json:"totalPages"`
+}
+
+type MatchTeams struct {
+	Red  *Team `json:"red"`
+	Blue *Team `json:"blue"`
+}
+
+type Move struct {
+	ID         string       `json:"id"`
+	MatchID    string       `json:"matchID"`
+	RoomID     string       `json:"roomID"`
+	Type       MoveType     `json:"type"`
+	TeamSide   *TeamSide    `json:"teamSide,omitempty"`
+	OperatorID int          `json:"operatorID"`
+	Slot       *PoolSlot    `json:"slot,omitempty"`
+	From       *Position    `json:"from,omitempty"`
+	To         *Position    `json:"to,omitempty"`
+	ForceMod   *string      `json:"forceMod,omitempty"`
+	RedScore   *PlayerScore `json:"redScore,omitempty"`
+	BlueScore  *PlayerScore `json:"blueScore,omitempty"`
+	Comment    string       `json:"comment"`
+	CreatedAt  time.Time    `json:"createdAt"`
+}
+
+type Piece struct {
+	BeatmapID *int       `json:"beatmapID,omitempty"`
+	State     PieceState `json:"state"`
+	TeamID    *string    `json:"teamID,omitempty"`
+	ForceMod  *string    `json:"forceMod,omitempty"`
+	Position  *Position  `json:"position,omitempty"`
+}
+
+type PlayerScore struct {
+	UserID   int     `json:"userID"`
+	Score    int     `json:"score"`
+	Accuracy float64 `json:"accuracy"`
+	Combo    int     `json:"combo"`
+	Misses   *int    `json:"misses,omitempty"`
+}
+
+type PoolSlot struct {
+	Mod       PieceMod   `json:"mod"`
+	Index     int        `json:"index"`
+	BeatmapID *int       `json:"beatmapID,omitempty"`
+	Beatmap   *Beatmap   `json:"beatmap,omitempty"`
+	State     PieceState `json:"state"`
+	TeamID    *string    `json:"teamID,omitempty"`
+	ForceMod  *string    `json:"forceMod,omitempty"`
+	Position  *Position  `json:"position,omitempty"`
+}
+
+type PoolSlotGroup struct {
+	Mod    PieceMod    `json:"mod"`
+	Pieces []*PoolSlot `json:"pieces"`
+}
+
+type Position struct {
+	Row int `json:"row"`
+	Col int `json:"col"`
+}
+
 type Query struct {
+}
+
+type Room struct {
+	ID        string        `json:"id"`
+	Code      string        `json:"code"`
+	Name      string        `json:"name"`
+	Type      RoomType      `json:"type"`
+	OwnerID   int           `json:"ownerID"`
+	Settings  *RoomSettings `json:"settings"`
+	MatchID   *string       `json:"matchID,omitempty"`
+	Match     *Match        `json:"match,omitempty"`
+	CreatedAt time.Time     `json:"createdAt"`
+	UpdatedAt time.Time     `json:"updatedAt"`
+}
+
+type RoomPage struct {
+	Items      []*Room `json:"items"`
+	Page       int     `json:"page"`
+	PerPage    int     `json:"perPage"`
+	Total      int     `json:"total"`
+	TotalPages int     `json:"totalPages"`
+}
+
+type RoomSettings struct {
+	RedStrategistUserID  *int      `json:"redStrategistUserID,omitempty"`
+	BlueStrategistUserID *int      `json:"blueStrategistUserID,omitempty"`
+	StreamerUserID       *int      `json:"streamerUserID,omitempty"`
+	Mappool              *Mappool  `json:"mappool"`
+	FirstPick            *TeamSide `json:"firstPick,omitempty"`
+	FirstBan             *TeamSide `json:"firstBan,omitempty"`
+	RedPlayers           []int     `json:"redPlayers"`
+	BluePlayers          []int     `json:"bluePlayers"`
+	RedLeader            *int      `json:"redLeader,omitempty"`
+	BlueLeader           *int      `json:"blueLeader,omitempty"`
+	MpLink               *string   `json:"mpLink,omitempty"`
+	StreamLink           *string   `json:"streamLink,omitempty"`
+}
+
+type Team struct {
+	ID           string   `json:"id"`
+	Side         TeamSide `json:"side"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Seed         string   `json:"seed"`
+	Color        string   `json:"color"`
+	LeaderID     *int     `json:"leaderID,omitempty"`
+	StrategistID *int     `json:"strategistID,omitempty"`
+	Players      []int    `json:"players"`
+}
+
+type TimerState struct {
+	StartedAt        *time.Time `json:"startedAt,omitempty"`
+	TimeLimit        int        `json:"timeLimit"`
+	BonusTime        int        `json:"bonusTime"`
+	BonusUsed        bool       `json:"bonusUsed"`
+	IsPaused         bool       `json:"isPaused"`
+	PausedAt         *time.Time `json:"pausedAt,omitempty"`
+	RemainingAtPause *int       `json:"remainingAtPause,omitempty"`
+}
+
+type TurnState struct {
+	Phase      MatchPhase `json:"phase"`
+	Counter    int        `json:"counter"`
+	ActiveTeam *TeamSide  `json:"activeTeam,omitempty"`
+	Action     *string    `json:"action,omitempty"`
+	StartedAt  *time.Time `json:"startedAt,omitempty"`
+	TimeLimit  *int       `json:"timeLimit,omitempty"`
+	BonusTime  *int       `json:"bonusTime,omitempty"`
+	BonusUsed  bool       `json:"bonusUsed"`
 }
 
 type User struct {
@@ -26,6 +263,510 @@ type User struct {
 	Roles        []UserRole   `json:"roles"`
 	CreatedAt    time.Time    `json:"createdAt"`
 	UpdatedAt    time.Time    `json:"updatedAt"`
+}
+
+type UserPage struct {
+	Items      []*User `json:"items"`
+	Page       int     `json:"page"`
+	PerPage    int     `json:"perPage"`
+	Total      int     `json:"total"`
+	TotalPages int     `json:"totalPages"`
+}
+
+type BoardZone string
+
+const (
+	BoardZoneNm BoardZone = "NM"
+	BoardZoneHd BoardZone = "HD"
+	BoardZoneHr BoardZone = "HR"
+	BoardZoneDt BoardZone = "DT"
+)
+
+var AllBoardZone = []BoardZone{
+	BoardZoneNm,
+	BoardZoneHd,
+	BoardZoneHr,
+	BoardZoneDt,
+}
+
+func (e BoardZone) IsValid() bool {
+	switch e {
+	case BoardZoneNm, BoardZoneHd, BoardZoneHr, BoardZoneDt:
+		return true
+	}
+	return false
+}
+
+func (e BoardZone) String() string {
+	return string(e)
+}
+
+func (e *BoardZone) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = BoardZone(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid BoardZone", str)
+	}
+	return nil
+}
+
+func (e BoardZone) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *BoardZone) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e BoardZone) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MatchPhase string
+
+const (
+	MatchPhaseSetup MatchPhase = "SETUP"
+	MatchPhaseRoll  MatchPhase = "ROLL"
+	MatchPhaseBan   MatchPhase = "BAN"
+	MatchPhasePick  MatchPhase = "PICK"
+	MatchPhaseWin   MatchPhase = "WIN"
+	MatchPhaseTb    MatchPhase = "TB"
+	MatchPhaseEnded MatchPhase = "ENDED"
+)
+
+var AllMatchPhase = []MatchPhase{
+	MatchPhaseSetup,
+	MatchPhaseRoll,
+	MatchPhaseBan,
+	MatchPhasePick,
+	MatchPhaseWin,
+	MatchPhaseTb,
+	MatchPhaseEnded,
+}
+
+func (e MatchPhase) IsValid() bool {
+	switch e {
+	case MatchPhaseSetup, MatchPhaseRoll, MatchPhaseBan, MatchPhasePick, MatchPhaseWin, MatchPhaseTb, MatchPhaseEnded:
+		return true
+	}
+	return false
+}
+
+func (e MatchPhase) String() string {
+	return string(e)
+}
+
+func (e *MatchPhase) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchPhase(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchPhase", str)
+	}
+	return nil
+}
+
+func (e MatchPhase) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchPhase) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchPhase) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MatchStatus string
+
+const (
+	MatchStatusPending  MatchStatus = "PENDING"
+	MatchStatusActive   MatchStatus = "ACTIVE"
+	MatchStatusFinished MatchStatus = "FINISHED"
+	MatchStatusCanceled MatchStatus = "CANCELED"
+)
+
+var AllMatchStatus = []MatchStatus{
+	MatchStatusPending,
+	MatchStatusActive,
+	MatchStatusFinished,
+	MatchStatusCanceled,
+}
+
+func (e MatchStatus) IsValid() bool {
+	switch e {
+	case MatchStatusPending, MatchStatusActive, MatchStatusFinished, MatchStatusCanceled:
+		return true
+	}
+	return false
+}
+
+func (e MatchStatus) String() string {
+	return string(e)
+}
+
+func (e *MatchStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchStatus", str)
+	}
+	return nil
+}
+
+func (e MatchStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MoveType string
+
+const (
+	MoveTypePick      MoveType = "PICK"
+	MoveTypeUnpick    MoveType = "UNPICK"
+	MoveTypeBan       MoveType = "BAN"
+	MoveTypeUnban     MoveType = "UNBAN"
+	MoveTypeClaim     MoveType = "CLAIM"
+	MoveTypeWin       MoveType = "WIN"
+	MoveTypeUnwin     MoveType = "UNWIN"
+	MoveTypeRob       MoveType = "ROB"
+	MoveTypeUnrob     MoveType = "UNROB"
+	MoveTypeDead      MoveType = "DEAD"
+	MoveTypeUndead    MoveType = "UNDEAD"
+	MoveTypeSurrender MoveType = "SURRENDER"
+)
+
+var AllMoveType = []MoveType{
+	MoveTypePick,
+	MoveTypeUnpick,
+	MoveTypeBan,
+	MoveTypeUnban,
+	MoveTypeClaim,
+	MoveTypeWin,
+	MoveTypeUnwin,
+	MoveTypeRob,
+	MoveTypeUnrob,
+	MoveTypeDead,
+	MoveTypeUndead,
+	MoveTypeSurrender,
+}
+
+func (e MoveType) IsValid() bool {
+	switch e {
+	case MoveTypePick, MoveTypeUnpick, MoveTypeBan, MoveTypeUnban, MoveTypeClaim, MoveTypeWin, MoveTypeUnwin, MoveTypeRob, MoveTypeUnrob, MoveTypeDead, MoveTypeUndead, MoveTypeSurrender:
+		return true
+	}
+	return false
+}
+
+func (e MoveType) String() string {
+	return string(e)
+}
+
+func (e *MoveType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MoveType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MoveType", str)
+	}
+	return nil
+}
+
+func (e MoveType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MoveType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MoveType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type PieceMod string
+
+const (
+	PieceModNm    PieceMod = "NM"
+	PieceModHd    PieceMod = "HD"
+	PieceModHr    PieceMod = "HR"
+	PieceModDt    PieceMod = "DT"
+	PieceModFm    PieceMod = "FM"
+	PieceModShiro PieceMod = "SHIRO"
+	PieceModTb    PieceMod = "TB"
+)
+
+var AllPieceMod = []PieceMod{
+	PieceModNm,
+	PieceModHd,
+	PieceModHr,
+	PieceModDt,
+	PieceModFm,
+	PieceModShiro,
+	PieceModTb,
+}
+
+func (e PieceMod) IsValid() bool {
+	switch e {
+	case PieceModNm, PieceModHd, PieceModHr, PieceModDt, PieceModFm, PieceModShiro, PieceModTb:
+		return true
+	}
+	return false
+}
+
+func (e PieceMod) String() string {
+	return string(e)
+}
+
+func (e *PieceMod) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PieceMod(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PieceMod", str)
+	}
+	return nil
+}
+
+func (e PieceMod) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PieceMod) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PieceMod) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type PieceState string
+
+const (
+	PieceStateNormal PieceState = "NORMAL"
+	PieceStateBanned PieceState = "BANNED"
+	PieceStatePicked PieceState = "PICKED"
+	PieceStateWon    PieceState = "WON"
+	PieceStateDead   PieceState = "DEAD"
+)
+
+var AllPieceState = []PieceState{
+	PieceStateNormal,
+	PieceStateBanned,
+	PieceStatePicked,
+	PieceStateWon,
+	PieceStateDead,
+}
+
+func (e PieceState) IsValid() bool {
+	switch e {
+	case PieceStateNormal, PieceStateBanned, PieceStatePicked, PieceStateWon, PieceStateDead:
+		return true
+	}
+	return false
+}
+
+func (e PieceState) String() string {
+	return string(e)
+}
+
+func (e *PieceState) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PieceState(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PieceState", str)
+	}
+	return nil
+}
+
+func (e PieceState) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PieceState) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PieceState) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type RoomType string
+
+const (
+	RoomTypePrivate RoomType = "PRIVATE"
+	RoomTypeCasual  RoomType = "CASUAL"
+	RoomTypeMatch   RoomType = "MATCH"
+)
+
+var AllRoomType = []RoomType{
+	RoomTypePrivate,
+	RoomTypeCasual,
+	RoomTypeMatch,
+}
+
+func (e RoomType) IsValid() bool {
+	switch e {
+	case RoomTypePrivate, RoomTypeCasual, RoomTypeMatch:
+		return true
+	}
+	return false
+}
+
+func (e RoomType) String() string {
+	return string(e)
+}
+
+func (e *RoomType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = RoomType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid RoomType", str)
+	}
+	return nil
+}
+
+func (e RoomType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *RoomType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e RoomType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type TeamSide string
+
+const (
+	TeamSideRed  TeamSide = "RED"
+	TeamSideBlue TeamSide = "BLUE"
+)
+
+var AllTeamSide = []TeamSide{
+	TeamSideRed,
+	TeamSideBlue,
+}
+
+func (e TeamSide) IsValid() bool {
+	switch e {
+	case TeamSideRed, TeamSideBlue:
+		return true
+	}
+	return false
+}
+
+func (e TeamSide) String() string {
+	return string(e)
+}
+
+func (e *TeamSide) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = TeamSide(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid TeamSide", str)
+	}
+	return nil
+}
+
+func (e TeamSide) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *TeamSide) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e TeamSide) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 type UserRole string
@@ -141,6 +882,67 @@ func (e *VerifyStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e VerifyStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type WinReason string
+
+const (
+	WinReasonFourInARow WinReason = "FOUR_IN_A_ROW"
+	WinReasonTieBreaker WinReason = "TIE_BREAKER"
+	WinReasonSurrender  WinReason = "SURRENDER"
+	WinReasonDraw       WinReason = "DRAW"
+	WinReasonForfeit    WinReason = "FORFEIT"
+)
+
+var AllWinReason = []WinReason{
+	WinReasonFourInARow,
+	WinReasonTieBreaker,
+	WinReasonSurrender,
+	WinReasonDraw,
+	WinReasonForfeit,
+}
+
+func (e WinReason) IsValid() bool {
+	switch e {
+	case WinReasonFourInARow, WinReasonTieBreaker, WinReasonSurrender, WinReasonDraw, WinReasonForfeit:
+		return true
+	}
+	return false
+}
+
+func (e WinReason) String() string {
+	return string(e)
+}
+
+func (e *WinReason) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = WinReason(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid WinReason", str)
+	}
+	return nil
+}
+
+func (e WinReason) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *WinReason) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e WinReason) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
