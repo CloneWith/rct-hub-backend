@@ -64,7 +64,7 @@ func Load() (*Config, error) {
 		Port:     getEnv("PORT", "8080"),
 		LogLevel: getEnv("LOG_LEVEL", "info"),
 		MongoDB: MongoDBConfig{
-			URI:  getEnv("MONGODB_URI", "mongodb://localhost:27017"),
+			URI:  getEnv("MONGODB_URI", "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true"),
 			Name: getEnv("MONGODB_NAME", "rcthub"),
 		},
 		Redis: RedisConfig{

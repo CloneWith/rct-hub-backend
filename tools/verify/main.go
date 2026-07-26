@@ -1,0 +1,100 @@
+// Command verify runs the repository's required local and CI checks.
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"go/format"
+	"io/fs"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+type check struct {
+	name string
+	cmd  string
+	args []string
+}
+
+func main() {
+	if err := checkFormatting(); err != nil {
+		fail("format", err)
+	}
+
+	checks := []check{
+		{name: "vet", cmd: "go", args: []string{"vet", "./..."}},
+		{name: "test", cmd: "go", args: []string{"test", "./..."}},
+		{name: "build", cmd: "go", args: []string{"build", "./..."}},
+	}
+
+	for _, item := range checks {
+		fmt.Printf("==> %s\n", item.name)
+		command := exec.Command(item.cmd, item.args...)
+		command.Stdout = os.Stdout
+		command.Stderr = os.Stderr
+		command.Stdin = os.Stdin
+		if err := command.Run(); err != nil {
+			fail(item.name, err)
+		}
+	}
+
+	fmt.Println("verification passed")
+}
+
+func checkFormatting() error {
+	files, err := goFiles(".")
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("==> format")
+	var unformatted []string
+	for _, path := range files {
+		source, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("read %s: %w", path, readErr)
+		}
+		formatted, formatErr := format.Source(source)
+		if formatErr != nil {
+			return fmt.Errorf("format %s: %w", path, formatErr)
+		}
+		normalized := bytes.ReplaceAll(source, []byte("\r\n"), []byte("\n"))
+		if !bytes.Equal(normalized, formatted) {
+			unformatted = append(unformatted, path)
+		}
+	}
+
+	if len(unformatted) > 0 {
+		return fmt.Errorf("these files need gofmt:\n%s", strings.Join(unformatted, "\n"))
+	}
+	return nil
+}
+
+func goFiles(root string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() && path != root {
+			switch entry.Name() {
+			case ".git", ".agents", "bin", "build", "dist", "tmp", "vendor":
+				return filepath.SkipDir
+			}
+		}
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") {
+			files = append(files, path)
+		}
+		return nil
+	})
+	sort.Strings(files)
+	return files, err
+}
+
+func fail(name string, err error) {
+	fmt.Fprintf(os.Stderr, "verification failed during %s: %v\n", name, err)
+	os.Exit(1)
+}

@@ -43,8 +43,8 @@ func TestLoad_DefaultValues(t *testing.T) {
 	if cfg.Port != "8080" {
 		t.Errorf("expected default port 8080, got %s", cfg.Port)
 	}
-	if cfg.MongoDB.URI != "mongodb://localhost:27017" {
-		t.Errorf("expected default mongodb uri mongodb://localhost:27017, got %s", cfg.MongoDB.URI)
+	if cfg.MongoDB.URI != "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true" {
+		t.Errorf("expected replica-set mongodb uri, got %s", cfg.MongoDB.URI)
 	}
 	if cfg.Redis.Addr != "localhost:6379" {
 		t.Errorf("expected default redis addr localhost:6379, got %s", cfg.Redis.Addr)

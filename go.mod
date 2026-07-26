@@ -2,6 +2,8 @@ module rctHubBackend
 
 go 1.26
 
+toolchain go1.26.0
+
 require (
 	github.com/99designs/gqlgen v0.17.94
 	github.com/gin-contrib/cors v1.7.7
