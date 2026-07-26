@@ -12,13 +12,8 @@ services:
       - rcthub-mongo-data:/data/db
       - ./deploy/mongodb/healthcheck.js:/opt/rcthub/healthcheck.js:ro
     healthcheck:
-      test:
-        - CMD
-        - mongosh
-        - mongodb://localhost:27017/admin?directConnection=true
-        - --quiet
-        - --file
-        - /opt/rcthub/healthcheck.js
+      test: ["CMD", "mongosh", "mongodb://localhost:27017/admin?directConnection=true",
+        "--quiet", "--file", "/opt/rcthub/healthcheck.js"]
       interval: 2s
       timeout: 5s
       retries: 30
