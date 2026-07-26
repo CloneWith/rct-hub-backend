@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,19 +15,19 @@ func TestBuiltInScenariosAreReplayedThroughValidEngineTransitions(t *testing.T) 
 	t.Parallel()
 
 	tests := []struct {
-		name       string
+		name       scenarioName
 		phase      matchengine.Phase
 		turn       int
 		activeTeam matchengine.TeamSide
 	}{
-		{name: "ready", phase: matchengine.PhaseNone, turn: 0},
-		{name: "first-pick", phase: matchengine.PhasePick, turn: 1, activeTeam: matchengine.TeamBlue},
-		{name: "robbery-ready", phase: matchengine.PhasePick, turn: 7, activeTeam: matchengine.TeamBlue},
-		{name: "turn-13", phase: matchengine.PhasePick, turn: 13, activeTeam: matchengine.TeamBlue},
-		{name: "stalemate-final", phase: matchengine.PhaseWaitingForResult, turn: 16, activeTeam: matchengine.TeamRed},
+		{name: scenarioReady, phase: matchengine.PhaseNone, turn: 0},
+		{name: scenarioFirstPick, phase: matchengine.PhasePick, turn: 1, activeTeam: matchengine.TeamBlue},
+		{name: scenarioRobberyReady, phase: matchengine.PhasePick, turn: 7, activeTeam: matchengine.TeamBlue},
+		{name: scenarioTurnThirteen, phase: matchengine.PhasePick, turn: 13, activeTeam: matchengine.TeamBlue},
+		{name: scenarioStalemateFinal, phase: matchengine.PhaseWaitingForResult, turn: 16, activeTeam: matchengine.TeamRed},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(string(tt.name), func(t *testing.T) {
 			lab, err := newLab(tt.name)
 			if err != nil {
 				t.Fatalf("newLab(%q): %v", tt.name, err)
@@ -34,7 +35,7 @@ func TestBuiltInScenariosAreReplayedThroughValidEngineTransitions(t *testing.T) 
 			if lab.state.Phase != tt.phase || lab.state.Turn != tt.turn || lab.state.ActiveTeam != tt.activeTeam {
 				t.Fatalf("scenario state = phase %q turn %d active %q", lab.state.Phase, lab.state.Turn, lab.state.ActiveTeam)
 			}
-			if tt.name == "robbery-ready" && len(lab.state.Board.FindAlignments(matchengine.TeamBlue, 3)) == 0 {
+			if tt.name == scenarioRobberyReady && len(lab.state.Board.FindAlignments(matchengine.TeamBlue, 3)) == 0 {
 				t.Fatal("robbery-ready scenario lacks the promised three-alignment")
 			}
 		})
@@ -44,7 +45,7 @@ func TestBuiltInScenariosAreReplayedThroughValidEngineTransitions(t *testing.T) 
 func TestStalemateFinalScenarioSupportsAdjudicationAndWonCountResult(t *testing.T) {
 	t.Parallel()
 
-	adjudicationLab, err := newLab("stalemate-final")
+	adjudicationLab, err := newLab(scenarioStalemateFinal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +72,7 @@ func TestStalemateFinalScenarioSupportsAdjudicationAndWonCountResult(t *testing.
 		t.Fatalf("adjudication snapshot contains null collections: %s", response.Body.String())
 	}
 
-	winnerLab, err := newLab("stalemate-final")
+	winnerLab, err := newLab(scenarioStalemateFinal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +95,7 @@ func TestStalemateFinalScenarioSupportsAdjudicationAndWonCountResult(t *testing.
 func TestCommandEndpointCallsRealEngineAndReturnsSnapshot(t *testing.T) {
 	t.Parallel()
 
-	lab, err := newLab("first-pick")
+	lab, err := newLab(scenarioFirstPick)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestCommandEndpointCallsRealEngineAndReturnsSnapshot(t *testing.T) {
 func TestCommandEndpointPreservesStableRuleErrorCode(t *testing.T) {
 	t.Parallel()
 
-	lab, err := newLab("first-pick")
+	lab, err := newLab(scenarioFirstPick)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,12 +147,12 @@ func TestCommandEndpointPreservesStableRuleErrorCode(t *testing.T) {
 func TestResetAndVirtualTimeEndpoints(t *testing.T) {
 	t.Parallel()
 
-	lab, err := newLab("ready")
+	lab, err := newLab(scenarioReady)
 	if err != nil {
 		t.Fatal(err)
 	}
 	handler := lab.routes()
-	response := performJSON(t, handler, http.MethodPost, "/api/reset", map[string]string{"scenario": "first-pick"})
+	response := performJSON(t, handler, http.MethodPost, "/api/reset", map[string]scenarioName{"scenario": scenarioFirstPick})
 	if response.Code != http.StatusOK || lab.state.Phase != matchengine.PhasePick {
 		t.Fatalf("reset status = %d phase = %q", response.Code, lab.state.Phase)
 	}
@@ -162,10 +163,30 @@ func TestResetAndVirtualTimeEndpoints(t *testing.T) {
 	}
 }
 
+func TestRecentEventsRetainsOnlyNewestEntries(t *testing.T) {
+	t.Parallel()
+
+	events := make([]matchengine.Event, recentEventLimit+2)
+	for index := range events {
+		events[index].BoardPieceID = fmt.Sprintf("piece-%d", index)
+	}
+	recent := retainRecentEvents(events)
+	if len(recent) != recentEventLimit {
+		t.Fatalf("recent event count = %d, want %d", len(recent), recentEventLimit)
+	}
+	if recent[0].BoardPieceID != "piece-2" || recent[len(recent)-1].BoardPieceID != "piece-81" {
+		t.Fatalf("recent event range = %q ... %q", recent[0].BoardPieceID, recent[len(recent)-1].BoardPieceID)
+	}
+	events[2].BoardPieceID = "mutated"
+	if recent[0].BoardPieceID != "piece-2" {
+		t.Fatal("retained events alias the caller's slice")
+	}
+}
+
 func TestStaticGUIIsEmbedded(t *testing.T) {
 	t.Parallel()
 
-	lab, err := newLab("ready")
+	lab, err := newLab(scenarioReady)
 	if err != nil {
 		t.Fatal(err)
 	}

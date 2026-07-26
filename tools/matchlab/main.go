@@ -11,7 +11,7 @@ func main() {
 	address := flag.String("addr", "127.0.0.1:8091", "local listen address")
 	flag.Parse()
 
-	lab, err := newLab("ready")
+	lab, err := newLab(scenarioReady)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -17,16 +17,28 @@ import (
 
 var labEpoch = time.Date(2026, 7, 25, 12, 0, 0, 0, time.UTC)
 
+const recentEventLimit = 80
+
+type scenarioName string
+
+const (
+	scenarioReady          scenarioName = "ready"
+	scenarioFirstPick      scenarioName = "first-pick"
+	scenarioRobberyReady   scenarioName = "robbery-ready"
+	scenarioTurnThirteen   scenarioName = "turn-13"
+	scenarioStalemateFinal scenarioName = "stalemate-final"
+)
+
 type lab struct {
 	mu       sync.Mutex
 	state    matchengine.State
 	now      time.Time
 	events   []matchengine.Event
-	scenario string
+	scenario scenarioName
 }
 
 type snapshot struct {
-	Scenario     string               `json:"scenario"`
+	Scenario     scenarioName         `json:"scenario"`
 	Now          time.Time            `json:"now"`
 	State        matchengine.State    `json:"state"`
 	Analysis     matchengine.Analysis `json:"analysis"`
@@ -53,12 +65,12 @@ type commandRequest struct {
 	ConfirmingPlayerIDs []int64              `json:"confirmingPlayerIds"`
 }
 
-func newLab(scenario string) (*lab, error) {
+func newLab(scenario scenarioName) (*lab, error) {
 	state, now, events, err := buildScenario(scenario)
 	if err != nil {
 		return nil, err
 	}
-	return &lab{state: state, now: now, events: events, scenario: scenario}, nil
+	return &lab{state: state, now: now, events: retainRecentEvents(events), scenario: scenario}, nil
 }
 
 func (l *lab) routes() http.Handler {
@@ -83,7 +95,7 @@ func (l *lab) getState(w http.ResponseWriter, _ *http.Request) {
 
 func (l *lab) reset(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		Scenario string `json:"scenario"`
+		Scenario scenarioName `json:"scenario"`
 	}
 	if err := decodeJSON(r, &request); err != nil {
 		writeAPIError(w, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
@@ -96,7 +108,7 @@ func (l *lab) reset(w http.ResponseWriter, r *http.Request) {
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.state, l.now, l.events, l.scenario = state, now, events, request.Scenario
+	l.state, l.now, l.events, l.scenario = state, now, retainRecentEvents(events), request.Scenario
 	writeJSON(w, http.StatusOK, l.snapshot())
 }
 
@@ -145,10 +157,15 @@ func (l *lab) executeCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	l.state = transition.State
 	l.events = append(l.events, transition.Events...)
-	if len(l.events) > 80 {
-		l.events = append([]matchengine.Event(nil), l.events[len(l.events)-80:]...)
-	}
+	l.events = retainRecentEvents(l.events)
 	writeJSON(w, http.StatusOK, l.snapshot())
+}
+
+func retainRecentEvents(events []matchengine.Event) []matchengine.Event {
+	if len(events) > recentEventLimit {
+		events = events[len(events)-recentEventLimit:]
+	}
+	return append([]matchengine.Event(nil), events...)
 }
 
 func (l *lab) snapshot() snapshot {
@@ -250,7 +267,41 @@ func writeAPIError(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, map[string]string{"code": code, "message": message})
 }
 
-func buildScenario(name string) (matchengine.State, time.Time, []matchengine.Event, error) {
+type scenarioPlacement struct {
+	poolSlotID   string
+	pieceID      string
+	cell         matchengine.Cell
+	winner       matchengine.TeamSide
+	leavePending bool
+}
+
+type scenarioCommandApplier func(matchengine.Actor, matchengine.Command) error
+
+func replayScenarioPlacements(state *matchengine.State, apply scenarioCommandApplier, placements []scenarioPlacement) error {
+	for _, placement := range placements {
+		command := matchengine.PlacePiece{
+			PoolSlotID: placement.poolSlotID,
+			PieceID:    placement.pieceID,
+			Cell:       placement.cell,
+		}
+		if err := apply(matchengine.StrategistActor(state.ActiveTeam), command); err != nil {
+			return fmt.Errorf("place scenario piece %q: %w", placement.pieceID, err)
+		}
+		if placement.leavePending {
+			continue
+		}
+		result := matchengine.ConfirmBeatmapResult{
+			BoardPieceID: placement.pieceID,
+			WinningTeam:  placement.winner,
+		}
+		if err := apply(matchengine.RefereeActor(), result); err != nil {
+			return fmt.Errorf("confirm scenario piece %q: %w", placement.pieceID, err)
+		}
+	}
+	return nil
+}
+
+func buildScenario(name scenarioName) (matchengine.State, time.Time, []matchengine.Event, error) {
 	state, err := matchengine.NewReadyState(labConfiguration())
 	if err != nil {
 		return matchengine.State{}, time.Time{}, nil, err
@@ -269,9 +320,9 @@ func buildScenario(name string) (matchengine.State, time.Time, []matchengine.Eve
 	}
 
 	switch name {
-	case "ready":
+	case scenarioReady:
 		return state, now, events, nil
-	case "first-pick", "robbery-ready", "turn-13", "stalemate-final":
+	case scenarioFirstPick, scenarioRobberyReady, scenarioTurnThirteen, scenarioStalemateFinal:
 		if err := apply(matchengine.RefereeActor(), matchengine.StartMatch{}); err != nil {
 			return state, now, events, err
 		}
@@ -287,73 +338,59 @@ func buildScenario(name string) (matchengine.State, time.Time, []matchengine.Eve
 	default:
 		return state, now, events, fmt.Errorf("unknown scenario %q", name)
 	}
-	if name == "first-pick" {
+	if name == scenarioFirstPick {
 		return state, now, events, nil
 	}
-	if name == "stalemate-final" {
-		placements := []struct {
-			cell   matchengine.Cell
-			winner matchengine.TeamSide
-		}{
-			{"A1", matchengine.TeamRed}, {"B1", matchengine.TeamRed}, {"C1", matchengine.TeamBlue}, {"D1", matchengine.TeamBlue},
-			{"A2", matchengine.TeamBlue}, {"B2", matchengine.TeamBlue}, {"C2", matchengine.TeamRed}, {"D2", matchengine.TeamRed},
-			{"A3", matchengine.TeamRed}, {"B3", matchengine.TeamBlue}, {"C3", matchengine.TeamRed}, {"D3", matchengine.TeamBlue},
-			{"A4", matchengine.TeamBlue}, {"B4", matchengine.TeamRed}, {"C4", matchengine.TeamBlue}, {"D4", matchengine.TeamRed},
+	if name == scenarioStalemateFinal {
+		placements := []scenarioPlacement{
+			{poolSlotID: "NM5", pieceID: "stalemate-piece-1", cell: "A1", winner: matchengine.TeamRed},
+			{poolSlotID: "NM6", pieceID: "stalemate-piece-2", cell: "B1", winner: matchengine.TeamRed},
+			{poolSlotID: "NM7", pieceID: "stalemate-piece-3", cell: "C1", winner: matchengine.TeamBlue},
+			{poolSlotID: "NM8", pieceID: "stalemate-piece-4", cell: "D1", winner: matchengine.TeamBlue},
+			{poolSlotID: "NM9", pieceID: "stalemate-piece-5", cell: "A2", winner: matchengine.TeamBlue},
+			{poolSlotID: "NM10", pieceID: "stalemate-piece-6", cell: "B2", winner: matchengine.TeamBlue},
+			{poolSlotID: "NM11", pieceID: "stalemate-piece-7", cell: "C2", winner: matchengine.TeamRed},
+			{poolSlotID: "NM12", pieceID: "stalemate-piece-8", cell: "D2", winner: matchengine.TeamRed},
+			{poolSlotID: "NM13", pieceID: "stalemate-piece-9", cell: "A3", winner: matchengine.TeamRed},
+			{poolSlotID: "NM14", pieceID: "stalemate-piece-10", cell: "B3", winner: matchengine.TeamBlue},
+			{poolSlotID: "NM15", pieceID: "stalemate-piece-11", cell: "C3", winner: matchengine.TeamRed},
+			{poolSlotID: "NM16", pieceID: "stalemate-piece-12", cell: "D3", winner: matchengine.TeamBlue},
+			{poolSlotID: "NM17", pieceID: "stalemate-piece-13", cell: "A4", winner: matchengine.TeamBlue},
+			{poolSlotID: "NM18", pieceID: "stalemate-piece-14", cell: "B4", winner: matchengine.TeamRed},
+			{poolSlotID: "NM19", pieceID: "stalemate-piece-15", cell: "C4", winner: matchengine.TeamBlue},
+			{poolSlotID: "NM20", pieceID: "stalemate-piece-16", cell: "D4", leavePending: true},
 		}
-		for index, placement := range placements {
-			slotID := "NM" + strconv.Itoa(index+5)
-			pieceID := "stalemate-piece-" + strconv.Itoa(index+1)
-			if err := apply(matchengine.StrategistActor(state.ActiveTeam), matchengine.PlacePiece{PoolSlotID: slotID, PieceID: pieceID, Cell: placement.cell}); err != nil {
-				return state, now, events, err
-			}
-			if index == len(placements)-1 {
-				return state, now, events, nil
-			}
-			if err := apply(matchengine.RefereeActor(), matchengine.ConfirmBeatmapResult{BoardPieceID: pieceID, WinningTeam: placement.winner}); err != nil {
-				return state, now, events, err
-			}
-		}
-	}
-
-	placements := []struct {
-		cell   matchengine.Cell
-		winner matchengine.TeamSide
-	}{
-		{"A1", matchengine.TeamBlue}, {"D4", matchengine.TeamRed},
-		{"B1", matchengine.TeamBlue}, {"D3", matchengine.TeamRed},
-		{"C1", matchengine.TeamBlue}, {"A3", matchengine.TeamRed},
-	}
-	for index, placement := range placements {
-		slotID := "NM" + strconv.Itoa(index+5)
-		pieceID := "piece-" + strconv.Itoa(index+1)
-		if err := apply(matchengine.StrategistActor(state.ActiveTeam), matchengine.PlacePiece{PoolSlotID: slotID, PieceID: pieceID, Cell: placement.cell}); err != nil {
+		if err := replayScenarioPlacements(&state, apply, placements); err != nil {
 			return state, now, events, err
 		}
-		if err := apply(matchengine.RefereeActor(), matchengine.ConfirmBeatmapResult{BoardPieceID: pieceID, WinningTeam: placement.winner}); err != nil {
-			return state, now, events, err
-		}
-	}
-	if name == "robbery-ready" {
 		return state, now, events, nil
 	}
 
-	remaining := []struct {
-		cell   matchengine.Cell
-		winner matchengine.TeamSide
-	}{
-		{"A2", matchengine.TeamBlue}, {"B2", matchengine.TeamBlue},
-		{"C2", matchengine.TeamRed}, {"D2", matchengine.TeamRed},
-		{"B3", matchengine.TeamBlue}, {"C3", matchengine.TeamRed},
+	placements := []scenarioPlacement{
+		{poolSlotID: "NM5", pieceID: "piece-1", cell: "A1", winner: matchengine.TeamBlue},
+		{poolSlotID: "NM6", pieceID: "piece-2", cell: "D4", winner: matchengine.TeamRed},
+		{poolSlotID: "NM7", pieceID: "piece-3", cell: "B1", winner: matchengine.TeamBlue},
+		{poolSlotID: "NM8", pieceID: "piece-4", cell: "D3", winner: matchengine.TeamRed},
+		{poolSlotID: "NM9", pieceID: "piece-5", cell: "C1", winner: matchengine.TeamBlue},
+		{poolSlotID: "NM10", pieceID: "piece-6", cell: "A3", winner: matchengine.TeamRed},
 	}
-	for index, placement := range remaining {
-		slotID := "NM" + strconv.Itoa(index+11)
-		pieceID := "piece-" + strconv.Itoa(index+7)
-		if err := apply(matchengine.StrategistActor(state.ActiveTeam), matchengine.PlacePiece{PoolSlotID: slotID, PieceID: pieceID, Cell: placement.cell}); err != nil {
-			return state, now, events, err
-		}
-		if err := apply(matchengine.RefereeActor(), matchengine.ConfirmBeatmapResult{BoardPieceID: pieceID, WinningTeam: placement.winner}); err != nil {
-			return state, now, events, err
-		}
+	if err := replayScenarioPlacements(&state, apply, placements); err != nil {
+		return state, now, events, err
+	}
+	if name == scenarioRobberyReady {
+		return state, now, events, nil
+	}
+
+	remaining := []scenarioPlacement{
+		{poolSlotID: "NM11", pieceID: "piece-7", cell: "A2", winner: matchengine.TeamBlue},
+		{poolSlotID: "NM12", pieceID: "piece-8", cell: "B2", winner: matchengine.TeamBlue},
+		{poolSlotID: "NM13", pieceID: "piece-9", cell: "C2", winner: matchengine.TeamRed},
+		{poolSlotID: "NM14", pieceID: "piece-10", cell: "D2", winner: matchengine.TeamRed},
+		{poolSlotID: "NM15", pieceID: "piece-11", cell: "B3", winner: matchengine.TeamBlue},
+		{poolSlotID: "NM16", pieceID: "piece-12", cell: "C3", winner: matchengine.TeamRed},
+	}
+	if err := replayScenarioPlacements(&state, apply, remaining); err != nil {
+		return state, now, events, err
 	}
 	return state, now, events, nil
 }
