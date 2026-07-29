@@ -253,7 +253,7 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		Board:     domain.NewBoard(),
 		BPOrder:   domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue},
 		TurnState: domain.NewTurnState(),
-		Timer:     domain.NewTimerState(0, 0),
+		Timer:     domain.Timer{},
 		Status:    domain.MatchStatusPending,
 		CreatedAt: now,
 		UpdatedAt: now,

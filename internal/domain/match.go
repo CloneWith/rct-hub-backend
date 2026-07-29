@@ -17,6 +17,7 @@ const (
 )
 
 // Match represents a single RCT game session.
+// The Board and Timer fields use the canonical rule-engine types.
 type Match struct {
 	ID     bson.ObjectID `json:"id" bson:"_id,omitempty"`
 	RoomID bson.ObjectID `json:"room_id" bson:"room_id"`
@@ -31,9 +32,9 @@ type Match struct {
 	Mappool Mappool `json:"mappool" bson:"mappool"`
 	Board   Board   `json:"board" bson:"board"`
 
-	BPOrder   BPOrder    `json:"bp_order" bson:"bp_order"`
-	TurnState TurnState  `json:"turn_state" bson:"turn_state"`
-	Timer     TimerState `json:"timer" bson:"timer"`
+	BPOrder   BPOrder   `json:"bp_order" bson:"bp_order"`
+	TurnState TurnState `json:"turn_state" bson:"turn_state"`
+	Timer     Timer     `json:"timer" bson:"timer"`
 
 	Status     MatchStatus `json:"status" bson:"status"`
 	StartedAt  *time.Time  `json:"started_at,omitempty" bson:"started_at,omitempty"`
@@ -68,7 +69,7 @@ func NewMatch(room Room, redTeam, blueTeam Team) Match {
 		Board:     NewBoard(),
 		BPOrder:   BPOrder{},
 		TurnState: NewTurnState(),
-		Timer:     NewTimerState(0, 0),
+		Timer:     Timer{},
 		Status:    MatchStatusPending,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -107,11 +108,11 @@ func (m *Match) ActiveStrategistID() *int64 {
 
 // WinningTeamID returns the side that has four in a row, if any.
 func (m *Match) WinningTeamID() *TeamSide {
-	if m.Board.HasFourInARow(string(TeamSideRed)) {
+	if m.Board.HasFour(TeamSideRed) {
 		red := TeamSideRed
 		return &red
 	}
-	if m.Board.HasFourInARow(string(TeamSideBlue)) {
+	if m.Board.HasFour(TeamSideBlue) {
 		blue := TeamSideBlue
 		return &blue
 	}
@@ -145,8 +146,6 @@ func (m *Match) CanRob(member RoomMember) bool {
 }
 
 // CanWin reports whether the given role can mark a piece as won.
-// Admin can always win; strategists can win only when the admin has enabled
-// win permission for their team (tracked externally or via a flag).
 func (m *Match) CanWin(member RoomMember, winEnabledForTeam map[TeamSide]bool) bool {
 	if member.Role == RoomRoleAdmin {
 		return true
@@ -159,17 +158,5 @@ func (m *Match) CanWin(member RoomMember, winEnabledForTeam map[TeamSide]bool) b
 
 // CountWonPieces returns the number of won pieces per team on the board.
 func (m *Match) CountWonPieces() map[TeamSide]int {
-	counts := map[TeamSide]int{TeamSideRed: 0, TeamSideBlue: 0}
-	for y := 0; y < m.Board.Rows; y++ {
-		for x := 0; x < m.Board.Cols; x++ {
-			cell := m.Board.Cells[y][x]
-			if cell.State == CellStateOccupied && cell.TeamID != nil {
-				side := TeamSide(*cell.TeamID)
-				if _, ok := counts[side]; ok {
-					counts[side]++
-				}
-			}
-		}
-	}
-	return counts
+	return m.Board.CountWonPieces()
 }

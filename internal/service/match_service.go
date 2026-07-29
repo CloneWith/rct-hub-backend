@@ -41,7 +41,7 @@ func (s *MatchService) GetMatchByCode(ctx context.Context, code string) (*domain
 }
 
 // BanPiece bans a piece from the mappool.
-func (s *MatchService) BanPiece(ctx context.Context, matchID bson.ObjectID, member domain.RoomMember, slot domain.PoolSlot) error {
+func (s *MatchService) BanPiece(ctx context.Context, matchID bson.ObjectID, member domain.RoomMember, slot domain.SlotRef) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (s *MatchService) BanPiece(ctx context.Context, matchID bson.ObjectID, memb
 }
 
 // PickPiece picks a piece and places it on the board for the given placement team.
-func (s *MatchService) PickPiece(ctx context.Context, matchID bson.ObjectID, member domain.RoomMember, slot domain.PoolSlot, pos domain.Position, forceMod *domain.ForceMod, placementTeam *domain.TeamSide) error {
+func (s *MatchService) PickPiece(ctx context.Context, matchID bson.ObjectID, member domain.RoomMember, slot domain.SlotRef, pos domain.Position, forceMod *domain.ForceMod, placementTeam *domain.TeamSide) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
 		return err
@@ -98,14 +98,15 @@ func (s *MatchService) PickPiece(ctx context.Context, matchID bson.ObjectID, mem
 	if !piece.CanBeSelected() {
 		return fmt.Errorf("%w: piece cannot be picked", errs.ErrInvalidInput)
 	}
-	if !match.Board.Place(slot.Mod, pos, slot.String(), string(*placementTeam)) {
+	if !match.Board.Place(slot.Mod, pos, slot.String(), *placementTeam) {
 		return fmt.Errorf("%w: invalid placement", errs.ErrInvalidInput)
 	}
 
 	piece.State = domain.PieceStatePicked
 	piece.Position = &pos
-	piece.TeamID = stringPtr(string(*placementTeam))
-	if slot.Mod == domain.PieceModFM {
+	teamIDStr := string(*placementTeam)
+	piece.TeamID = &teamIDStr
+	if slot.Mod == domain.ModFM {
 		piece.ForceMod = forceMod
 	}
 
@@ -117,7 +118,6 @@ func (s *MatchService) PickPiece(ctx context.Context, matchID bson.ObjectID, mem
 }
 
 // RobPiece robs an opponent piece, sacrificing one of your own.
-// from is the opponent piece being robbed; to is the acting team's piece being sacrificed.
 func (s *MatchService) RobPiece(ctx context.Context, matchID bson.ObjectID, member domain.RoomMember, from, to domain.Position) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
@@ -126,36 +126,35 @@ func (s *MatchService) RobPiece(ctx context.Context, matchID bson.ObjectID, memb
 	if !match.CanRob(member) {
 		return errs.ErrForbidden
 	}
-	fromCell := match.Board.CellAt(from)
-	if fromCell == nil || fromCell.State != domain.CellStateOccupied || fromCell.PieceID == nil || fromCell.TeamID == nil || *fromCell.TeamID == string(*member.TeamSide) {
+
+	fromPiece, ok := match.Board.PieceAtPosition(from)
+	if !ok || fromPiece.Owner == nil || *fromPiece.Owner == *member.TeamSide {
 		return fmt.Errorf("%w: invalid rob source", errs.ErrInvalidInput)
 	}
-	toCell := match.Board.CellAt(to)
-	if toCell == nil || toCell.State != domain.CellStateOccupied || toCell.PieceID == nil || toCell.TeamID == nil || *toCell.TeamID != string(*member.TeamSide) {
+	toPiece, ok := match.Board.PieceAtPosition(to)
+	if !ok || toPiece.Owner == nil || *toPiece.Owner != *member.TeamSide {
 		return fmt.Errorf("%w: invalid rob sacrifice", errs.ErrInvalidInput)
 	}
 
-	teamID := string(*member.TeamSide)
+	teamIDStr := string(*member.TeamSide)
 
 	// Transfer robbed piece to acting team.
-	fromCell.TeamID = &teamID
-	if slot, ok := domain.ParsePoolSlot(*fromCell.PieceID); ok {
+	match.Board.TransferOwnership(from, *member.TeamSide)
+	if slot, ok := domain.ParseSlotRef(fromPiece.ID); ok {
 		if p := match.Mappool.FindSlot(slot); p != nil {
-			p.TeamID = &teamID
+			p.TeamID = &teamIDStr
 		}
 	}
 
 	// Remove and mark the sacrificed piece as dead.
-	if slot, ok := domain.ParsePoolSlot(*toCell.PieceID); ok {
+	match.Board.ClearCell(to)
+	if slot, ok := domain.ParseSlotRef(toPiece.ID); ok {
 		if p := match.Mappool.FindSlot(slot); p != nil {
 			p.State = domain.PieceStateDead
 			p.Position = nil
 			p.TeamID = nil
 		}
 	}
-	toCell.State = domain.CellStateEmpty
-	toCell.PieceID = nil
-	toCell.TeamID = nil
 
 	move := domain.NewRobMove(matchID, match.RoomID, member.UserID, *member.TeamSide, from, to)
 	if err := s.saveMatchAndMove(ctx, match, move); err != nil {
@@ -173,31 +172,31 @@ func (s *MatchService) WinPiece(ctx context.Context, matchID bson.ObjectID, memb
 	if !match.CanWin(member, winEnabledForTeam) {
 		return errs.ErrForbidden
 	}
-	cell := match.Board.CellAt(pos)
-	if cell == nil || cell.State != domain.CellStateOccupied || cell.PieceID == nil {
+
+	piece, ok := match.Board.PieceAtPosition(pos)
+	if !ok {
 		return fmt.Errorf("%w: no piece at position", errs.ErrInvalidInput)
 	}
 
 	winningSide := member.TeamSide
 	if winningSide == nil {
-		// Admin path: infer winner from the existing cell owner.
-		if cell.TeamID != nil {
-			side := domain.TeamSide(*cell.TeamID)
-			winningSide = &side
+		// Admin path: infer winner from existing piece owner.
+		if piece.Owner != nil {
+			winningSide = piece.Owner
 		} else {
 			return fmt.Errorf("%w: cannot determine winner", errs.ErrInvalidInput)
 		}
-	} else if cell.TeamID != nil && *cell.TeamID != string(*winningSide) {
-		// Strategist may only win pieces already owned by their team.
+	} else if piece.Owner != nil && *piece.Owner != *winningSide {
 		return fmt.Errorf("%w: piece does not belong to team", errs.ErrInvalidInput)
 	}
 
-	teamID := string(*winningSide)
-	cell.TeamID = &teamID
-	if slot, ok := domain.ParsePoolSlot(*cell.PieceID); ok {
+	match.Board.SetOwner(pos, *winningSide)
+
+	teamIDStr := string(*winningSide)
+	if slot, ok := domain.ParseSlotRef(piece.ID); ok {
 		if p := match.Mappool.FindSlot(slot); p != nil {
 			p.State = domain.PieceStateWon
-			p.TeamID = &teamID
+			p.TeamID = &teamIDStr
 		}
 	}
 
@@ -217,7 +216,7 @@ func (s *MatchService) WinPiece(ctx context.Context, matchID bson.ObjectID, memb
 }
 
 // EndMatch ends the match with the given reason and optional winner.
-func (s *MatchService) EndMatch(ctx context.Context, matchID bson.ObjectID, reason domain.WinReason, winner *domain.TeamSide) error {
+func (s *MatchService) EndMatch(ctx context.Context, matchID bson.ObjectID, reason domain.ResultReason, winner *domain.TeamSide) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
 		return err
@@ -228,7 +227,7 @@ func (s *MatchService) EndMatch(ctx context.Context, matchID bson.ObjectID, reas
 	match.Status = domain.MatchStatusFinished
 	now := time.Now().UTC()
 	match.FinishedAt = &now
-	match.TurnState.Phase = domain.MatchPhaseEnded
+	match.TurnState.Phase = domain.PhaseNone
 	if err := s.matches.Update(ctx, match); err != nil {
 		return err
 	}
@@ -242,15 +241,16 @@ func (s *MatchService) AdvanceTurn(ctx context.Context, matchID bson.ObjectID) e
 		return err
 	}
 	match.TurnState.Next(match.BPOrder)
+	now := time.Now().UTC()
 	switch match.TurnState.Action {
 	case domain.TurnActionBan:
-		match.Timer = domain.NewTimerState(domain.BanTimeLimit, domain.BanBonusTime)
+		match.Timer = domain.Timer{StartedAt: now, Duration: domain.BanDuration}
 	case domain.TurnActionPick:
-		match.Timer = domain.NewTimerState(domain.PickTimeLimit, domain.PickBonusTime)
+		match.Timer = domain.Timer{StartedAt: now, Duration: domain.PickDuration}
 	case domain.TurnActionWin:
-		match.Timer = domain.NewTimerState(domain.WinTimeLimit, domain.WinBonusTime)
+		match.Timer = domain.Timer{StartedAt: now, Duration: domain.ResultConfirmationDuration}
 	case domain.TurnActionTB:
-		match.Timer = domain.NewTimerState(domain.TBTimeLimit, 0)
+		match.Timer = domain.Timer{StartedAt: now, Duration: domain.TBPreparationDuration}
 	}
 	return s.matches.Update(ctx, match)
 }
@@ -275,7 +275,6 @@ func (s *MatchService) LatestByMatch(ctx context.Context, matchID bson.ObjectID,
 }
 
 // ResolveMember determines the RoomMember for a user based on the match's room settings.
-// This is a data-resolution helper, not new business logic.
 func (s *MatchService) ResolveMember(ctx context.Context, matchID bson.ObjectID, userID int64) (domain.RoomMember, error) {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
@@ -292,7 +291,6 @@ func (s *MatchService) ResolveMember(ctx context.Context, matchID bson.ObjectID,
 		JoinedAt: time.Now().UTC(),
 	}
 
-	// Determine role from room settings.
 	switch {
 	case room.OwnerID == userID:
 		member.Role = domain.RoomRoleAdmin
@@ -313,29 +311,29 @@ func (s *MatchService) ResolveMember(ctx context.Context, matchID bson.ObjectID,
 	return member, nil
 }
 
-// PauseMatch pauses the match timer. Thin wrapper around TimerState.Pause.
+// PauseMatch pauses the match timer.
 func (s *MatchService) PauseMatch(ctx context.Context, matchID bson.ObjectID) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
 		return err
 	}
-	if match.Timer.IsPaused {
+	if match.Timer.Paused {
 		return fmt.Errorf("%w: match already paused", errs.ErrInvalidInput)
 	}
-	match.Timer.Pause()
+	match.Timer.Pause(time.Now())
 	return s.matches.Update(ctx, match)
 }
 
-// ResumeMatch resumes the match timer. Thin wrapper around TimerState.Resume.
+// ResumeMatch resumes the match timer.
 func (s *MatchService) ResumeMatch(ctx context.Context, matchID bson.ObjectID) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
 		return err
 	}
-	if !match.Timer.IsPaused {
+	if !match.Timer.Paused {
 		return fmt.Errorf("%w: match not paused", errs.ErrInvalidInput)
 	}
-	match.Timer.Resume()
+	match.Timer.Resume(time.Now())
 	return s.matches.Update(ctx, match)
 }
 
@@ -345,8 +343,4 @@ func (s *MatchService) saveMatchAndMove(ctx context.Context, match *domain.Match
 		return err
 	}
 	return s.moves.Create(ctx, &move)
-}
-
-func stringPtr(s string) *string {
-	return &s
 }

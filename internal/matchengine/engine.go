@@ -132,7 +132,7 @@ func banPoolSlot(state *State, actor Actor, command BanPoolSlot, now time.Time) 
 
 	switch state.Turn {
 	case -2, -1:
-		state.ActiveTeam = state.FirstBan.opponent()
+		state.ActiveTeam = state.FirstBan.Opponent()
 	case 0:
 		state.ActiveTeam = state.FirstBan
 	}
@@ -163,7 +163,7 @@ func placePiece(state *State, actor Actor, command PlacePiece, now time.Time) ([
 	if err := requireStrategistTimer(state.Timer, now); err != nil {
 		return nil, err
 	}
-	if command.PieceID == "" || state.Board.containsPieceID(command.PieceID) {
+	if command.PieceID == "" || state.Board.ContainsPieceID(command.PieceID) {
 		return nil, ruleError(CodeInvalidRequest, "board piece id must be non-empty and unique")
 	}
 
@@ -175,7 +175,7 @@ func placePiece(state *State, actor Actor, command PlacePiece, now time.Time) ([
 		return nil, ruleError(CodePoolSlotUnavailable, "pool slot cannot be placed by this command")
 	}
 	zone, ok := state.Board.ZoneAt(command.Cell)
-	if !ok || !state.Board.empty(command.Cell) {
+	if !ok || !state.Board.Empty(command.Cell) {
 		return nil, ruleError(CodeInvalidBoardCell, "board cell is invalid or occupied")
 	}
 	forceMod, err := placementForceMod(slot.Mod, zone)
@@ -191,7 +191,7 @@ func placePiece(state *State, actor Actor, command PlacePiece, now time.Time) ([
 		SelectedBy:       state.ActiveTeam,
 		Outcome:          OutcomeWaitingResult,
 	}
-	state.Board.place(command.Cell, piece)
+	state.Board.PlacePieceRaw(command.Cell, piece)
 	slot.State = PoolSlotSelected
 	state.PoolSlots[slot.ID] = slot
 	state.Phase = PhaseWaitingForResult
@@ -226,10 +226,10 @@ func placeShiro(state *State, actor Actor, command PlaceShiro, now time.Time) ([
 	if err := requireStrategistTimer(state.Timer, now); err != nil {
 		return nil, err
 	}
-	if command.PieceID == "" || state.Board.containsPieceID(command.PieceID) {
+	if command.PieceID == "" || state.Board.ContainsPieceID(command.PieceID) {
 		return nil, ruleError(CodeInvalidRequest, "board piece id must be non-empty and unique")
 	}
-	if !state.Board.empty(command.Cell) {
+	if !state.Board.Empty(command.Cell) {
 		return nil, ruleError(CodeInvalidBoardCell, "board cell is invalid or occupied")
 	}
 
@@ -253,7 +253,7 @@ func placeShiro(state *State, actor Actor, command PlaceShiro, now time.Time) ([
 		SelectedBy:       state.ActiveTeam,
 		Outcome:          OutcomeWhite,
 	}
-	state.Board.place(command.Cell, piece)
+	state.Board.PlacePieceRaw(command.Cell, piece)
 	shiro.State = PoolSlotSelected
 	state.PoolSlots[shiro.ID] = shiro
 	state.Turn++
@@ -291,12 +291,12 @@ func robPiece(state *State, actor Actor, command RobPiece, now time.Time) ([]Eve
 		return nil, ruleError(CodeRobberyNotAvailable, "team already used its robbery")
 	}
 
-	_, target, ok := state.Board.pieceByID(command.TargetPieceID)
+	_, target, ok := state.Board.PieceByID(command.TargetPieceID)
 	if !ok {
 		return nil, ruleError(CodeRobberyRequirementsNotMet, "target piece does not exist")
 	}
 	targetIsShiro := target.Mod == ModShiro && target.Outcome == OutcomeWhite && target.Owner == nil
-	targetIsOpponent := target.Outcome == OutcomeWon && target.Owner != nil && *target.Owner == team.opponent()
+	targetIsOpponent := target.Outcome == OutcomeWon && target.Owner != nil && *target.Owner == team.Opponent()
 	if !targetIsShiro && !targetIsOpponent {
 		return nil, ruleError(CodeRobberyRequirementsNotMet, "target is not an opponent WON piece or unowned Shiro")
 	}
@@ -307,15 +307,15 @@ func robPiece(state *State, actor Actor, command RobPiece, now time.Time) ([]Eve
 	}
 	if targetIsShiro {
 		if len(command.SacrificeSets) != 1 || len(command.SacrificeSets[0]) != 2 ||
-			!state.Board.allOwnWon(team, sacrificeIDs) {
+			!state.Board.AllOwnWon(team, sacrificeIDs) {
 			return nil, ruleError(CodeRobberyRequirementsNotMet, "Shiro requires any two distinct own WON pieces")
 		}
 	} else if !validNormalRobberySacrifice(state.Board, team, command.SacrificeSets) {
 		return nil, ruleError(CodeRobberyRequirementsNotMet, "opponent robbery requires one three-alignment or two distinct two-alignments")
 	}
 
-	state.Board.markDead(sacrificeIDs)
-	state.Board.setOwner(target.ID, team)
+	state.Board.MarkDeadByIDs(sacrificeIDs)
+	state.Board.SetOwnerByPieceID(target.ID, team)
 	if state.RobberyUsed == nil {
 		state.RobberyUsed = make(map[TeamSide]bool, 2)
 	}
@@ -324,7 +324,7 @@ func robPiece(state *State, actor Actor, command RobPiece, now time.Time) ([]Eve
 		{Type: EventPiecesSacrificed, Team: team, BoardPieceIDs: append([]string(nil), sacrificeIDs...)},
 		{Type: EventPieceRobbed, Team: team, BoardPieceID: target.ID},
 	}
-	if state.Board.hasFour(team) {
+	if state.Board.HasFour(team) {
 		winner := team
 		finishMatch(state, winner, Result{Winner: winner, Reason: ResultReasonFourAlignment})
 		events = append(events, Event{Type: EventMatchFinished, Team: winner})
@@ -360,10 +360,10 @@ func flattenSacrificeSets(sets [][]string) ([]string, bool) {
 
 func validNormalRobberySacrifice(board Board, team TeamSide, sets [][]string) bool {
 	if len(sets) == 1 {
-		return board.isAlignment(team, sets[0], 3)
+		return board.IsAlignment(team, sets[0], 3)
 	}
 	if len(sets) == 2 {
-		return board.isAlignment(team, sets[0], 2) && board.isAlignment(team, sets[1], 2)
+		return board.IsAlignment(team, sets[0], 2) && board.IsAlignment(team, sets[1], 2)
 	}
 	return false
 }
@@ -381,10 +381,10 @@ func grantAdditionalTime(state *State, actor Actor, command GrantAdditionalTime,
 	if state.Phase != PhaseBan && state.Phase != PhasePick {
 		return nil, ruleError(CodeActionNotAllowed, "additional time applies only to team-action timers")
 	}
-	if !state.ActiveTeam.valid() {
+	if !state.ActiveTeam.Valid() {
 		return nil, ruleError(CodeActionNotAllowed, "team-action timer has no active team")
 	}
-	if !state.Timer.expired(now) {
+	if !state.Timer.Expired(now) {
 		return nil, ruleError(CodeActionNotAllowed, "team-action timer has not expired")
 	}
 	if state.TeamPauseUsed[state.ActiveTeam] {
@@ -444,7 +444,7 @@ func pauseTimer(state *State, actor Actor, command PauseTimer, now time.Time) ([
 	if state.Timer.Paused {
 		return nil, ruleError(CodeActionNotAllowed, "timer is already paused")
 	}
-	state.Timer.pause(now)
+	state.Timer.Pause(now)
 	return []Event{{Type: EventTimerPaused, Reason: command.Reason}}, nil
 }
 
@@ -461,7 +461,7 @@ func resumeTimer(state *State, actor Actor, command ResumeTimer, now time.Time) 
 	if !state.Timer.Paused {
 		return nil, ruleError(CodeActionNotAllowed, "timer is not paused")
 	}
-	state.Timer.resume(now)
+	state.Timer.Resume(now)
 	return []Event{{Type: EventTimerResumed, Reason: command.Reason}}, nil
 }
 
@@ -484,7 +484,7 @@ func suspendMatch(state *State, actor Actor, command SuspendMatch, now time.Time
 	state.Lifecycle = LifecycleSuspended
 	events := []Event{{Type: EventMatchSuspended, Reason: command.Reason}}
 	if hadTimer && !wasPaused {
-		state.Timer.pause(now)
+		state.Timer.Pause(now)
 		events = append(events, Event{Type: EventTimerPaused, Reason: command.Reason})
 	}
 	return events, nil
@@ -506,7 +506,7 @@ func resumeMatch(state *State, actor Actor, command ResumeMatch, now time.Time) 
 	state.Lifecycle = LifecycleRunning
 	events := []Event{{Type: EventMatchResumed, Reason: command.Reason}}
 	if suspension.HadTimer && !suspension.TimerWasPaused {
-		state.Timer.resume(now)
+		state.Timer.Resume(now)
 		events = append(events, Event{Type: EventTimerResumed, Reason: command.Reason})
 	}
 	return events, nil
@@ -529,7 +529,7 @@ func skipCurrentAction(state *State, actor Actor, command SkipCurrentAction, now
 		return nil, ruleError(CodeActionNotAllowed, "current action has no defined skip transition")
 	}
 	wasSuspended := state.Lifecycle == LifecycleSuspended
-	if !wasSuspended && !state.Timer.expired(now) {
+	if !wasSuspended && !state.Timer.Expired(now) {
 		return nil, ruleError(CodeActionNotAllowed, "active timer has not expired")
 	}
 	state.Lifecycle = LifecycleRunning
@@ -549,7 +549,7 @@ func skipCurrentAction(state *State, actor Actor, command SkipCurrentAction, now
 		} else {
 			switch state.Turn {
 			case -2, -1:
-				state.ActiveTeam = state.FirstBan.opponent()
+				state.ActiveTeam = state.FirstBan.Opponent()
 			case 0:
 				state.ActiveTeam = state.FirstBan
 			}
@@ -565,7 +565,7 @@ func skipCurrentAction(state *State, actor Actor, command SkipCurrentAction, now
 
 	if wasSuspended && state.Lifecycle == LifecycleRunning {
 		state.Lifecycle = LifecycleSuspended
-		state.Timer.pause(now)
+		state.Timer.Pause(now)
 		state.Suspension = &SuspensionState{
 			Reason: command.Reason, SuspendedAt: now, HadTimer: true, TimerWasPaused: false,
 		}
@@ -599,7 +599,7 @@ func requestTB(state *State, actor Actor, command RequestTB, now time.Time) ([]E
 	if err := requireRunningPhase(*state, PhasePick); err != nil {
 		return nil, err
 	}
-	if actor.Capability != CapabilityStrategist || actor.Team == nil || !actor.Team.valid() {
+	if actor.Capability != CapabilityStrategist || actor.Team == nil || !actor.Team.Valid() {
 		return nil, ruleError(CodeActionNotAllowed, "a team strategist is required")
 	}
 	if err := requireStrategistTimer(state.Timer, now); err != nil {
@@ -640,7 +640,7 @@ func respondTBRequest(state *State, actor Actor, command RespondTBRequest, now t
 	if err := requireRunningPhase(*state, PhasePick); err != nil {
 		return nil, err
 	}
-	if actor.Capability != CapabilityStrategist || actor.Team == nil || !actor.Team.valid() {
+	if actor.Capability != CapabilityStrategist || actor.Team == nil || !actor.Team.Valid() {
 		return nil, ruleError(CodeActionNotAllowed, "a team strategist is required")
 	}
 	if err := requireStrategistTimer(state.Timer, now); err != nil {
@@ -683,10 +683,10 @@ func refereeProxyContext(state State, actor Actor, actingTeam TeamSide, reason s
 	if actor.Capability != CapabilityReferee {
 		return Actor{}, time.Time{}, ruleError(CodeActionNotAllowed, "only a referee can proxy a strategist action")
 	}
-	if !actingTeam.valid() || missingReason(reason) {
+	if !actingTeam.Valid() || missingReason(reason) {
 		return Actor{}, time.Time{}, ruleError(CodeInvalidRequest, "proxy acting team and reason are required")
 	}
-	if !state.Timer.Paused && state.Timer.expired(now) {
+	if !state.Timer.Paused && state.Timer.Expired(now) {
 		now = state.Timer.StartedAt
 	}
 	return StrategistActor(actingTeam), now, nil
@@ -709,7 +709,7 @@ func startTB(state *State, actor Actor, command StartTB, now time.Time) ([]Event
 	if state.Timer.Paused {
 		return nil, ruleError(CodeTimerPaused, "TB preparation timer is paused")
 	}
-	if state.Timer.expired(now) && missingReason(command.Reason) {
+	if state.Timer.Expired(now) && missingReason(command.Reason) {
 		return nil, ruleError(CodeInvalidRequest, "expired TB preparation requires a referee reason")
 	}
 
@@ -728,7 +728,7 @@ func confirmTBResult(state *State, actor Actor, command ConfirmTBResult) ([]Even
 	if actor.Capability != CapabilityReferee {
 		return nil, ruleError(CodeActionNotAllowed, "only a referee can confirm a TB result")
 	}
-	if !command.WinningTeam.valid() {
+	if !command.WinningTeam.Valid() {
 		return nil, ruleError(CodeInvalidRequest, "winning team must be RED or BLUE")
 	}
 	finishMatch(state, command.WinningTeam, Result{Winner: command.WinningTeam, Reason: ResultReasonTB})
@@ -745,7 +745,7 @@ func recordSurrender(state *State, actor Actor, command RecordSurrender) ([]Even
 	if actor.Capability != CapabilityReferee {
 		return nil, ruleError(CodeActionNotAllowed, "only a referee can record surrender")
 	}
-	if !command.SurrenderingTeam.valid() || missingReason(command.Reason) {
+	if !command.SurrenderingTeam.Valid() || missingReason(command.Reason) {
 		return nil, ruleError(CodeInvalidRequest, "surrendering team and reason are required")
 	}
 	evidence, ok := validateSurrenderEvidence(state.Rosters[command.SurrenderingTeam], command.ConfirmingPlayerIDs)
@@ -753,7 +753,7 @@ func recordSurrender(state *State, actor Actor, command RecordSurrender) ([]Even
 		return nil, ruleError(CodeSurrenderEvidenceInvalid, "surrender requires four rostered players including the leader")
 	}
 
-	winner := command.SurrenderingTeam.opponent()
+	winner := command.SurrenderingTeam.Opponent()
 	surrendering := command.SurrenderingTeam
 	finishMatch(state, winner, Result{
 		Winner:              winner,
@@ -817,10 +817,10 @@ func confirmBeatmapResult(state *State, actor Actor, command ConfirmBeatmapResul
 	if command.BoardPieceID == "" || command.BoardPieceID != state.PendingPieceID {
 		return nil, ruleError(CodeResultNotPending, "board piece is not awaiting a result")
 	}
-	if !command.WinningTeam.valid() {
+	if !command.WinningTeam.Valid() {
 		return nil, ruleError(CodeInvalidRequest, "winning team must be RED or BLUE")
 	}
-	if !state.Board.setOwner(command.BoardPieceID, command.WinningTeam) {
+	if !state.Board.SetOwnerByPieceID(command.BoardPieceID, command.WinningTeam) {
 		return nil, ruleError(CodeResultNotPending, "pending board piece is absent")
 	}
 
@@ -829,7 +829,7 @@ func confirmBeatmapResult(state *State, actor Actor, command ConfirmBeatmapResul
 		{Type: EventBeatmapResultConfirmed, Team: command.WinningTeam, BoardPieceID: command.BoardPieceID},
 		{Type: EventPieceWon, Team: command.WinningTeam, BoardPieceID: command.BoardPieceID},
 	}
-	if state.Board.hasFour(command.WinningTeam) {
+	if state.Board.HasFour(command.WinningTeam) {
 		winner := command.WinningTeam
 		finishMatch(state, winner, Result{Winner: winner, Reason: ResultReasonFourAlignment})
 		events = append(events, Event{Type: EventMatchFinished, Team: winner})
@@ -886,7 +886,7 @@ func requireRunningPhase(state State, phase Phase) error {
 }
 
 func requireActiveStrategist(state State, actor Actor) error {
-	if actor.Capability != CapabilityStrategist || actor.Team == nil || !actor.Team.valid() {
+	if actor.Capability != CapabilityStrategist || actor.Team == nil || !actor.Team.Valid() {
 		return ruleError(CodeActionNotAllowed, "an identified strategist is required")
 	}
 	if *actor.Team != state.ActiveTeam {
@@ -899,7 +899,7 @@ func requireStrategistTimer(timer Timer, now time.Time) error {
 	if timer.Paused {
 		return ruleError(CodeTimerPaused, "team-action timer is paused")
 	}
-	if timer.expired(now) {
+	if timer.Expired(now) {
 		return ruleError(CodeTimerExpired, "team-action timer expired")
 	}
 	return nil
@@ -944,5 +944,5 @@ func pickTeam(first TeamSide, turn int) TeamSide {
 	if turn%2 == 1 {
 		return first
 	}
-	return first.opponent()
+	return first.Opponent()
 }

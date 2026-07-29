@@ -206,7 +206,7 @@ func (r *mutationResolver) DeclareTbWinner(ctx context.Context, input DeclareTbI
 	}
 
 	winner := teamSideFromGraphQL(input.Winner)
-	if err := r.svc.Matchs.EndMatch(ctx, matchID, domain.WinReasonTB, &winner); err != nil {
+	if err := r.svc.Matchs.EndMatch(ctx, matchID, domain.ResultReasonTB, &winner); err != nil {
 		return &SimpleCommandResult{Success: false, Events: emptyEvents(), Error: mapError(err)}, nil
 	}
 
@@ -233,7 +233,7 @@ func (r *mutationResolver) DeclareSurrender(ctx context.Context, input Surrender
 
 	loser := teamSideFromGraphQL(input.Team)
 	winner := loser.Opponent()
-	if err := r.svc.Matchs.EndMatch(ctx, matchID, domain.WinReasonSurrender, &winner); err != nil {
+	if err := r.svc.Matchs.EndMatch(ctx, matchID, domain.ResultReasonSurrender, &winner); err != nil {
 		return &SimpleCommandResult{Success: false, Events: emptyEvents(), Error: mapError(err)}, nil
 	}
 

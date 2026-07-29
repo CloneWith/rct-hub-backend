@@ -1,19 +1,5 @@
 package domain
 
-// PieceMod represents the mod category used to organize mappool slots
-// and determine board zone restrictions.
-type PieceMod string
-
-const (
-	PieceModNM    PieceMod = "NM"
-	PieceModHD    PieceMod = "HD"
-	PieceModHR    PieceMod = "HR"
-	PieceModDT    PieceMod = "DT"
-	PieceModFM    PieceMod = "FM"
-	PieceModShiro PieceMod = "Shiro"
-	PieceModTB    PieceMod = "TB"
-)
-
 // PieceState represents the current state of a piece on the board or in the pool.
 type PieceState string
 
@@ -23,15 +9,6 @@ const (
 	PieceStatePicked PieceState = "picked" // placed on the board
 	PieceStateWon    PieceState = "won"    // won by a team, counts as a winning piece
 	PieceStateDead   PieceState = "dead"   // sacrificed during a rob action
-)
-
-// ForceMod represents the mod that must be used when an FM piece lands in a zone.
-type ForceMod string
-
-const (
-	ForceModHD ForceMod = "HD"
-	ForceModHR ForceMod = "HR"
-	ForceModNM ForceMod = "NM"
 )
 
 // Piece represents a single selectable beatmap slot in a match.
@@ -53,19 +30,4 @@ func (p Piece) IsRemoved() bool {
 // CanBeSelected reports whether the piece can be picked (i.e. not banned and not already picked).
 func (p Piece) CanBeSelected() bool {
 	return p.State != PieceStateBanned && p.State != PieceStatePicked && p.State != PieceStateWon && p.State != PieceStateDead
-}
-
-// IsRestrictedMod reports whether pieces of the given mod are constrained to a matching zone.
-func IsRestrictedMod(mod PieceMod) bool {
-	switch mod {
-	case PieceModHD, PieceModHR, PieceModDT:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsFreeMod reports whether pieces of the given mod can be placed in any zone.
-func IsFreeMod(mod PieceMod) bool {
-	return !IsRestrictedMod(mod)
 }
