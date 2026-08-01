@@ -146,13 +146,11 @@ func (s *MatchService) RobPiece(ctx context.Context, matchID bson.ObjectID, memb
 		}
 	}
 
-	// Remove and mark the sacrificed piece as dead.
-	match.Board.ClearCell(to)
+	// Mark the sacrificed piece as dead (engine invariant: DEAD pieces stay on the board).
+	match.Board.MarkDeadByIDs([]string{toPiece.ID})
 	if slot, ok := domain.ParseSlotRef(toPiece.ID); ok {
 		if p := match.Mappool.FindSlot(slot); p != nil {
 			p.State = domain.PieceStateDead
-			p.Position = nil
-			p.TeamID = nil
 		}
 	}
 
