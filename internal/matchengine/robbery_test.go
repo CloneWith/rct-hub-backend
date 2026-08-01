@@ -369,7 +369,7 @@ func robberyState(t *testing.T) State {
 }
 
 func seedPiece(board *Board, cell Cell, id string, mod Mod, outcome Outcome, owner *TeamSide) {
-	board.PlacePieceRaw(cell, BoardPiece{
+	board.place(cell, BoardPiece{
 		ID:               id,
 		SourcePoolSlotID: "fixture-" + id,
 		Mod:              mod,

@@ -71,10 +71,10 @@ function render(next) {
   $("#clock").textContent = new Date(next.now).toISOString().slice(11, 19);
   const remaining = Math.max(0, Math.ceil(next.remainingMs / 1000));
   $("#timer").textContent = state.timer?.paused ? `PAUSED · ${remaining}s` : `TIMER · ${remaining}s`;
-  $("#turn-summary").textContent = `${state.phase} · Turn ${state.turn} · Active ${state.activeTeam?.toUpperCase() || "-"}`;
+  $("#turn-summary").textContent = `${state.phase} · Turn ${state.turn} · Active ${state.activeTeam || "-"}`;
   $("#counts").innerHTML = `
-		<div class="count red">RED<strong>${analysis.wonCounts.red || 0}</strong></div>
-		<div class="count blue">BLUE<strong>${analysis.wonCounts.blue || 0}</strong></div>`;
+		<div class="count red">RED<strong>${analysis.wonCounts.RED || 0}</strong></div>
+		<div class="count blue">BLUE<strong>${analysis.wonCounts.BLUE || 0}</strong></div>`;
 
 	renderBoard(state.board?.pieces || {});
 	renderPool(state.poolSlots || {}, analysis);
@@ -127,14 +127,14 @@ function renderPool(slots, analysis) {
 }
 
 function renderAnalysis(analysis, state) {
-  const pending = state.pendingTbRequest ? `${state.pendingTbRequest.requestedBy.toUpperCase()} / ${state.pendingTbRequest.basis}` : "none";
+  const pending = state.pendingTbRequest ? `${state.pendingTbRequest.requestedBy} / ${state.pendingTbRequest.basis}` : "none";
   $("#analysis").innerHTML = `
     <div class="metric">Stalemate<strong>${analysis.stalemate ? "YES" : "NO"}</strong></div>
     <div class="metric">No-four TB<strong>${analysis.noFourWithoutRobbery ? "AVAILABLE" : "NO"}</strong></div>
     <div class="metric">Empty cells<strong>${analysis.emptyCells.length}</strong></div>
     <div class="metric">Pending TB<strong>${pending}</strong></div>
-    <div class="metric">Red robbery<strong>${state.robberyUsed?.red ? "USED" : "READY"}</strong></div>
-    <div class="metric">Blue robbery<strong>${state.robberyUsed?.blue ? "USED" : "READY"}</strong></div>`;
+    <div class="metric">Red robbery<strong>${state.robberyUsed?.RED ? "USED" : "READY"}</strong></div>
+    <div class="metric">Blue robbery<strong>${state.robberyUsed?.BLUE ? "USED" : "READY"}</strong></div>`;
 }
 
 function renderEvents(events) {
@@ -166,12 +166,11 @@ function fieldHTML(name) {
 function defaultValue(name) {
   if (!snapshot) return "";
   const state = snapshot.state;
-  const activeTeam = state.activeTeam?.toUpperCase() || "RED";
   const defaults = {
     poolSlotId: selectedPool || snapshot.analysis.selectablePoolSlotIds[0] || "",
     pieceId: state.pendingPieceId || `lab-piece-${state.version + 1}`,
     cell: selectedCell || snapshot.analysis.emptyCells[0] || "",
-    winningTeam: activeTeam,
+    winningTeam: state.activeTeam || "RED",
     targetPieceId: "",
     sacrificeSets: '[["piece-1","piece-3","piece-5"]]',
     reason: "manual engine verification",
@@ -179,7 +178,7 @@ function defaultValue(name) {
     remainingSeconds: "30",
     surrenderingTeam: "RED",
     confirmingPlayerIds: "1001,1002,1003,1004",
-    actingTeam: activeTeam
+    actingTeam: state.activeTeam || "RED"
   };
   return defaults[name] ?? "";
 }

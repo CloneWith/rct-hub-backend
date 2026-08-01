@@ -118,37 +118,6 @@ func TestCommandEndpointCallsRealEngineAndReturnsSnapshot(t *testing.T) {
 	}
 }
 
-func TestCommandEndpointUsesLowercaseDomainTeamKeys(t *testing.T) {
-	t.Parallel()
-
-	lab, err := newLab(scenarioStalemateFinal)
-	if err != nil {
-		t.Fatal(err)
-	}
-	requestBody := []byte(`{"actor":"REFEREE","type":"CONFIRM_BEATMAP_RESULT","pieceId":"stalemate-piece-16","winningTeam":"RED"}`)
-	request := httptest.NewRequest(http.MethodPost, "/api/command", bytes.NewReader(requestBody))
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	lab.routes().ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("uppercase RED input rejected: status=%d body=%s", response.Code, response.Body.String())
-	}
-
-	var body struct {
-		State struct {
-			RobberyUsed map[string]bool `json:"robberyUsed"`
-		} `json:"state"`
-		Analysis struct {
-			WonCounts map[string]int `json:"wonCounts"`
-		} `json:"analysis"`
-	}
-	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	assertLowercaseTeamKeys(t, "state.robberyUsed", body.State.RobberyUsed)
-	assertLowercaseTeamKeys(t, "analysis.wonCounts", body.Analysis.WonCounts)
-}
-
 func TestCommandEndpointPreservesStableRuleErrorCode(t *testing.T) {
 	t.Parallel()
 
@@ -226,36 +195,6 @@ func TestStaticGUIIsEmbedded(t *testing.T) {
 	lab.routes().ServeHTTP(response, request)
 	if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte("MatchEngine Lab")) {
 		t.Fatalf("GUI response status = %d", response.Code)
-	}
-
-	app, err := webFiles.ReadFile("web/app.js")
-	if err != nil {
-		t.Fatalf("read embedded app: %v", err)
-	}
-	for _, expected := range [][]byte{
-		[]byte("wonCounts.red"),
-		[]byte("wonCounts.blue"),
-		[]byte("robberyUsed?.red"),
-		[]byte("robberyUsed?.blue"),
-		[]byte("state.activeTeam?.toUpperCase()"),
-	} {
-		if !bytes.Contains(app, expected) {
-			t.Errorf("embedded app does not use %q", expected)
-		}
-	}
-}
-
-func assertLowercaseTeamKeys[T any](t *testing.T, name string, values map[string]T) {
-	t.Helper()
-	for _, team := range []string{"red", "blue"} {
-		if _, ok := values[team]; !ok {
-			t.Errorf("%s is missing lowercase %q key: %#v", name, team, values)
-		}
-	}
-	for _, team := range []string{"RED", "BLUE"} {
-		if _, ok := values[team]; ok {
-			t.Errorf("%s contains unexpected uppercase %q key: %#v", name, team, values)
-		}
 	}
 }
 

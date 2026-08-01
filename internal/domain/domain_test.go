@@ -1,37 +1,25 @@
 package domain
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
-
-	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func TestNewBoard(t *testing.T) {
 	b := NewBoard()
-	// Board is now a map[Cell]BoardPiece; zones are computed via ZoneAt.
-	// Correct layout (col, row):
-	//   top-left  (row<2, col<2) = DT
-	//   top-right (row<2, col≥2) = HD
-	//   bot-left  (row≥2, col<2) = HR
-	//   bot-right (row≥2, col≥2) = DT
-	expected := [4][4]Zone{
-		{ZoneDT, ZoneDT, ZoneHD, ZoneHD},
-		{ZoneDT, ZoneDT, ZoneHD, ZoneHD},
-		{ZoneHR, ZoneHR, ZoneDT, ZoneDT},
-		{ZoneHR, ZoneHR, ZoneDT, ZoneDT},
+	if b.Rows != 4 || b.Cols != 4 {
+		t.Fatalf("expected 4x4 board, got %dx%d", b.Cols, b.Rows)
 	}
-	for row := range 4 {
-		for col := range 4 {
-			cell := PositionCell(col, row)
-			zone, ok := b.ZoneAt(cell)
-			if !ok {
-				t.Errorf("cell %s: ZoneAt returned false", cell)
-				continue
-			}
-			if zone != expected[row][col] {
-				t.Errorf("cell %s (col=%d,row=%d): expected zone %s, got %s", cell, col, row, expected[row][col], zone)
+	expected := [4][4]Zone{
+		{ZoneHD, ZoneHD, ZoneDT, ZoneDT},
+		{ZoneHD, ZoneHD, ZoneDT, ZoneDT},
+		{ZoneHR, ZoneHR, ZoneNM, ZoneNM},
+		{ZoneHR, ZoneHR, ZoneNM, ZoneNM},
+	}
+	for y := range 4 {
+		for x := range 4 {
+			if b.Cells[y][x].Zone != expected[y][x] {
+				t.Errorf("cell (%d,%d): expected zone %s, got %s", x, y, expected[y][x], b.Cells[y][x].Zone)
 			}
 		}
 	}
@@ -40,40 +28,34 @@ func TestNewBoard(t *testing.T) {
 func TestBoardCanPlace(t *testing.T) {
 	b := NewBoard()
 	tests := []struct {
-		mod  Mod
+		mod  PieceMod
 		pos  Position
 		want bool
 	}{
-		{ModNM, Position{X: 0, Y: 0}, true},  // NM free in any zone (DT)
-		{ModHD, Position{X: 0, Y: 0}, false}, // HD cannot go in DT zone
-		{ModHD, Position{X: 2, Y: 0}, true},  // HD goes in HD zone (top-right)
-		{ModDT, Position{X: 0, Y: 0}, true},  // DT goes in DT zone (top-left)
-		{ModDT, Position{X: 2, Y: 0}, false}, // DT cannot go in HD zone
+		{PieceModNM, Position{X: 0, Y: 0}, true}, // free in any zone
+		{PieceModHD, Position{X: 0, Y: 0}, true},
+		{PieceModHD, Position{X: 2, Y: 2}, false},
+		{PieceModDT, Position{X: 2, Y: 0}, true},
+		{PieceModDT, Position{X: 0, Y: 0}, false},
 	}
 	for _, tt := range tests {
-		got := b.Place(tt.mod, tt.pos, "test-1", TeamSideRed)
-		if got != tt.want {
-			t.Errorf("Place(%s, %v) = %v, want %v", tt.mod, tt.pos, got, tt.want)
-		}
-		if got {
-			b.Remove(tt.pos) // clean up for next subtest
+		if got := b.CanPlace(tt.mod, tt.pos); got != tt.want {
+			t.Errorf("CanPlace(%s, %v) = %v, want %v", tt.mod, tt.pos, got, tt.want)
 		}
 	}
 }
 
 func TestBoardFourInARow(t *testing.T) {
 	b := NewBoard()
-	red := TeamSideRed
+	red := string(TeamSideRed)
 	for x := range 4 {
-		pos := Position{X: x, Y: 0}
-		b.Place(ModNM, pos, "NM-1", red)
-		// Engine requires explicit result confirmation.
-		b.SetOwner(pos, red)
+		b.Place(PieceModNM, Position{X: x, Y: 0}, "NM-1", red)
 	}
-	if !b.HasFour(red) {
+	if !b.HasFourInARow(red) {
 		t.Error("expected red to have four in a row")
 	}
-	if b.HasFour(TeamSideBlue) {
+	blue := string(TeamSideBlue)
+	if b.HasFourInARow(blue) {
 		t.Error("blue should not have four in a row")
 	}
 }
@@ -107,7 +89,7 @@ func TestTurnStateBanOrder(t *testing.T) {
 		ts.Next(order)
 	}
 
-	if ts.Phase != PhasePick {
+	if ts.Phase != MatchPhasePick {
 		t.Errorf("expected phase to transition to pick, got %s", ts.Phase)
 	}
 	if ts.Counter != 1 {
@@ -133,210 +115,48 @@ func TestTurnStatePickOrder(t *testing.T) {
 }
 
 func TestTimerRemaining(t *testing.T) {
-	now := time.Now()
-	ts := Timer{
-		StartedAt: now.Add(-30 * time.Second),
-		Duration:  60 * time.Second,
+	ts := TimerState{
+		StartedAt: time.Now().Add(-30 * time.Second),
+		TimeLimit: 60 * time.Second,
+		BonusTime: 15 * time.Second,
 	}
-	rem := ts.Remaining(now)
+	rem := ts.Remaining()
 	if rem < 25*time.Second || rem > 35*time.Second {
 		t.Errorf("remaining = %v, expected around 30s", rem)
 	}
 
-	// Pause should freeze the remaining time
-	ts.Pause(now)
-	rem = ts.Remaining(now.Add(10 * time.Second))
-	if rem < 25*time.Second || rem > 35*time.Second {
-		t.Errorf("remaining after pause + 10s = %v, expected around 30s", rem)
-	}
-
-	// Resume should restart with the frozen remaining
-	ts.Resume(now.Add(10 * time.Second))
-	rem = ts.Remaining(now.Add(15 * time.Second))
-	if rem < 20*time.Second || rem > 30*time.Second {
-		t.Errorf("remaining after resume + 5s = %v, expected around 25s", rem)
+	ts.UseBonus()
+	rem = ts.Remaining()
+	if rem < 40*time.Second || rem > 50*time.Second {
+		t.Errorf("remaining with bonus = %v, expected around 45s", rem)
 	}
 }
 
 func TestMappoolFlexible(t *testing.T) {
 	pool := NewMappool()
-	pool.Slots[ModNM] = []Piece{{}, {}, {}}
-	pool.Slots[ModHD] = []Piece{{}, {}}
-	pool.Slots[ModShiro] = []Piece{{}}
+	pool.Slots[PieceModNM] = []Piece{{}, {}, {}}
+	pool.Slots[PieceModHD] = []Piece{{}, {}}
+	pool.Slots[PieceModShiro] = []Piece{{}}
 
-	if got := len(pool.ActiveSlotsByMod(ModNM)); got != 3 {
+	if got := len(pool.ActiveSlotsByMod(PieceModNM)); got != 3 {
 		t.Errorf("NM active slots = %d, want 3", got)
 	}
-	if got := len(pool.ActiveSlotsByMod(ModHD)); got != 2 {
+	if got := len(pool.ActiveSlotsByMod(PieceModHD)); got != 2 {
 		t.Errorf("HD active slots = %d, want 2", got)
 	}
 
 	removed := int64(-1)
-	pool.Slots[ModNM][1].BeatmapID = &removed
-	if got := len(pool.ActiveSlotsByMod(ModNM)); got != 2 {
+	pool.Slots[PieceModNM][1].BeatmapID = &removed
+	if got := len(pool.ActiveSlotsByMod(PieceModNM)); got != 2 {
 		t.Errorf("NM active slots after removal = %d, want 2", got)
 	}
 
-	slot := SlotRef{Mod: ModHD, Index: 2}
+	slot := PoolSlot{Mod: PieceModHD, Index: 2}
 	if p := pool.FindSlot(slot); p == nil {
 		t.Error("expected to find HD-2")
 	}
 	slot.Index = 5
 	if p := pool.FindSlot(slot); p != nil {
 		t.Error("expected HD-5 not to exist")
-	}
-}
-
-func TestBoardBSONRoundTrip(t *testing.T) {
-	b := NewBoard()
-	red := TeamSideRed
-
-	b.Place(ModNM, Position{X: 0, Y: 0}, "NM-1", red)
-	b.Place(ModHD, Position{X: 2, Y: 0}, "HD-1", red)
-
-	data, err := bson.Marshal(b)
-	if err != nil {
-		t.Fatalf("BSON marshal: %v", err)
-	}
-
-	var restored Board
-	if err := bson.Unmarshal(data, &restored); err != nil {
-		t.Fatalf("BSON unmarshal: %v", err)
-	}
-
-	// Verify the NM-1 piece survived the round trip.
-	nmCell := PositionCell(0, 0)
-	nmPiece, ok := restored.PieceAt(nmCell)
-	if !ok {
-		t.Fatal("NM-1 lost after BSON round trip")
-	}
-	if nmPiece.ID != "NM-1" || nmPiece.Mod != ModNM {
-		t.Errorf("NM-1: expected ID=NM-1, Mod=NM; got ID=%s, Mod=%s", nmPiece.ID, nmPiece.Mod)
-	}
-	if nmPiece.Owner == nil || *nmPiece.Owner != red {
-		t.Error("NM-1: owner should be red")
-	}
-
-	// Verify the HD-1 piece survived the round trip.
-	hdCell := PositionCell(2, 0)
-	hdPiece, ok := restored.PieceAt(hdCell)
-	if !ok {
-		t.Fatal("HD-1 lost after BSON round trip")
-	}
-	if hdPiece.ID != "HD-1" || hdPiece.Mod != ModHD {
-		t.Errorf("HD-1: expected ID=HD-1, Mod=HD; got ID=%s, Mod=%s", hdPiece.ID, hdPiece.Mod)
-	}
-
-	// Verify no stray pieces.
-	if len(restored.Pieces()) != 2 {
-		t.Errorf("expected 2 pieces after round trip, got %d", len(restored.Pieces()))
-	}
-}
-
-func TestParseSlotRefRoundTrip(t *testing.T) {
-	tests := []SlotRef{
-		{Mod: ModNM, Index: 1},
-		{Mod: ModNM, Index: 12},
-		{Mod: ModHD, Index: 3},
-		{Mod: ModDT, Index: 1},
-		{Mod: ModFM, Index: 5},
-		{Mod: ModShiro, Index: 1},
-		{Mod: ModTB, Index: 1},
-	}
-	for _, want := range tests {
-		got, ok := ParseSlotRef(want.String())
-		if !ok {
-			t.Errorf("ParseSlotRef(%q): not ok", want.String())
-			continue
-		}
-		if got.Mod != want.Mod || got.Index != want.Index {
-			t.Errorf("ParseSlotRef(%q): got {Mod:%s, Index:%d}, want {Mod:%s, Index:%d}",
-				want.String(), got.Mod, got.Index, want.Mod, want.Index)
-		}
-	}
-}
-
-func TestMarkDeadKeepsPieceOnBoard(t *testing.T) {
-	b := NewBoard()
-	red := TeamSideRed
-
-	pos := Position{X: 0, Y: 0}
-	b.Place(ModNM, pos, "NM-1", red)
-	b.SetOwner(pos, red)
-
-	// Mark the piece as dead — it must remain occupying its cell.
-	b.MarkDeadByIDs([]string{"NM-1"})
-
-	// Cell should still be occupied (engine invariant).
-	if b.Empty(PositionCell(0, 0)) {
-		t.Fatal("DEAD piece was removed from board")
-	}
-
-	piece, ok := b.PieceAt(PositionCell(0, 0))
-	if !ok {
-		t.Fatal("DEAD piece missing from board")
-	}
-	if piece.Outcome != OutcomeDead {
-		t.Errorf("expected OutcomeDead, got %s", piece.Outcome)
-	}
-
-	// DEAD pieces should not count toward four-in-a-row.
-	if b.HasFour(red) {
-		t.Error("DEAD pieces should not count toward alignment")
-	}
-}
-
-func TestTeamSideCaseNormalisation(t *testing.T) {
-	tests := []struct {
-		jsonInput string
-		want      TeamSide
-	}{
-		{`"RED"`, TeamSideRed},
-		{`"red"`, TeamSideRed},
-		{`"BLUE"`, TeamSideBlue},
-		{`"blue"`, TeamSideBlue},
-		{`"Red"`, TeamSideRed},
-		{`"Blue"`, TeamSideBlue},
-	}
-	for _, tt := range tests {
-		var s TeamSide
-		if err := json.Unmarshal([]byte(tt.jsonInput), &s); err != nil {
-			t.Errorf("UnmarshalJSON(%s): %v", tt.jsonInput, err)
-			continue
-		}
-		if s != tt.want {
-			t.Errorf("UnmarshalJSON(%s): got %q, want %q", tt.jsonInput, s, tt.want)
-		}
-	}
-}
-
-func TestTeamSideBSONCaseNormalisation(t *testing.T) {
-	// Create a BSON document with a TeamSide field, then round-trip it.
-	type doc struct {
-		Val TeamSide `bson:"val"`
-	}
-
-	tests := []struct {
-		input TeamSide
-		want  TeamSide
-	}{
-		{TeamSide("RED"), TeamSideRed},
-		{TeamSide("red"), TeamSideRed},
-		{TeamSide("BLUE"), TeamSideBlue},
-		{TeamSide("blue"), TeamSideBlue},
-	}
-	for _, tt := range tests {
-		raw, err := bson.Marshal(doc{Val: tt.input})
-		if err != nil {
-			t.Fatalf("marshal %q: %v", tt.input, err)
-		}
-		var decoded doc
-		if err := bson.Unmarshal(raw, &decoded); err != nil {
-			t.Errorf("UnmarshalBSON(%q): %v", tt.input, err)
-			continue
-		}
-		if decoded.Val != tt.want {
-			t.Errorf("UnmarshalBSON(%q): got %q, want %q", tt.input, decoded.Val, tt.want)
-		}
 	}
 }

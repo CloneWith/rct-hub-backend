@@ -164,14 +164,14 @@ func TestMapMatch(t *testing.T) {
 		Mappool:  domain.NewMappool(),
 		BPOrder:  domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue},
 		TurnState: domain.TurnState{
-			Phase:      domain.PhaseBan,
+			Phase:      domain.MatchPhaseBan,
 			Counter:    -3,
 			ActiveTeam: &red,
 			Action:     domain.TurnActionBan,
 			TimeLimit:  60 * time.Second,
 			BonusTime:  15 * time.Second,
 		},
-		Timer: domain.Timer{Duration: 60 * time.Second},
+		Timer: domain.NewTimerState(60*time.Second, 15*time.Second),
 	}
 
 	gqlMatch := mapMatch(match)
@@ -232,8 +232,8 @@ func TestMapBoard(t *testing.T) {
 
 	// 验证 zone 映射
 	cell00 := gqlBoard.Cells[0][0]
-	if cell00.Zone != BoardZone("DT") {
-		t.Errorf("Cell(0,0) Zone: expected DT, got %s", cell00.Zone)
+	if cell00.Zone != BoardZone("HD") {
+		t.Errorf("Cell(0,0) Zone: expected HD, got %s", cell00.Zone)
 	}
 	if cell00.Position.Row != 0 || cell00.Position.Col != 0 {
 		t.Errorf("Cell(0,0) Position: expected (0,0), got row=%d col=%d", cell00.Position.Row, cell00.Position.Col)
@@ -265,11 +265,11 @@ func TestMapPosition(t *testing.T) {
 func TestMapMappool(t *testing.T) {
 	pool := domain.NewMappool()
 	nmID := int64(12345)
-	pool.Slots[domain.ModNM] = []domain.Piece{
+	pool.Slots[domain.PieceModNM] = []domain.Piece{
 		{BeatmapID: &nmID, State: domain.PieceStateNormal},
 		{BeatmapID: nil, State: domain.PieceStateNormal}, // Shiro
 	}
-	pool.Slots[domain.ModHD] = []domain.Piece{
+	pool.Slots[domain.PieceModHD] = []domain.Piece{
 		{BeatmapID: &nmID, State: domain.PieceStateBanned},
 	}
 

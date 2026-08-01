@@ -72,7 +72,7 @@ func TestTBRequestAndResponseRejectInvalidCommandsWithoutMutation(t *testing.T) 
 	expired := turn13.Clone()
 	expired.Timer = Timer{StartedAt: testStart, Duration: time.Second}
 	paused := turn13.Clone()
-	paused.Timer.Pause(testStart.Add(21 * time.Second))
+	paused.Timer.pause(testStart.Add(21 * time.Second))
 
 	requestTests := []struct {
 		name  string

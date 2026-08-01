@@ -1,8 +1,10 @@
-package domain
+package matchengine
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
-// ErrorCode categorises a rule-engine rejection.
 type ErrorCode string
 
 const (
@@ -26,22 +28,19 @@ const (
 	CodeSurrenderEvidenceInvalid  ErrorCode = "SURRENDER_EVIDENCE_INVALID"
 )
 
-// RuleError is a typed rule-engine rejection.
 type RuleError struct {
 	Code    ErrorCode
 	Message string
 }
 
 func (e *RuleError) Error() string {
-	return string(e.Code) + ": " + e.Message
+	return fmt.Sprintf("%s: %s", e.Code, e.Message)
 }
 
-// NewRuleError creates a new rule error with the given code and message.
-func NewRuleError(code ErrorCode, message string) *RuleError {
+func ruleError(code ErrorCode, message string) error {
 	return &RuleError{Code: code, Message: message}
 }
 
-// CodeOf extracts the ErrorCode from an error, or returns "".
 func CodeOf(err error) ErrorCode {
 	var ruleErr *RuleError
 	if errors.As(err, &ruleErr) {

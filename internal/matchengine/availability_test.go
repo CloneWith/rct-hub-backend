@@ -73,17 +73,17 @@ func TestPickEntryStalemateWithUnequalWonCountsFinishesMatch(t *testing.T) {
 	state := stateAtFirstPick(t)
 	fillBoardForStalemate(&state, 9)
 	state.Phase = PhaseWaitingForResult
-	state.PendingPieceID = "red-9"
-	pieceCell, piece, ok := state.Board.PieceByID("red-9")
+	state.PendingPieceID = "RED-9"
+	pieceCell, piece, ok := state.Board.pieceByID("RED-9")
 	if !ok {
 		t.Fatal("pending fixture piece missing")
 	}
 	piece.Outcome = OutcomeWaitingResult
 	piece.Owner = nil
-	state.Board.PlacePieceRaw(pieceCell, piece)
+	state.Board.pieces[pieceCell] = piece
 
 	transition := mustExecute(t, state, RefereeActor(), ConfirmBeatmapResult{
-		BoardPieceID: "red-9", WinningTeam: TeamRed,
+		BoardPieceID: "RED-9", WinningTeam: TeamRed,
 	}, testStart.Add(time.Minute))
 	assertTerminalResult(t, transition.State, TeamRed, ResultReasonStalemateWonCount)
 	if transition.State.Result.RedWonCount != 9 || transition.State.Result.BlueWonCount != 7 {
@@ -99,17 +99,17 @@ func TestPickEntryStalemateWithEqualWonCountsRequiresAdjudication(t *testing.T) 
 	state := stateAtFirstPick(t)
 	fillBoardForStalemate(&state, 8)
 	state.Phase = PhaseWaitingForResult
-	state.PendingPieceID = "red-8"
-	pieceCell, piece, ok := state.Board.PieceByID("red-8")
+	state.PendingPieceID = "RED-8"
+	pieceCell, piece, ok := state.Board.pieceByID("RED-8")
 	if !ok {
 		t.Fatal("pending fixture piece missing")
 	}
 	piece.Outcome = OutcomeWaitingResult
 	piece.Owner = nil
-	state.Board.PlacePieceRaw(pieceCell, piece)
+	state.Board.pieces[pieceCell] = piece
 
 	transition := mustExecute(t, state, RefereeActor(), ConfirmBeatmapResult{
-		BoardPieceID: "red-8", WinningTeam: TeamRed,
+		BoardPieceID: "RED-8", WinningTeam: TeamRed,
 	}, testStart.Add(time.Minute))
 	got := transition.State
 	if got.Lifecycle != LifecycleAdjudicationRequired || got.Phase != PhaseNone || got.Winner != nil || got.Result != nil {
@@ -212,12 +212,12 @@ func TestEqualStalemateJSONRecoveryPreservesClosedBehavior(t *testing.T) {
 	state := stateAtFirstPick(t)
 	fillBoardForStalemate(&state, 8)
 	state.Phase = PhaseWaitingForResult
-	state.PendingPieceID = "red-8"
-	cell, piece, _ := state.Board.PieceByID("red-8")
+	state.PendingPieceID = "RED-8"
+	cell, piece, _ := state.Board.pieceByID("RED-8")
 	piece.Outcome, piece.Owner = OutcomeWaitingResult, nil
-	state.Board.PlacePieceRaw(cell, piece)
+	state.Board.pieces[cell] = piece
 	state = mustExecute(t, state, RefereeActor(), ConfirmBeatmapResult{
-		BoardPieceID: "red-8", WinningTeam: TeamRed,
+		BoardPieceID: "RED-8", WinningTeam: TeamRed,
 	}, testStart.Add(time.Minute)).State
 
 	encoded, err := json.Marshal(state)

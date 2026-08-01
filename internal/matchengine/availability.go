@@ -1,23 +1,24 @@
-package domain
+package matchengine
 
 import "sort"
 
 // PlacementOption is a server-derived legal PoolSlot/cell pairing.
 type PlacementOption struct {
-	PoolSlotID string    `json:"poolSlotId" bson:"pool_slot_id"`
-	Cell       Cell      `json:"cell" bson:"cell"`
-	ForceMod   *ForceMod `json:"forceMod,omitempty" bson:"force_mod,omitempty"`
+	PoolSlotID string    `json:"poolSlotId"`
+	Cell       Cell      `json:"cell"`
+	ForceMod   *ForceMod `json:"forceMod,omitempty"`
 }
 
 // Analysis is a deterministic, read-only view of currently possible play.
+// It is shared by terminal evaluation and non-authoritative tooling.
 type Analysis struct {
-	SelectablePoolSlotIDs []string          `json:"selectablePoolSlotIds" bson:"selectable_pool_slot_ids"`
-	EmptyCells            []Cell            `json:"emptyCells" bson:"empty_cells"`
-	LegalCellsByPoolSlot  map[string][]Cell `json:"legalCellsByPoolSlot" bson:"legal_cells_by_pool_slot"`
-	LegalPlacements       []PlacementOption `json:"legalPlacements" bson:"legal_placements"`
-	WonCounts             map[TeamSide]int  `json:"wonCounts" bson:"won_counts"`
-	Stalemate             bool              `json:"stalemate" bson:"stalemate"`
-	NoFourWithoutRobbery  bool              `json:"noFourWithoutRobbery" bson:"no_four_without_robbery"`
+	SelectablePoolSlotIDs []string          `json:"selectablePoolSlotIds"`
+	EmptyCells            []Cell            `json:"emptyCells"`
+	LegalCellsByPoolSlot  map[string][]Cell `json:"legalCellsByPoolSlot"`
+	LegalPlacements       []PlacementOption `json:"legalPlacements"`
+	WonCounts             map[TeamSide]int  `json:"wonCounts"`
+	Stalemate             bool              `json:"stalemate"`
+	NoFourWithoutRobbery  bool              `json:"noFourWithoutRobbery"`
 }
 
 // Analyze computes availability from state without mutating it.
@@ -27,19 +28,19 @@ func Analyze(state State) Analysis {
 		EmptyCells:            []Cell{},
 		LegalCellsByPoolSlot:  make(map[string][]Cell),
 		LegalPlacements:       []PlacementOption{},
-		WonCounts:             map[TeamSide]int{TeamSideRed: 0, TeamSideBlue: 0},
+		WonCounts:             map[TeamSide]int{TeamRed: 0, TeamBlue: 0},
 	}
 	for row := 0; row < 4; row++ {
 		for column := 0; column < 4; column++ {
-			cell := PositionCell(column, row)
-			if state.Board.Empty(cell) {
+			cell := positionCell(column, row)
+			if state.Board.empty(cell) {
 				analysis.EmptyCells = append(analysis.EmptyCells, cell)
 			}
 		}
 	}
 
 	for _, piece := range state.Board.pieces {
-		if piece.Outcome == OutcomeWon && piece.Owner != nil && piece.Owner.Valid() {
+		if piece.Outcome == OutcomeWon && piece.Owner != nil && piece.Owner.valid() {
 			analysis.WonCounts[*piece.Owner]++
 		}
 	}
@@ -80,43 +81,8 @@ func Analyze(state State) Analysis {
 	return analysis
 }
 
-func placementForceMod(mod Mod, zone Zone) (*ForceMod, error) {
-	switch mod {
-	case ModNM:
-		return nil, nil
-	case ModHD:
-		if zone != ZoneHD {
-			return nil, NewRuleError(CodeInvalidModZone, "HD requires an HD zone")
-		}
-		return nil, nil
-	case ModHR:
-		if zone != ZoneHR {
-			return nil, NewRuleError(CodeInvalidModZone, "HR requires an HR zone")
-		}
-		return nil, nil
-	case ModDT:
-		if zone != ZoneDT {
-			return nil, NewRuleError(CodeInvalidModZone, "DT requires a DT zone")
-		}
-		return nil, nil
-	case ModFM:
-		forceMod := ForceModNM
-		switch zone {
-		case ZoneHD:
-			forceMod = ForceModHD
-		case ZoneHR:
-			forceMod = ForceModHR
-		case ZoneDT:
-			forceMod = ForceModNM
-		}
-		return &forceMod, nil
-	default:
-		return nil, NewRuleError(CodePoolSlotUnavailable, "slot mod cannot be placed as a normal beatmap")
-	}
-}
-
 func canEitherTeamStillFormFour(state State, analysis Analysis) bool {
-	for _, team := range []TeamSide{TeamSideRed, TeamSideBlue} {
+	for _, team := range []TeamSide{TeamRed, TeamBlue} {
 		if canTeamStillFormFour(state, analysis, team) {
 			return true
 		}
@@ -138,7 +104,7 @@ func canTeamStillFormFour(state State, analysis Analysis, team TeamSide) bool {
 						possible = false
 						break
 					}
-					cell := PositionCell(candidateColumn, candidateRow)
+					cell := positionCell(candidateColumn, candidateRow)
 					piece, occupied := state.Board.pieces[cell]
 					if !occupied {
 						required = append(required, cell)

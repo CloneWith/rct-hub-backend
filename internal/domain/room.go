@@ -26,6 +26,22 @@ const (
 	RoomRoleSpectator  RoomRole = "spectator"  // free viewers
 )
 
+// TeamSide identifies the red or blue side.
+type TeamSide string
+
+const (
+	TeamSideRed  TeamSide = "red"
+	TeamSideBlue TeamSide = "blue"
+)
+
+// Opponent returns the other team side.
+func (s TeamSide) Opponent() TeamSide {
+	if s == TeamSideRed {
+		return TeamSideBlue
+	}
+	return TeamSideRed
+}
+
 // RoomMember links a user to a room with a role and optional team assignment.
 type RoomMember struct {
 	UserID   int64         `json:"user_id" bson:"user_id"`

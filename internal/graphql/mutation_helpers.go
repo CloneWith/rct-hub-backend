@@ -81,10 +81,10 @@ func fetchMatchAfterCommand(ctx context.Context, r *mutationResolver, matchID bs
 	return mapMatch(m)
 }
 
-// poolSlotRefToDomain 将 GraphQL PoolSlotRef 转换为 domain.SlotRef。
-func poolSlotRefToDomain(mod PieceMod, index int) domain.SlotRef {
-	return domain.SlotRef{
-		Mod:   domain.Mod(strings.ToUpper(mod.String())),
+// poolSlotRefToDomain 将 GraphQL PoolSlotRef 转换为 domain.PoolSlot。
+func poolSlotRefToDomain(mod PieceMod, index int) domain.PoolSlot {
+	return domain.PoolSlot{
+		Mod:   domain.PieceMod(strings.ToUpper(mod.String())),
 		Index: index,
 	}
 }

@@ -89,7 +89,7 @@ func mapMatchPhase(p domain.MatchPhase) MatchPhase {
 	return MatchPhase(upperEnum(string(p)))
 }
 
-func mapPieceMod(m domain.Mod) PieceMod {
+func mapPieceMod(m domain.PieceMod) PieceMod {
 	return PieceMod(upperEnum(string(m)))
 }
 
@@ -236,59 +236,31 @@ func mapBoard(b *domain.Board) *Board {
 	if b == nil {
 		return nil
 	}
-	cells := make([][]*BoardCell, 4)
-	for y := 0; y < 4; y++ {
-		cells[y] = make([]*BoardCell, 4)
-		for x := 0; x < 4; x++ {
-			pos := domain.Position{X: x, Y: y}
-			cell := domain.CellFromPosition(pos)
-			piece, ok := b.PieceAt(cell)
-			if !ok {
-				cells[y][x] = &BoardCell{
-					Position: mapPosition(pos),
-					Zone:     mapZone(zoneAt(x, y)),
-					State:    "empty",
-				}
-				continue
-			}
-			owner := ""
-			if piece.Owner != nil {
-				owner = string(*piece.Owner)
-			}
-			cells[y][x] = &BoardCell{
-				Position: mapPosition(pos),
-				Zone:     mapZone(zoneAt(x, y)),
-				State:    "occupied",
-				PieceID:  &piece.ID,
-				TeamID:   &owner,
-			}
+	cells := make([][]*BoardCell, len(b.Cells))
+	for y := range b.Cells {
+		cells[y] = make([]*BoardCell, len(b.Cells[y]))
+		for x := range b.Cells[y] {
+			cells[y][x] = mapBoardCell(&b.Cells[y][x])
 		}
 	}
 	return &Board{
-		Rows:  4,
-		Cols:  4,
+		Rows:  b.Rows,
+		Cols:  b.Cols,
 		Cells: cells,
 	}
 }
 
-// zoneAt returns the RCT board zone for a given x,y position.
-func zoneAt(x, y int) domain.Zone {
-	switch {
-	case y < 2 && x < 2:
-		return domain.ZoneDT
-	case y < 2:
-		return domain.ZoneHD
-	case x < 2:
-		return domain.ZoneHR
-	default:
-		return domain.ZoneDT
-	}
-}
-
 func mapBoardCell(c *domain.Cell) *BoardCell {
-	// Legacy stub: old domain.Cell no longer exists.
-	// Use mapBoard for the new Board.
-	return nil
+	if c == nil {
+		return nil
+	}
+	return &BoardCell{
+		Position: mapPosition(c.Position),
+		Zone:     mapZone(c.Zone),
+		State:    string(c.State),
+		PieceID:  c.PieceID,
+		TeamID:   c.TeamID,
+	}
 }
 
 func mapPiece(p *domain.Piece) *Piece {
@@ -323,9 +295,9 @@ func mapMappool(m *domain.Mappool) *Mappool {
 		return nil
 	}
 	// 确定遍历顺序: NM, HD, HR, DT, FM, Shiro, TB
-	order := []domain.Mod{
-		domain.ModNM, domain.ModHD, domain.ModHR, domain.ModDT,
-		domain.ModFM, domain.ModShiro, domain.ModTB,
+	order := []domain.PieceMod{
+		domain.PieceModNM, domain.PieceModHD, domain.PieceModHR, domain.PieceModDT,
+		domain.PieceModFM, domain.PieceModShiro, domain.PieceModTB,
 	}
 
 	var groups []*PoolSlotGroup
@@ -346,7 +318,7 @@ func mapMappool(m *domain.Mappool) *Mappool {
 	return &Mappool{Slots: groups}
 }
 
-func mapPieceToPoolSlot(mod domain.Mod, index int, p *domain.Piece) *PoolSlot {
+func mapPieceToPoolSlot(mod domain.PieceMod, index int, p *domain.Piece) *PoolSlot {
 	if p == nil {
 		return nil
 	}
@@ -362,14 +334,15 @@ func mapPieceToPoolSlot(mod domain.Mod, index int, p *domain.Piece) *PoolSlot {
 	}
 }
 
-func mapPoolSlot(s *domain.SlotRef) *PoolSlot {
+func mapPoolSlot(s *domain.PoolSlot) *PoolSlot {
 	if s == nil {
 		return nil
 	}
 	return &PoolSlot{
 		Mod:   mapPieceMod(s.Mod),
 		Index: s.Index,
-		// BeatmapID/State/TeamID/ForceMod/Position 不可用 (domain.SlotRef 只有 Mod+Index)
+		// BeatmapID/State/TeamID/ForceMod/Position 不可用 (domain.PoolSlot 只有 Mod+Index)
+		// Beatmap resolver 会因 BeatmapID=nil 返回 nil
 	}
 }
 
@@ -467,23 +440,17 @@ func mapTurnState(t *domain.TurnState) *TurnState {
 	}
 }
 
-func mapTimerState(t *domain.Timer) *TimerState {
+func mapTimerState(t *domain.TimerState) *TimerState {
 	if t == nil {
 		return nil
 	}
-	durSec := int(t.Duration.Seconds())
-	// NOTE: domain.Timer (rule-engine model) tracks Duration/Paused/RemainingAtPause.
-	// It does not carry per-turn bonus-time metadata. Turn-level bonus information
-	// is available on TurnState (mapped separately via mapTurnState).
-	// Until bonus tracking is re-integrated into the engine timer, these GraphQL
-	// fields return safe sentinel values to avoid misleading clients.
 	return &TimerState{
 		StartedAt:        &t.StartedAt,
-		TimeLimit:        durSec,
-		BonusTime:        0,     // engine timer does not track bonus yet
-		BonusUsed:        false, // engine timer does not track bonus yet
-		IsPaused:         t.Paused,
-		PausedAt:         nil, // engine timer uses RemainingAtPause, not pausedAt
+		TimeLimit:        int(t.TimeLimit.Seconds()),
+		BonusTime:        int(t.BonusTime.Seconds()),
+		BonusUsed:        t.BonusUsed,
+		IsPaused:         t.IsPaused,
+		PausedAt:         t.PausedAt,
 		RemainingAtPause: durationSeconds(t.RemainingAtPause),
 	}
 }

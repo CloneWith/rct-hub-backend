@@ -173,7 +173,7 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	if match.Status != domain.MatchStatusActive {
 		t.Errorf("expected match active, got %s", match.Status)
 	}
-	if match.TurnState.Phase != domain.PhaseBan {
+	if match.TurnState.Phase != domain.MatchPhaseBan {
 		t.Errorf("expected ban phase, got %s", match.TurnState.Phase)
 	}
 	if *match.TurnState.ActiveTeam != domain.TeamSideBlue {
@@ -195,23 +195,23 @@ func TestMatchServiceBanAndPick(t *testing.T) {
 	redStrat := domain.RoomMember{UserID: 10, Role: domain.RoomRoleStrategist, TeamSide: teamSidePtr(domain.TeamSideRed)}
 
 	// Admin can ban at any time.
-	if err := svc.BanPiece(ctx, match.ID, admin, domain.SlotRef{Mod: domain.ModNM, Index: 1}); err != nil {
+	if err := svc.BanPiece(ctx, match.ID, admin, domain.PoolSlot{Mod: domain.PieceModNM, Index: 1}); err != nil {
 		t.Fatalf("admin ban: %v", err)
 	}
 
 	// Red strategist cannot ban during blue's ban turn.
-	if err := svc.BanPiece(ctx, match.ID, redStrat, domain.SlotRef{Mod: domain.ModNM, Index: 2}); !errors.Is(err, errs.ErrForbidden) {
+	if err := svc.BanPiece(ctx, match.ID, redStrat, domain.PoolSlot{Mod: domain.PieceModNM, Index: 2}); !errors.Is(err, errs.ErrForbidden) {
 		t.Fatalf("expected forbidden, got %v", err)
 	}
 
 	// Admin can pick anywhere.
 	redSide := domain.TeamSideRed
-	if err := svc.PickPiece(ctx, match.ID, admin, domain.SlotRef{Mod: domain.ModNM, Index: 2}, domain.Position{X: 0, Y: 0}, nil, &redSide); err != nil {
+	if err := svc.PickPiece(ctx, match.ID, admin, domain.PoolSlot{Mod: domain.PieceModNM, Index: 2}, domain.Position{X: 0, Y: 0}, nil, &redSide); err != nil {
 		t.Fatalf("admin pick: %v", err)
 	}
 
 	// Invalid zone placement for HD.
-	if err := svc.PickPiece(ctx, match.ID, admin, domain.SlotRef{Mod: domain.ModHD, Index: 1}, domain.Position{X: 3, Y: 3}, nil, &redSide); !errors.Is(err, errs.ErrInvalidInput) {
+	if err := svc.PickPiece(ctx, match.ID, admin, domain.PoolSlot{Mod: domain.PieceModHD, Index: 1}, domain.Position{X: 3, Y: 3}, nil, &redSide); !errors.Is(err, errs.ErrInvalidInput) {
 		t.Fatalf("expected invalid input for wrong zone, got %v", err)
 	}
 }
@@ -225,11 +225,11 @@ func makeTestMatch() *domain.Match {
 		Board:     domain.NewBoard(),
 		BPOrder:   domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue},
 		TurnState: domain.NewTurnState(),
-		Timer:     domain.Timer{},
+		Timer:     domain.NewTimerState(0, 0),
 		Status:    domain.MatchStatusActive,
 	}
-	match.Mappool.Slots[domain.ModNM] = []domain.Piece{{}, {}, {}}
-	match.Mappool.Slots[domain.ModHD] = []domain.Piece{{}, {}, {}}
+	match.Mappool.Slots[domain.PieceModNM] = []domain.Piece{{}, {}, {}}
+	match.Mappool.Slots[domain.PieceModHD] = []domain.Piece{{}, {}, {}}
 	match.TurnState.StartBan(match.BPOrder)
 	return match
 }

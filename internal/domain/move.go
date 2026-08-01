@@ -33,7 +33,7 @@ type Move struct {
 	TeamSide   *TeamSide     `json:"team_side,omitempty" bson:"team_side,omitempty"`
 	OperatorID int64         `json:"operator_id" bson:"operator_id"` // osu uid of strategist/referee
 
-	Slot     *SlotRef  `json:"slot,omitempty" bson:"slot,omitempty"`
+	Slot     *PoolSlot `json:"slot,omitempty" bson:"slot,omitempty"`
 	From     *Position `json:"from,omitempty" bson:"from,omitempty"` // for rob/unrob: source cell
 	To       *Position `json:"to,omitempty" bson:"to,omitempty"`     // for pick/claim/win
 	ForceMod *ForceMod `json:"force_mod,omitempty" bson:"force_mod,omitempty"`
@@ -61,7 +61,7 @@ type PlayerScore struct {
 }
 
 // NewPickMove creates a move that places a piece on the board.
-func NewPickMove(matchID, roomID bson.ObjectID, operator int64, side TeamSide, slot SlotRef, to Position, forceMod *ForceMod) Move {
+func NewPickMove(matchID, roomID bson.ObjectID, operator int64, side TeamSide, slot PoolSlot, to Position, forceMod *ForceMod) Move {
 	now := time.Now()
 	return Move{
 		MatchID:    matchID,
@@ -77,7 +77,7 @@ func NewPickMove(matchID, roomID bson.ObjectID, operator int64, side TeamSide, s
 }
 
 // NewBanMove creates a ban move.
-func NewBanMove(matchID, roomID bson.ObjectID, operator int64, side TeamSide, slot SlotRef) Move {
+func NewBanMove(matchID, roomID bson.ObjectID, operator int64, side TeamSide, slot PoolSlot) Move {
 	now := time.Now()
 	return Move{
 		MatchID:    matchID,

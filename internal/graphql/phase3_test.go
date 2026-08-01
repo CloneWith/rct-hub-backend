@@ -268,8 +268,8 @@ func TestSchemaHas14Mutations(t *testing.T) {
 
 func TestPoolSlotRefToDomain(t *testing.T) {
 	slot := poolSlotRefToDomain(PieceModNm, 1)
-	if slot.Mod != domain.ModNM {
-		t.Errorf("mod: got %s, want %s", slot.Mod, domain.ModNM)
+	if slot.Mod != domain.PieceModNM {
+		t.Errorf("mod: got %s, want %s", slot.Mod, domain.PieceModNM)
 	}
 	if slot.Index != 1 {
 		t.Errorf("index: got %d, want 1", slot.Index)

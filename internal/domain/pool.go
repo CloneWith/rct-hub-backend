@@ -1,35 +1,31 @@
 package domain
 
-import (
-	"strconv"
-	"strings"
-)
+import "fmt"
 
-// SlotRef identifies a single slot inside the mappool.
-// This is a lookup key (Mod + 1-based Index), distinct from
-// the engine's PoolSlot which tracks per-slot competitive state.
-type SlotRef struct {
-	Mod   Mod `json:"mod" bson:"mod"`
-	Index int `json:"index" bson:"index"` // 1-based within the mod group
+// PoolSlot identifies a single slot inside the mappool.
+type PoolSlot struct {
+	Mod   PieceMod `json:"mod" bson:"mod"`
+	Index int      `json:"index" bson:"index"` // 1-based within the mod group
 }
 
 // String returns a stable identifier such as "NM-1" or "FM-5".
-func (s SlotRef) String() string {
+func (s PoolSlot) String() string {
 	return string(s.Mod) + "-" + itoa(s.Index)
 }
 
 // Mappool holds all beatmap slots available for a match.
+// The number of pieces in each mod group is controlled by the frontend.
 type Mappool struct {
-	Slots map[Mod][]Piece `json:"slots" bson:"slots"`
+	Slots map[PieceMod][]Piece `json:"slots" bson:"slots"`
 }
 
 // NewMappool creates an empty mappool.
 func NewMappool() Mappool {
-	return Mappool{Slots: make(map[Mod][]Piece)}
+	return Mappool{Slots: make(map[PieceMod][]Piece)}
 }
 
-// FindSlot returns the piece matching the slot reference, or nil.
-func (m Mappool) FindSlot(slot SlotRef) *Piece {
+// FindSlot returns the piece matching the slot, or nil if not found.
+func (m Mappool) FindSlot(slot PoolSlot) *Piece {
 	group, ok := m.Slots[slot.Mod]
 	if !ok || slot.Index < 1 || slot.Index > len(group) {
 		return nil
@@ -37,7 +33,9 @@ func (m Mappool) FindSlot(slot SlotRef) *Piece {
 	return &group[slot.Index-1]
 }
 
-// ActiveSlots returns all slots that have not been removed.
+// ActiveSlots returns all slots that have not been removed (beatmap_id != -1).
+// A slot with beatmap_id == nil (Shiro) or beatmap_id == 0 is still active
+// but has no beatmap metadata.
 func (m Mappool) ActiveSlots() []Piece {
 	var active []Piece
 	for _, group := range m.Slots {
@@ -51,7 +49,7 @@ func (m Mappool) ActiveSlots() []Piece {
 }
 
 // ActiveSlotsByMod returns active slots for a specific mod group.
-func (m Mappool) ActiveSlotsByMod(mod Mod) []Piece {
+func (m Mappool) ActiveSlotsByMod(mod PieceMod) []Piece {
 	var active []Piece
 	group, ok := m.Slots[mod]
 	if !ok {
@@ -65,22 +63,15 @@ func (m Mappool) ActiveSlotsByMod(mod Mod) []Piece {
 	return active
 }
 
-// ParseSlotRef parses a string such as "NM-1" into a SlotRef.
-// It splits on the last "-" to correctly handle multi-character mods (e.g. "Shiro").
-func ParseSlotRef(s string) (SlotRef, bool) {
-	pos := strings.LastIndex(s, "-")
-	if pos < 0 || pos == 0 || pos == len(s)-1 {
-		return SlotRef{}, false
-	}
-	mod := Mod(s[:pos])
-	if !mod.Valid() {
-		return SlotRef{}, false
-	}
-	idx, err := strconv.Atoi(s[pos+1:])
+// ParsePoolSlot parses a string such as "NM-1" into a PoolSlot.
+func ParsePoolSlot(s string) (PoolSlot, bool) {
+	var mod PieceMod
+	var idx int
+	_, err := fmt.Sscanf(s, "%s-%d", &mod, &idx)
 	if err != nil || idx < 1 {
-		return SlotRef{}, false
+		return PoolSlot{}, false
 	}
-	return SlotRef{Mod: mod, Index: idx}, true
+	return PoolSlot{Mod: mod, Index: idx}, true
 }
 
 func itoa(n int) string {

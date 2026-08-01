@@ -197,7 +197,7 @@ func (s *RoomService) StartMatch(ctx context.Context, roomID bson.ObjectID) (*do
 	now := time.Now().UTC()
 	match.StartedAt = &now
 	match.TurnState.StartBan(match.BPOrder)
-	match.Timer = domain.Timer{StartedAt: now, Duration: domain.BanDuration}
+	match.Timer = domain.NewTimerState(domain.BanTimeLimit, domain.BanBonusTime)
 
 	if err := s.matches.Create(ctx, &match); err != nil {
 		return nil, err
