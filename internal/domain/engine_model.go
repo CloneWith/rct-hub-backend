@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"strings"
 	"time"
 )
 
@@ -19,6 +20,33 @@ const (
 // Valid reports whether the side is a recognised competitive side.
 func (s TeamSide) Valid() bool {
 	return s == TeamSideRed || s == TeamSideBlue
+}
+
+// UnmarshalJSON normalises incoming JSON values to lowercase so that both
+// "RED" and "red" are accepted at the transport boundary.
+func (s *TeamSide) UnmarshalJSON(data []byte) error {
+	raw := string(data)
+	// Strip surrounding quotes from JSON string.
+	if len(raw) >= 2 && raw[0] == '"' && raw[len(raw)-1] == '"' {
+		raw = raw[1 : len(raw)-1]
+	}
+	*s = TeamSide(strings.ToLower(raw))
+	return nil
+}
+
+// UnmarshalBSON normalises incoming BSON values to lowercase.
+func (s *TeamSide) UnmarshalBSONValue(typ byte, data []byte) error {
+	if typ != 0x02 { // BSON TypeString
+		return nil
+	}
+	// BSON string: 4-byte little-endian length (including null), UTF-8 data, null.
+	if len(data) < 5 {
+		return nil
+	}
+	// Length is at data[0:4]; skip the 4-byte length prefix and trailing null.
+	raw := string(data[4 : len(data)-1])
+	*s = TeamSide(strings.ToLower(raw))
+	return nil
 }
 
 // Opponent returns the other team side.

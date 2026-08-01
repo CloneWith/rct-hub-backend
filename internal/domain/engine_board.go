@@ -1,6 +1,10 @@
 package domain
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+)
 
 // Cell is a canonical board coordinate from A1 through D4.
 type Cell string
@@ -46,6 +50,29 @@ func (b *Board) UnmarshalJSON(data []byte) error {
 		encoded.Pieces = make(map[Cell]BoardPiece)
 	}
 	b.pieces = encoded.Pieces
+	return nil
+}
+
+// MarshalBSON encodes the board for MongoDB storage.
+func (b Board) MarshalBSON() ([]byte, error) {
+	type boardDoc struct {
+		Pieces map[Cell]BoardPiece `bson:"pieces"`
+	}
+	return bson.Marshal(boardDoc{Pieces: b.pieces})
+}
+
+// UnmarshalBSON decodes the board from a MongoDB document.
+func (b *Board) UnmarshalBSON(data []byte) error {
+	var doc struct {
+		Pieces map[Cell]BoardPiece `bson:"pieces"`
+	}
+	if err := bson.Unmarshal(data, &doc); err != nil {
+		return err
+	}
+	if doc.Pieces == nil {
+		doc.Pieces = make(map[Cell]BoardPiece)
+	}
+	b.pieces = doc.Pieces
 	return nil
 }
 
@@ -318,7 +345,7 @@ func (b *Board) Place(mod Mod, position Position, pieceID string, teamID TeamSid
 		Mod:        mod,
 		SelectedBy: teamID,
 		Owner:      &owner,
-		Outcome:    OutcomeWon,
+		Outcome:    OutcomeWaitingResult,
 	})
 	return true
 }
