@@ -151,6 +151,12 @@ func TestMapUser(t *testing.T) {
 
 func TestMapMatch(t *testing.T) {
 	red := domain.TeamSideRed
+	pausedAt := time.Date(2026, time.July, 30, 12, 0, 0, 0, time.UTC)
+	timer := domain.NewTimerState(60*time.Second, 15*time.Second)
+	timer.BonusUsed = true
+	timer.IsPaused = true
+	timer.PausedAt = &pausedAt
+	timer.RemainingAtPause = 23 * time.Second
 	match := &domain.Match{
 		ID:       bson.NewObjectID(),
 		RoomID:   bson.NewObjectID(),
@@ -171,7 +177,7 @@ func TestMapMatch(t *testing.T) {
 			TimeLimit:  60 * time.Second,
 			BonusTime:  15 * time.Second,
 		},
-		Timer: domain.NewTimerState(60*time.Second, 15*time.Second),
+		Timer: timer,
 	}
 
 	gqlMatch := mapMatch(match)
@@ -214,6 +220,11 @@ func TestMapMatch(t *testing.T) {
 	}
 	if gqlMatch.Timer == nil || gqlMatch.Timer.TimeLimit != 60 {
 		t.Errorf("Timer.TimeLimit: expected 60, got %v", gqlMatch.Timer)
+	}
+	if gqlMatch.Timer.BonusTime != 15 || !gqlMatch.Timer.BonusUsed || !gqlMatch.Timer.IsPaused ||
+		gqlMatch.Timer.PausedAt == nil || !gqlMatch.Timer.PausedAt.Equal(pausedAt) ||
+		gqlMatch.Timer.RemainingAtPause == nil || *gqlMatch.Timer.RemainingAtPause != 23 {
+		t.Errorf("Timer contract fields were not preserved: %+v", gqlMatch.Timer)
 	}
 
 	t.Logf("✓ mapMatch: all fields correctly mapped")
