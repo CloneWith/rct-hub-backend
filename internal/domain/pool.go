@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"strconv"
+	"strings"
+)
 
 // SlotRef identifies a single slot inside the mappool.
 // This is a lookup key (Mod + 1-based Index), distinct from
@@ -63,10 +66,17 @@ func (m Mappool) ActiveSlotsByMod(mod Mod) []Piece {
 }
 
 // ParseSlotRef parses a string such as "NM-1" into a SlotRef.
+// It splits on the last "-" to correctly handle multi-character mods (e.g. "Shiro").
 func ParseSlotRef(s string) (SlotRef, bool) {
-	var mod Mod
-	var idx int
-	_, err := fmt.Sscanf(s, "%s-%d", &mod, &idx)
+	pos := strings.LastIndex(s, "-")
+	if pos < 0 || pos == 0 || pos == len(s)-1 {
+		return SlotRef{}, false
+	}
+	mod := Mod(s[:pos])
+	if !mod.Valid() {
+		return SlotRef{}, false
+	}
+	idx, err := strconv.Atoi(s[pos+1:])
 	if err != nil || idx < 1 {
 		return SlotRef{}, false
 	}
