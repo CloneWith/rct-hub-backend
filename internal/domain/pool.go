@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"strconv"
+	"strings"
+)
 
 // PoolSlot identifies a single slot inside the mappool.
 type PoolSlot struct {
@@ -65,13 +68,28 @@ func (m Mappool) ActiveSlotsByMod(mod PieceMod) []Piece {
 
 // ParsePoolSlot parses a string such as "NM-1" into a PoolSlot.
 func ParsePoolSlot(s string) (PoolSlot, bool) {
-	var mod PieceMod
-	var idx int
-	_, err := fmt.Sscanf(s, "%s-%d", &mod, &idx)
+	modText, indexText, found := strings.Cut(s, "-")
+	if !found || modText == "" || indexText == "" || strings.Contains(indexText, "-") {
+		return PoolSlot{}, false
+	}
+	mod := PieceMod(modText)
+	if !isKnownPieceMod(mod) {
+		return PoolSlot{}, false
+	}
+	idx, err := strconv.Atoi(indexText)
 	if err != nil || idx < 1 {
 		return PoolSlot{}, false
 	}
 	return PoolSlot{Mod: mod, Index: idx}, true
+}
+
+func isKnownPieceMod(mod PieceMod) bool {
+	switch mod {
+	case PieceModNM, PieceModHD, PieceModHR, PieceModDT, PieceModFM, PieceModShiro, PieceModTB:
+		return true
+	default:
+		return false
+	}
 }
 
 func itoa(n int) string {

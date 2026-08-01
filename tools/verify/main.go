@@ -23,6 +23,9 @@ func main() {
 	if err := checkFormatting(); err != nil {
 		fail("format", err)
 	}
+	if err := checkMatchEngineDependencies(); err != nil {
+		fail("matchengine-purity", err)
+	}
 
 	checks := []check{
 		{name: "vet", cmd: "go", args: []string{"vet", "./..."}},
@@ -42,6 +45,28 @@ func main() {
 	}
 
 	fmt.Println("verification passed")
+}
+
+func checkMatchEngineDependencies() error {
+	fmt.Println("==> matchengine-purity")
+	command := exec.Command("go", "list", "-deps", "./internal/matchengine")
+	output, err := command.Output()
+	if err != nil {
+		return fmt.Errorf("list dependencies: %w", err)
+	}
+	forbidden := []string{
+		"github.com/gin-gonic/gin",
+		"github.com/redis/go-redis",
+		"go.mongodb.org/mongo-driver",
+	}
+	for _, dependency := range strings.Fields(string(output)) {
+		for _, prefix := range forbidden {
+			if dependency == prefix || strings.HasPrefix(dependency, prefix+"/") {
+				return fmt.Errorf("forbidden dependency %q", dependency)
+			}
+		}
+	}
+	return nil
 }
 
 func checkFormatting() error {

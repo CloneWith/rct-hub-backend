@@ -1,8 +1,11 @@
 package domain
 
 import (
+	"reflect"
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func TestNewBoard(t *testing.T) {
@@ -158,5 +161,52 @@ func TestMappoolFlexible(t *testing.T) {
 	slot.Index = 5
 	if p := pool.FindSlot(slot); p != nil {
 		t.Error("expected HD-5 not to exist")
+	}
+}
+
+func TestPoolSlotStringParseRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	mods := []PieceMod{
+		PieceModNM, PieceModHD, PieceModHR, PieceModDT,
+		PieceModFM, PieceModShiro, PieceModTB,
+	}
+	for _, mod := range mods {
+		for _, index := range []int{1, 12, 999} {
+			want := PoolSlot{Mod: mod, Index: index}
+			got, ok := ParsePoolSlot(want.String())
+			if !ok || got != want {
+				t.Fatalf("ParsePoolSlot(%q) = %+v, %v; want %+v, true", want.String(), got, ok, want)
+			}
+		}
+	}
+
+	for _, invalid := range []string{"", "NM", "NM-0", "NM--1", "NM-1-extra", "XX-1"} {
+		if got, ok := ParsePoolSlot(invalid); ok {
+			t.Fatalf("ParsePoolSlot(%q) = %+v, true; want rejection", invalid, got)
+		}
+	}
+}
+
+func TestLegacyMatchBSONRoundTripPreservesBoard(t *testing.T) {
+	t.Parallel()
+
+	board := NewBoard()
+	position := Position{X: 0, Y: 0}
+	if !board.Place(PieceModNM, position, "NM-12", string(TeamSideRed)) {
+		t.Fatal("place legacy board fixture")
+	}
+	want := Match{ID: bson.NewObjectID(), Board: board}
+
+	encoded, err := bson.Marshal(want)
+	if err != nil {
+		t.Fatalf("marshal match BSON: %v", err)
+	}
+	var got Match
+	if err := bson.Unmarshal(encoded, &got); err != nil {
+		t.Fatalf("unmarshal match BSON: %v", err)
+	}
+	if !reflect.DeepEqual(got.Board, want.Board) {
+		t.Fatalf("board after BSON round trip = %#v; want %#v", got.Board, want.Board)
 	}
 }
