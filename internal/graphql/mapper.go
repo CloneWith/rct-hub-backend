@@ -472,13 +472,18 @@ func mapTimerState(t *domain.Timer) *TimerState {
 		return nil
 	}
 	durSec := int(t.Duration.Seconds())
+	// NOTE: domain.Timer (rule-engine model) tracks Duration/Paused/RemainingAtPause.
+	// It does not carry per-turn bonus-time metadata. Turn-level bonus information
+	// is available on TurnState (mapped separately via mapTurnState).
+	// Until bonus tracking is re-integrated into the engine timer, these GraphQL
+	// fields return safe sentinel values to avoid misleading clients.
 	return &TimerState{
 		StartedAt:        &t.StartedAt,
 		TimeLimit:        durSec,
-		BonusTime:        0,
-		BonusUsed:        false,
+		BonusTime:        0,     // engine timer does not track bonus yet
+		BonusUsed:        false, // engine timer does not track bonus yet
 		IsPaused:         t.Paused,
-		PausedAt:         nil,
+		PausedAt:         nil, // engine timer uses RemainingAtPause, not pausedAt
 		RemainingAtPause: durationSeconds(t.RemainingAtPause),
 	}
 }
