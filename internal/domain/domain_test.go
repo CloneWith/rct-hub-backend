@@ -1,8 +1,11 @@
 package domain
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func TestNewBoard(t *testing.T) {
@@ -62,7 +65,10 @@ func TestBoardFourInARow(t *testing.T) {
 	b := NewBoard()
 	red := TeamSideRed
 	for x := range 4 {
-		b.Place(ModNM, Position{X: x, Y: 0}, "NM-1", red)
+		pos := Position{X: x, Y: 0}
+		b.Place(ModNM, pos, "NM-1", red)
+		// Engine requires explicit result confirmation.
+		b.SetOwner(pos, red)
 	}
 	if !b.HasFour(red) {
 		t.Error("expected red to have four in a row")
@@ -178,5 +184,159 @@ func TestMappoolFlexible(t *testing.T) {
 	slot.Index = 5
 	if p := pool.FindSlot(slot); p != nil {
 		t.Error("expected HD-5 not to exist")
+	}
+}
+
+func TestBoardBSONRoundTrip(t *testing.T) {
+	b := NewBoard()
+	red := TeamSideRed
+
+	b.Place(ModNM, Position{X: 0, Y: 0}, "NM-1", red)
+	b.Place(ModHD, Position{X: 2, Y: 0}, "HD-1", red)
+
+	data, err := bson.Marshal(b)
+	if err != nil {
+		t.Fatalf("BSON marshal: %v", err)
+	}
+
+	var restored Board
+	if err := bson.Unmarshal(data, &restored); err != nil {
+		t.Fatalf("BSON unmarshal: %v", err)
+	}
+
+	// Verify the NM-1 piece survived the round trip.
+	nmCell := PositionCell(0, 0)
+	nmPiece, ok := restored.PieceAt(nmCell)
+	if !ok {
+		t.Fatal("NM-1 lost after BSON round trip")
+	}
+	if nmPiece.ID != "NM-1" || nmPiece.Mod != ModNM {
+		t.Errorf("NM-1: expected ID=NM-1, Mod=NM; got ID=%s, Mod=%s", nmPiece.ID, nmPiece.Mod)
+	}
+	if nmPiece.Owner == nil || *nmPiece.Owner != red {
+		t.Error("NM-1: owner should be red")
+	}
+
+	// Verify the HD-1 piece survived the round trip.
+	hdCell := PositionCell(2, 0)
+	hdPiece, ok := restored.PieceAt(hdCell)
+	if !ok {
+		t.Fatal("HD-1 lost after BSON round trip")
+	}
+	if hdPiece.ID != "HD-1" || hdPiece.Mod != ModHD {
+		t.Errorf("HD-1: expected ID=HD-1, Mod=HD; got ID=%s, Mod=%s", hdPiece.ID, hdPiece.Mod)
+	}
+
+	// Verify no stray pieces.
+	if len(restored.Pieces()) != 2 {
+		t.Errorf("expected 2 pieces after round trip, got %d", len(restored.Pieces()))
+	}
+}
+
+func TestParseSlotRefRoundTrip(t *testing.T) {
+	tests := []SlotRef{
+		{Mod: ModNM, Index: 1},
+		{Mod: ModNM, Index: 12},
+		{Mod: ModHD, Index: 3},
+		{Mod: ModDT, Index: 1},
+		{Mod: ModFM, Index: 5},
+		{Mod: ModShiro, Index: 1},
+		{Mod: ModTB, Index: 1},
+	}
+	for _, want := range tests {
+		got, ok := ParseSlotRef(want.String())
+		if !ok {
+			t.Errorf("ParseSlotRef(%q): not ok", want.String())
+			continue
+		}
+		if got.Mod != want.Mod || got.Index != want.Index {
+			t.Errorf("ParseSlotRef(%q): got {Mod:%s, Index:%d}, want {Mod:%s, Index:%d}",
+				want.String(), got.Mod, got.Index, want.Mod, want.Index)
+		}
+	}
+}
+
+func TestMarkDeadKeepsPieceOnBoard(t *testing.T) {
+	b := NewBoard()
+	red := TeamSideRed
+
+	pos := Position{X: 0, Y: 0}
+	b.Place(ModNM, pos, "NM-1", red)
+	b.SetOwner(pos, red)
+
+	// Mark the piece as dead — it must remain occupying its cell.
+	b.MarkDeadByIDs([]string{"NM-1"})
+
+	// Cell should still be occupied (engine invariant).
+	if b.Empty(PositionCell(0, 0)) {
+		t.Fatal("DEAD piece was removed from board")
+	}
+
+	piece, ok := b.PieceAt(PositionCell(0, 0))
+	if !ok {
+		t.Fatal("DEAD piece missing from board")
+	}
+	if piece.Outcome != OutcomeDead {
+		t.Errorf("expected OutcomeDead, got %s", piece.Outcome)
+	}
+
+	// DEAD pieces should not count toward four-in-a-row.
+	if b.HasFour(red) {
+		t.Error("DEAD pieces should not count toward alignment")
+	}
+}
+
+func TestTeamSideCaseNormalisation(t *testing.T) {
+	tests := []struct {
+		jsonInput string
+		want      TeamSide
+	}{
+		{`"RED"`, TeamSideRed},
+		{`"red"`, TeamSideRed},
+		{`"BLUE"`, TeamSideBlue},
+		{`"blue"`, TeamSideBlue},
+		{`"Red"`, TeamSideRed},
+		{`"Blue"`, TeamSideBlue},
+	}
+	for _, tt := range tests {
+		var s TeamSide
+		if err := json.Unmarshal([]byte(tt.jsonInput), &s); err != nil {
+			t.Errorf("UnmarshalJSON(%s): %v", tt.jsonInput, err)
+			continue
+		}
+		if s != tt.want {
+			t.Errorf("UnmarshalJSON(%s): got %q, want %q", tt.jsonInput, s, tt.want)
+		}
+	}
+}
+
+func TestTeamSideBSONCaseNormalisation(t *testing.T) {
+	// Create a BSON document with a TeamSide field, then round-trip it.
+	type doc struct {
+		Val TeamSide `bson:"val"`
+	}
+
+	tests := []struct {
+		input TeamSide
+		want  TeamSide
+	}{
+		{TeamSide("RED"), TeamSideRed},
+		{TeamSide("red"), TeamSideRed},
+		{TeamSide("BLUE"), TeamSideBlue},
+		{TeamSide("blue"), TeamSideBlue},
+	}
+	for _, tt := range tests {
+		raw, err := bson.Marshal(doc{Val: tt.input})
+		if err != nil {
+			t.Fatalf("marshal %q: %v", tt.input, err)
+		}
+		var decoded doc
+		if err := bson.Unmarshal(raw, &decoded); err != nil {
+			t.Errorf("UnmarshalBSON(%q): %v", tt.input, err)
+			continue
+		}
+		if decoded.Val != tt.want {
+			t.Errorf("UnmarshalBSON(%q): got %q, want %q", tt.input, decoded.Val, tt.want)
+		}
 	}
 }
