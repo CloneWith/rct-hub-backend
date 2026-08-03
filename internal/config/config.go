@@ -45,6 +45,10 @@ type OsuConfig struct {
 	ClientSecret string
 	RedirectURI  string
 	APIBase      string
+
+	// Fetcher cache TTLs (optional, defaults applied in the fetcher package).
+	FetcherUserCacheTTL    time.Duration
+	FetcherBeatmapCacheTTL time.Duration
 }
 
 type CORSConfig struct {
@@ -77,10 +81,12 @@ func Load() (*Config, error) {
 			Expiry: time.Duration(mustAtoi(getEnv("JWT_EXPIRY_HOURS", "168"))) * time.Hour,
 		},
 		Osu: OsuConfig{
-			ClientID:     getEnv("OSU_CLIENT_ID", ""),
-			ClientSecret: getEnv("OSU_CLIENT_SECRET", ""),
-			RedirectURI:  getEnv("OSU_REDIRECT_URI", "http://localhost:8080/auth/osu/callback"),
-			APIBase:      getEnv("OSU_API_BASE", "https://osu.ppy.sh"),
+			ClientID:               getEnv("OSU_CLIENT_ID", ""),
+			ClientSecret:           getEnv("OSU_CLIENT_SECRET", ""),
+			RedirectURI:            getEnv("OSU_REDIRECT_URI", "http://localhost:8080/auth/osu/callback"),
+			APIBase:                getEnv("OSU_API_BASE", "https://osu.ppy.sh"),
+			FetcherUserCacheTTL:    time.Duration(mustAtoi(getEnv("OSU_FETCHER_USER_CACHE_TTL_MIN", "30"))) * time.Minute,
+			FetcherBeatmapCacheTTL: time.Duration(mustAtoi(getEnv("OSU_FETCHER_BEATMAP_CACHE_TTL_HR", "24"))) * time.Hour,
 		},
 		CORS: CORSConfig{
 			AllowedOrigins: strings.Split(getEnv("ALLOWED_ORIGINS", "*"), ","),
