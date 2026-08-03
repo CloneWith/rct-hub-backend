@@ -14,6 +14,7 @@ import (
 	"rctHubBackend/internal/config"
 	"rctHubBackend/internal/database"
 	"rctHubBackend/internal/domain"
+	"rctHubBackend/internal/fetcher"
 	"rctHubBackend/internal/graphql"
 	"rctHubBackend/internal/handler"
 	"rctHubBackend/internal/middleware"
@@ -41,6 +42,7 @@ type Deps struct {
 	UserSvc     *service.UserService
 	BeatmapSvc  *service.BeatmapService
 	AnnounceSvc *service.AnnouncementService
+	Fetcher     fetcher.Fetcher
 	JWTSigner   *jwtutil.Signer
 }
 
@@ -78,6 +80,17 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 	repos := repository.NewRepositories(db.MongoDB)
 	services := service.NewServices(repos)
 
+	// osu! API fetcher — three-tier lookup (Redis → MongoDB → osu! API v2).
+	apiClient := fetcher.NewAPIClient(fetcher.APIClientConfig{
+		ClientID:     cfg.Osu.ClientID,
+		ClientSecret: cfg.Osu.ClientSecret,
+		APIBase:      cfg.Osu.APIBase,
+	}, db.Redis, logger)
+	osuFetcher := fetcher.New(apiClient, repos.Users, repos.Beatmaps, db.Redis, logger, fetcher.Config{
+		UserCacheTTL:    cfg.Osu.FetcherUserCacheTTL,
+		BeatmapCacheTTL: cfg.Osu.FetcherBeatmapCacheTTL,
+	})
+
 	deps := &Deps{
 		Cfg:         cfg,
 		DB:          db,
@@ -87,6 +100,7 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 		UserSvc:     service.NewUserService(repos.Users),
 		BeatmapSvc:  service.NewBeatmapService(repos.Beatmaps),
 		AnnounceSvc: service.NewAnnouncementService(repos.Announcements),
+		Fetcher:     osuFetcher,
 		JWTSigner:   signer,
 	}
 
