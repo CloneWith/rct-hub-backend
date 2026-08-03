@@ -1,21 +1,32 @@
 .env
+
+# IDE configurations
 .idea/
+.vscode/
+
+# Binaries
 *.exe
 *.dll
 *.so
 *.dylib
 *.test
 *.out
+
 bin/
 vendor/
 /tmp
 dist/
 build/
+output/
+
+# Logs and others
 logs/
 *.log
 .DS_Store
 Thumbs.db
 coverage.html
 coverage.out
-output/
+
+# Agents
 .agents/
+.workbuddy/
