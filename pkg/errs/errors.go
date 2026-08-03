@@ -10,6 +10,7 @@ var (
 	ErrForbidden     = errors.New("forbidden")
 	ErrInternal      = errors.New("internal server error")
 	ErrDuplicateKey  = errors.New("duplicate key")
+	ErrConflict      = errors.New("resource state conflict")
 )
 
 // AppError pairs a domain error with an optional public message.

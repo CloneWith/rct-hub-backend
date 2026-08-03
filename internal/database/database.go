@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"rctHubBackend/internal/config"
+	"rctHubBackend/internal/persistence"
 )
 
 // DB holds all external data store clients.
@@ -120,5 +121,16 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 		return fmt.Errorf("announcements indexes: %w", err)
 	}
 
+	snapshotStore := persistence.NewSnapshotStore(db.MongoDB)
+	if err := snapshotStore.EnsureIndexes(ctx); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// VerifySchema fails closed when privileged database initialization has not
+// installed the authoritative snapshot contract expected by this binary.
+func (db *DB) VerifySchema(ctx context.Context) error {
+	return persistence.NewSnapshotStore(db.MongoDB).VerifyValidator(ctx)
 }

@@ -181,6 +181,25 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	}
 }
 
+func TestFormalRoomCannotUseLegacyStartPath(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	matches := newFakeMatchRepo()
+	room := formalRoomFixture()
+	if err := rooms.Create(ctx, &room); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewRoomService(rooms, matches)
+	if _, err := svc.StartMatch(ctx, room.ID); !errors.Is(err, errs.ErrConflict) {
+		t.Fatalf("formal legacy StartMatch error = %v, want conflict", err)
+	}
+	if len(matches.matches) != 0 || room.MatchID != nil {
+		t.Fatalf("formal legacy StartMatch mutated state: matches=%d matchID=%v", len(matches.matches), room.MatchID)
+	}
+}
+
 func TestMatchServiceBanAndPick(t *testing.T) {
 	ctx := context.Background()
 	matches := newFakeMatchRepo()
@@ -213,6 +232,51 @@ func TestMatchServiceBanAndPick(t *testing.T) {
 	// Invalid zone placement for HD.
 	if err := svc.PickPiece(ctx, match.ID, admin, domain.PoolSlot{Mod: domain.PieceModHD, Index: 1}, domain.Position{X: 3, Y: 3}, nil, &redSide); !errors.Is(err, errs.ErrInvalidInput) {
 		t.Fatalf("expected invalid input for wrong zone, got %v", err)
+	}
+}
+
+func TestFormalMatchCannotUseLegacyWriteMethods(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	matches := newFakeMatchRepo()
+	rooms := newFakeRoomRepo()
+	moves := newFakeMoveRepo()
+	svc := NewMatchService(matches, rooms, moves)
+	match := makeTestMatch()
+	match.RoomType = domain.RoomTypeMatch
+	if err := matches.Create(ctx, match); err != nil {
+		t.Fatal(err)
+	}
+	admin := domain.RoomMember{UserID: 100, Role: domain.RoomRoleAdmin}
+	red := domain.TeamSideRed
+
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{name: "ban", call: func() error {
+			return svc.BanPiece(ctx, match.ID, admin, domain.PoolSlot{Mod: domain.PieceModNM, Index: 1})
+		}},
+		{name: "pick", call: func() error {
+			return svc.PickPiece(ctx, match.ID, admin, domain.PoolSlot{Mod: domain.PieceModNM, Index: 1}, domain.Position{}, nil, &red)
+		}},
+		{name: "rob", call: func() error { return svc.RobPiece(ctx, match.ID, admin, domain.Position{}, domain.Position{X: 1}) }},
+		{name: "win", call: func() error { return svc.WinPiece(ctx, match.ID, admin, domain.Position{}, nil) }},
+		{name: "end", call: func() error { return svc.EndMatch(ctx, match.ID, domain.WinReasonTB, &red) }},
+		{name: "advance", call: func() error { return svc.AdvanceTurn(ctx, match.ID) }},
+		{name: "pause", call: func() error { return svc.PauseMatch(ctx, match.ID) }},
+		{name: "resume", call: func() error { return svc.ResumeMatch(ctx, match.ID) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.call(); !errors.Is(err, errs.ErrConflict) {
+				t.Fatalf("error = %v, want conflict", err)
+			}
+		})
+	}
+	if len(moves.moves) != 0 || match.Status != domain.MatchStatusActive {
+		t.Fatalf("legacy formal write mutated state: moves=%d status=%s", len(moves.moves), match.Status)
 	}
 }
 

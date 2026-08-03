@@ -33,6 +33,9 @@ func NewRoomRepository(db *mongo.Database) RoomRepository {
 }
 
 func (r *roomRepo) Create(ctx context.Context, room *domain.Room) error {
+	if room.ID == bson.NilObjectID {
+		room.ID = bson.NewObjectID()
+	}
 	now := time.Now().UTC()
 	room.CreatedAt = now
 	room.UpdatedAt = now

@@ -118,8 +118,8 @@ cp .env.example .env
 ### 3. Initialize Database
 
 ```bash
-make initdb        # Create collections and indexes only
-make initdb-seed   # Collections + indexes + sample data
+make initdb        # Create collections, indexes, and validators
+make initdb-seed   # Collections + indexes + validators + sample data
 make initdb-drop   # Drop and rebuild with sample data
 ```
 
@@ -396,10 +396,10 @@ make lint          # go vet + staticcheck
 make generate      # Regenerate GraphQL code (gqlgen)
 make docker-up     # Start MongoDB + Redis containers
 make docker-down   # Stop containers
-make initdb        # Initialize database (collections + indexes)
+make initdb        # Initialize database (collections + indexes + validators)
 make initdb-seed   # Initialize with sample data
 make initdb-drop   # Drop, rebuild, and seed
-make dev           # Start dependencies + run server
+make dev           # Start dependencies, initialize schema, and run server
 make verify        # Run verification tool
 ```
 

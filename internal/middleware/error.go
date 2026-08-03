@@ -33,6 +33,8 @@ func ErrorHandler() gin.HandlerFunc {
 			response.NotFound(c, err.Error())
 		case errors.Is(err, errs.ErrAlreadyExists):
 			response.Error(c, http.StatusConflict, err.Error())
+		case errors.Is(err, errs.ErrConflict):
+			response.Error(c, http.StatusConflict, err.Error())
 		case errors.Is(err, errs.ErrInvalidInput):
 			response.BadRequest(c, err.Error())
 		case errors.Is(err, errs.ErrUnauthorized):
