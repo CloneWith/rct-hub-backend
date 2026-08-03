@@ -1,6 +1,6 @@
 # RCT Hub Backend
 
-Backend service for **RCT (Rhythm Chess Tournament)** — a community osu! tournament platform that blends board-game strategy with rhythm-game competition. Built with Go, Gin, MongoDB, Redis, and GraphQL.
+Backend service for **RCT (Ranka's Chess Tournament)** — a community osu! tournament platform that blends board-game strategy with rhythm-game competition. Built with Go, Gin, MongoDB, Redis, and GraphQL.
 
 ## Table of Contents
 
