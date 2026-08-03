@@ -57,6 +57,36 @@ func (r *fakeUserRepo) Update(_ context.Context, user *domain.User) error {
 	return nil
 }
 
+func (r *fakeUserRepo) UpsertOsuFields(_ context.Context, osuID int64, fields bson.M) (*domain.User, error) {
+	existing, ok := r.byOsu[osuID]
+	if !ok {
+		existing = &domain.User{
+			ID:           bson.NewObjectID(),
+			OnlineID:     osuID,
+			Roles:        []domain.UserRole{domain.RolePlayer},
+			VerifyStatus: domain.Pending,
+		}
+		r.byObjID[existing.ID] = existing
+		r.byOsu[osuID] = existing
+	}
+	if v, ok := fields["username"]; ok {
+		existing.Username = v.(string)
+	}
+	if v, ok := fields["avatar_url"]; ok {
+		existing.AvatarURL = v.(string)
+	}
+	if v, ok := fields["country_code"]; ok {
+		existing.CountryCode = v.(string)
+	}
+	if v, ok := fields["global_rank"]; ok {
+		existing.GlobalRank = v.(int64)
+	}
+	if v, ok := fields["pp"]; ok {
+		existing.PP = v.(float32)
+	}
+	return existing, nil
+}
+
 func (r *fakeUserRepo) ByID(_ context.Context, id bson.ObjectID) (*domain.User, error) {
 	u, ok := r.byObjID[id]
 	if !ok {
@@ -107,6 +137,64 @@ func (r *fakeBeatmapRepo) Update(_ context.Context, bm *domain.Beatmap) error {
 	r.byObjID[bm.ID] = bm
 	r.byOsu[bm.OnlineID] = bm
 	return nil
+}
+
+func (r *fakeBeatmapRepo) UpsertOsuFields(_ context.Context, osuID int64, fields bson.M) (*domain.Beatmap, error) {
+	existing, ok := r.byOsu[osuID]
+	if !ok {
+		existing = &domain.Beatmap{
+			ID:       bson.NewObjectID(),
+			OnlineID: osuID,
+		}
+		r.byObjID[existing.ID] = existing
+		r.byOsu[osuID] = existing
+	}
+	if v, ok := fields["beatmapset_id"]; ok {
+		existing.BeatmapsetID = v.(int64)
+	}
+	if v, ok := fields["title"]; ok {
+		existing.Title = v.(string)
+	}
+	if v, ok := fields["artist"]; ok {
+		existing.Artist = v.(string)
+	}
+	if v, ok := fields["version"]; ok {
+		existing.DifficultyName = v.(string)
+	}
+	if v, ok := fields["user_id"]; ok {
+		existing.AuthorID = v.(int64)
+	}
+	if v, ok := fields["mode_int"]; ok {
+		existing.RulesetID = v.(int)
+	}
+	if v, ok := fields["status"]; ok {
+		existing.Status = v.(string)
+	}
+	if v, ok := fields["difficulty_rating"]; ok {
+		existing.StarRating = v.(float64)
+	}
+	if v, ok := fields["bpm"]; ok {
+		existing.BPM = v.(float64)
+	}
+	if v, ok := fields["total_length"]; ok {
+		existing.TotalLength = v.(int)
+	}
+	if v, ok := fields["drain"]; ok {
+		existing.DrainRate = v.(float64)
+	}
+	if v, ok := fields["cs"]; ok {
+		existing.CircleSize = v.(float64)
+	}
+	if v, ok := fields["ar"]; ok {
+		existing.ApproachRate = v.(float64)
+	}
+	if v, ok := fields["accuracy"]; ok {
+		existing.OverallDifficulty = v.(float64)
+	}
+	if v, ok := fields["cover_url"]; ok {
+		existing.CoverURL = v.(string)
+	}
+	return existing, nil
 }
 
 func (r *fakeBeatmapRepo) ByID(_ context.Context, id bson.ObjectID) (*domain.Beatmap, error) {
@@ -266,133 +354,60 @@ func sampleBeatmapResp(id int64) *OsuBeatmapResponse {
 }
 
 // ============================================================================
-// Merge helper tests
+// Field mapping tests
 // ============================================================================
 
-func TestMergeUserCreatesNew(t *testing.T) {
+func TestUserOsuFields(t *testing.T) {
 	resp := sampleUserResp(42)
-	user := mergeUser(nil, resp)
+	fields := userOsuFields(resp)
 
-	if user.OnlineID != 42 {
-		t.Errorf("expected OnlineID 42, got %d", user.OnlineID)
+	if fields["username"] != "player42" {
+		t.Errorf("expected username player42, got %v", fields["username"])
 	}
-	if user.Username != "player42" {
-		t.Errorf("expected username player42, got %s", user.Username)
+	if fields["avatar_url"] != "https://a.ppy.sh/42" {
+		t.Errorf("expected avatar url, got %v", fields["avatar_url"])
 	}
-	if user.CountryCode != "CN" {
-		t.Errorf("expected country CN, got %s", user.CountryCode)
+	if fields["country_code"] != "CN" {
+		t.Errorf("expected country CN, got %v", fields["country_code"])
 	}
-	if user.GlobalRank != 1042 {
-		t.Errorf("expected global rank 1042, got %d", user.GlobalRank)
+	if fields["global_rank"] != int64(1042) {
+		t.Errorf("expected global rank 1042, got %v", fields["global_rank"])
 	}
-	if user.PP != 4500.5 {
-		t.Errorf("expected pp 4500.5, got %f", user.PP)
+	if fields["pp"] != float32(4500.5) {
+		t.Errorf("expected pp 4500.5, got %v", fields["pp"])
 	}
-	if len(user.Roles) != 1 || user.Roles[0] != domain.RolePlayer {
-		t.Errorf("expected default role player, got %v", user.Roles)
-	}
-	if user.VerifyStatus != domain.Pending {
-		t.Errorf("expected default verify status pending, got %s", user.VerifyStatus)
+	// Verify only API-owned fields are present — no local-only fields.
+	for _, key := range []string{"roles", "verify_status", "is_banned", "_id", "created_at"} {
+		if _, ok := fields[key]; ok {
+			t.Errorf("expected no local field %q in osu fields", key)
+		}
 	}
 }
 
-func TestMergeUserPreservesLocalFields(t *testing.T) {
-	existing := &domain.User{
-		ID:           bson.NewObjectID(),
-		OnlineID:     42,
-		Username:     "oldname",
-		Roles:        []domain.UserRole{domain.RoleAdmin, domain.RoleReferee},
-		VerifyStatus: domain.Verified,
-		IsBanned:     false,
-	}
-	resp := sampleUserResp(42)
-	user := mergeUser(existing, resp)
-
-	// API fields updated.
-	if user.Username != "player42" {
-		t.Errorf("expected updated username player42, got %s", user.Username)
-	}
-	if user.AvatarURL != "https://a.ppy.sh/42" {
-		t.Errorf("expected updated avatar url, got %s", user.AvatarURL)
-	}
-
-	// Local fields preserved.
-	if len(user.Roles) != 2 || user.Roles[0] != domain.RoleAdmin {
-		t.Errorf("expected preserved roles, got %v", user.Roles)
-	}
-	if user.VerifyStatus != domain.Verified {
-		t.Errorf("expected preserved verify status, got %s", user.VerifyStatus)
-	}
-	// ID preserved.
-	if user.ID != existing.ID {
-		t.Error("expected ID to be preserved")
-	}
-}
-
-func TestMergeBeatmapCreatesNew(t *testing.T) {
+func TestBeatmapOsuFields(t *testing.T) {
 	resp := sampleBeatmapResp(100)
-	bm := mergeBeatmap(nil, resp)
+	fields := beatmapOsuFields(resp)
 
-	if bm.OnlineID != 100 {
-		t.Errorf("expected OnlineID 100, got %d", bm.OnlineID)
+	if fields["title"] != "Test Song" {
+		t.Errorf("expected title Test Song, got %v", fields["title"])
 	}
-	if bm.Title != "Test Song" {
-		t.Errorf("expected title Test Song, got %s", bm.Title)
+	if fields["artist"] != "Test Artist" {
+		t.Errorf("expected artist Test Artist, got %v", fields["artist"])
 	}
-	if bm.Artist != "Test Artist" {
-		t.Errorf("expected artist Test Artist, got %s", bm.Artist)
+	if fields["version"] != "Insane" {
+		t.Errorf("expected version Insane, got %v", fields["version"])
 	}
-	if bm.DifficultyName != "Insane" {
-		t.Errorf("expected version Insane, got %s", bm.DifficultyName)
+	if fields["difficulty_rating"] != 5.25 {
+		t.Errorf("expected star rating 5.25, got %v", fields["difficulty_rating"])
 	}
-	if bm.StarRating != 5.25 {
-		t.Errorf("expected star rating 5.25, got %f", bm.StarRating)
+	if fields["bpm"] != 180.0 {
+		t.Errorf("expected bpm 180, got %v", fields["bpm"])
 	}
-	if bm.BPM != 180 {
-		t.Errorf("expected bpm 180, got %f", bm.BPM)
-	}
-	if bm.CoverURL == "" {
-		t.Error("expected non-empty cover url")
-	}
-	// Local fields should be zero values.
-	if bm.ModString != "" {
-		t.Errorf("expected empty mod_string, got %s", bm.ModString)
-	}
-}
-
-func TestMergeBeatmapPreservesLocalFields(t *testing.T) {
-	existing := &domain.Beatmap{
-		ID:        bson.NewObjectID(),
-		OnlineID:  100,
-		Title:     "Old Title",
-		ModString: "HD",
-		ModIndex:  3,
-		Skill:     "jump",
-		Comment:   "hard map",
-	}
-	resp := sampleBeatmapResp(100)
-	bm := mergeBeatmap(existing, resp)
-
-	// API fields updated.
-	if bm.Title != "Test Song" {
-		t.Errorf("expected updated title, got %s", bm.Title)
-	}
-	if bm.StarRating != 5.25 {
-		t.Errorf("expected updated star rating, got %f", bm.StarRating)
-	}
-
-	// Local fields preserved.
-	if bm.ModString != "HD" {
-		t.Errorf("expected preserved mod_string HD, got %s", bm.ModString)
-	}
-	if bm.ModIndex != 3 {
-		t.Errorf("expected preserved mod_index 3, got %d", bm.ModIndex)
-	}
-	if bm.Skill != "jump" {
-		t.Errorf("expected preserved skill, got %s", bm.Skill)
-	}
-	if bm.Comment != "hard map" {
-		t.Errorf("expected preserved comment, got %s", bm.Comment)
+	// Verify only API-owned fields are present — no local-only fields.
+	for _, key := range []string{"mod_string", "mod_index", "skill", "comment", "_id", "created_at"} {
+		if _, ok := fields[key]; ok {
+			t.Errorf("expected no local field %q in osu fields", key)
+		}
 	}
 }
 
@@ -717,6 +732,195 @@ func TestFetcherGetBeatmapFromRedisCache(t *testing.T) {
 	}
 	if bm.Title != "Cached Map" {
 		t.Errorf("expected Cached Map from Redis, got %s", bm.Title)
+	}
+}
+
+// ============================================================================
+// Review fix tests (Issues 1-4)
+// ============================================================================
+
+// TestFetcherSyncUserAssignsObjectID verifies that a cold API miss produces
+// a user with a non-zero MongoDB ObjectID (Issue 2).
+func TestFetcherSyncUserAssignsObjectID(t *testing.T) {
+	srv := newOsuTestServer(t)
+	srv.userResp[42] = sampleUserResp(42)
+	rdb, _ := newMiniRedis(t)
+	apiClient := NewAPIClient(srv.clientConfig(), rdb, testLogger())
+
+	userRepo := newFakeUserRepo()
+	f := New(apiClient, userRepo, newFakeBeatmapRepo(), rdb, testLogger(), Config{})
+
+	user, err := f.SyncUser(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("SyncUser: %v", err)
+	}
+	if user.ID.IsZero() {
+		t.Fatal("expected non-zero ObjectID after API miss")
+	}
+	if user.OnlineID != 42 {
+		t.Errorf("expected OnlineID 42, got %d", user.OnlineID)
+	}
+}
+
+// TestFetcherSyncUserPreservesConcurrentLocalFields verifies that UpsertOsuFields
+// only touches API-owned fields, leaving local-only fields (Roles, VerifyStatus,
+// IsBanned) untouched — the core fix for Issue 1.
+func TestFetcherSyncUserPreservesConcurrentLocalFields(t *testing.T) {
+	srv := newOsuTestServer(t)
+	srv.userResp[42] = sampleUserResp(42)
+	rdb, _ := newMiniRedis(t)
+	apiClient := NewAPIClient(srv.clientConfig(), rdb, testLogger())
+
+	userRepo := newFakeUserRepo()
+	// Pre-create a user with local-only fields set by an admin.
+	existing := &domain.User{
+		ID:           bson.NewObjectID(),
+		OnlineID:     42,
+		Username:     "oldname",
+		Roles:        []domain.UserRole{domain.RoleAdmin},
+		VerifyStatus: domain.Verified,
+		IsBanned:     true,
+	}
+	_ = userRepo.Create(context.Background(), existing)
+
+	f := New(apiClient, userRepo, newFakeBeatmapRepo(), rdb, testLogger(), Config{})
+
+	user, err := f.SyncUser(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("SyncUser: %v", err)
+	}
+	// API fields updated.
+	if user.Username != "player42" {
+		t.Errorf("expected updated username, got %s", user.Username)
+	}
+	if user.GlobalRank != 1042 {
+		t.Errorf("expected updated global rank, got %d", user.GlobalRank)
+	}
+	// Local fields preserved — not overwritten by the sync.
+	if len(user.Roles) != 1 || user.Roles[0] != domain.RoleAdmin {
+		t.Errorf("expected preserved admin role, got %v", user.Roles)
+	}
+	if user.VerifyStatus != domain.Verified {
+		t.Errorf("expected preserved verify status, got %s", user.VerifyStatus)
+	}
+	if !user.IsBanned {
+		t.Error("expected preserved is_banned=true")
+	}
+}
+
+// TestFetcherSyncUserDuplicateCreateRecovery verifies that two concurrent
+// SyncUser calls for the same cold miss both succeed without error (Issue 3).
+// With the atomic upsert, the "loser" simply updates the same document.
+func TestFetcherSyncUserDuplicateCreateRecovery(t *testing.T) {
+	srv := newOsuTestServer(t)
+	srv.userResp[42] = sampleUserResp(42)
+	rdb, _ := newMiniRedis(t)
+	apiClient := NewAPIClient(srv.clientConfig(), rdb, testLogger())
+
+	userRepo := newFakeUserRepo()
+	f := New(apiClient, userRepo, newFakeBeatmapRepo(), rdb, testLogger(), Config{})
+
+	// First call creates the user.
+	user1, err := f.SyncUser(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("first SyncUser: %v", err)
+	}
+	// Second call should succeed (upsert, not duplicate-create error).
+	user2, err := f.SyncUser(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("second SyncUser: %v", err)
+	}
+	// Both should return the same ObjectID.
+	if user1.ID != user2.ID {
+		t.Errorf("expected same ObjectID, got %s and %s", user1.ID, user2.ID)
+	}
+	if user2.ID.IsZero() {
+		t.Error("expected non-zero ObjectID")
+	}
+}
+
+// TestFetcherSyncBeatmapAssignsObjectID verifies non-zero ObjectID on beatmap
+// API miss (Issue 2).
+func TestFetcherSyncBeatmapAssignsObjectID(t *testing.T) {
+	srv := newOsuTestServer(t)
+	srv.beatmapResp[100] = sampleBeatmapResp(100)
+	rdb, _ := newMiniRedis(t)
+	apiClient := NewAPIClient(srv.clientConfig(), rdb, testLogger())
+
+	bmRepo := newFakeBeatmapRepo()
+	f := New(apiClient, newFakeUserRepo(), bmRepo, rdb, testLogger(), Config{})
+
+	bm, err := f.SyncBeatmap(context.Background(), 100)
+	if err != nil {
+		t.Fatalf("SyncBeatmap: %v", err)
+	}
+	if bm.ID.IsZero() {
+		t.Fatal("expected non-zero ObjectID after API miss")
+	}
+}
+
+// TestFetcherInvalidateUser verifies that InvalidateUser removes the cached
+// user from Redis (Issue 4).
+func TestFetcherInvalidateUser(t *testing.T) {
+	srv := newOsuTestServer(t)
+	srv.userResp[42] = sampleUserResp(42)
+	rdb, _ := newMiniRedis(t)
+	apiClient := NewAPIClient(srv.clientConfig(), rdb, testLogger())
+
+	userRepo := newFakeUserRepo()
+	f := New(apiClient, userRepo, newFakeBeatmapRepo(), rdb, testLogger(), Config{})
+
+	// Populate cache via GetUser (API fallback).
+	_, err := f.GetUser(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("GetUser: %v", err)
+	}
+
+	// Verify cache entry exists.
+	exists, _ := rdb.Exists(context.Background(), userCacheKey(42)).Result()
+	if exists != 1 {
+		t.Fatal("expected user in cache before invalidation")
+	}
+
+	// Invalidate.
+	if err := f.InvalidateUser(context.Background(), 42); err != nil {
+		t.Fatalf("InvalidateUser: %v", err)
+	}
+
+	// Verify cache entry is gone.
+	exists, _ = rdb.Exists(context.Background(), userCacheKey(42)).Result()
+	if exists != 0 {
+		t.Fatal("expected cache entry to be removed after invalidation")
+	}
+}
+
+// TestFetcherInvalidateBeatmap verifies cache invalidation for beatmaps (Issue 4).
+func TestFetcherInvalidateBeatmap(t *testing.T) {
+	srv := newOsuTestServer(t)
+	srv.beatmapResp[100] = sampleBeatmapResp(100)
+	rdb, _ := newMiniRedis(t)
+	apiClient := NewAPIClient(srv.clientConfig(), rdb, testLogger())
+
+	bmRepo := newFakeBeatmapRepo()
+	f := New(apiClient, newFakeUserRepo(), bmRepo, rdb, testLogger(), Config{})
+
+	_, err := f.GetBeatmap(context.Background(), 100)
+	if err != nil {
+		t.Fatalf("GetBeatmap: %v", err)
+	}
+
+	exists, _ := rdb.Exists(context.Background(), beatmapCacheKey(100)).Result()
+	if exists != 1 {
+		t.Fatal("expected beatmap in cache before invalidation")
+	}
+
+	if err := f.InvalidateBeatmap(context.Background(), 100); err != nil {
+		t.Fatalf("InvalidateBeatmap: %v", err)
+	}
+
+	exists, _ = rdb.Exists(context.Background(), beatmapCacheKey(100)).Result()
+	if exists != 0 {
+		t.Fatal("expected cache entry to be removed after invalidation")
 	}
 }
 

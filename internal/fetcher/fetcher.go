@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.uber.org/zap"
 
 	"rctHubBackend/internal/domain"
@@ -36,19 +37,27 @@ type Fetcher interface {
 	// MongoDB; on miss it fetches from the osu! API and persists.
 	GetUser(ctx context.Context, osuID int64) (*domain.User, error)
 
-	// SyncUser forces a fresh fetch from the osu! API and updates the
-	// database. Local-only fields (Roles, VerifyStatus, IsBanned) are
-	// preserved.
+	// SyncUser forces a fresh fetch from the osu! API and atomically
+	// upserts the API-owned fields into MongoDB. Local-only fields
+	// (Roles, VerifyStatus, IsBanned) are never touched by this operation.
 	SyncUser(ctx context.Context, osuID int64) (*domain.User, error)
 
 	// GetBeatmap returns a beatmap by osu! ID. Same cache strategy as
 	// GetUser.
 	GetBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap, error)
 
-	// SyncBeatmap forces a fresh fetch from the osu! API and updates the
-	// database. Local-only extended fields (ModString, ModIndex, etc.)
-	// are preserved.
+	// SyncBeatmap forces a fresh fetch from the osu! API and atomically
+	// upserts the API-owned fields into MongoDB. Local-only extended
+	// fields (ModString, ModIndex, etc.) are never touched.
 	SyncBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap, error)
+
+	// InvalidateUser removes the cached user from Redis. Call this when
+	// local-only fields (Roles, VerifyStatus, IsBanned) are modified by
+	// admin write paths to prevent stale data from being served.
+	InvalidateUser(ctx context.Context, osuID int64) error
+
+	// InvalidateBeatmap removes the cached beatmap from Redis.
+	InvalidateBeatmap(ctx context.Context, osuID int64) error
 }
 
 // fetcher is the default Fetcher implementation.
@@ -121,29 +130,12 @@ func (f *fetcher) SyncUser(ctx context.Context, osuID int64) (*domain.User, erro
 		return nil, fmt.Errorf("fetch user from osu! api: %w", err)
 	}
 
-	// Try to load the existing user so we can preserve local-only fields.
-	existing, err := f.users.ByOsuID(ctx, osuID)
-	if err != nil && !errors.Is(err, errs.ErrNotFound) {
-		return nil, fmt.Errorf("check existing user: %w", err)
-	}
-
-	user := mergeUser(existing, resp)
-
-	if existing != nil {
-		if err := f.users.Update(ctx, user); err != nil {
-			return nil, fmt.Errorf("update user: %w", err)
-		}
-	} else {
-		if err := f.users.Create(ctx, user); err != nil {
-			if errors.Is(err, errs.ErrAlreadyExists) {
-				// Race condition: another request created it first — update instead.
-				if err := f.users.Update(ctx, user); err != nil {
-					return nil, fmt.Errorf("update user after race: %w", err)
-				}
-			} else {
-				return nil, fmt.Errorf("create user: %w", err)
-			}
-		}
+	// Atomic upsert: only touches API-owned fields via $set, defaults
+	// local-only fields via $setOnInsert. Returns the full stored document
+	// with a valid _id and current local fields.
+	user, err := f.users.UpsertOsuFields(ctx, osuID, userOsuFields(resp))
+	if err != nil {
+		return nil, fmt.Errorf("upsert user from osu! api: %w", err)
 	}
 
 	f.cacheUser(ctx, user)
@@ -183,28 +175,10 @@ func (f *fetcher) SyncBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap
 		return nil, fmt.Errorf("fetch beatmap from osu! api: %w", err)
 	}
 
-	// Try to load the existing beatmap so we can preserve local-only fields.
-	existing, err := f.beatmaps.ByOsuID(ctx, osuID)
-	if err != nil && !errors.Is(err, errs.ErrNotFound) {
-		return nil, fmt.Errorf("check existing beatmap: %w", err)
-	}
-
-	bm := mergeBeatmap(existing, resp)
-
-	if existing != nil {
-		if err := f.beatmaps.Update(ctx, bm); err != nil {
-			return nil, fmt.Errorf("update beatmap: %w", err)
-		}
-	} else {
-		if err := f.beatmaps.Create(ctx, bm); err != nil {
-			if errors.Is(err, errs.ErrAlreadyExists) {
-				if err := f.beatmaps.Update(ctx, bm); err != nil {
-					return nil, fmt.Errorf("update beatmap after race: %w", err)
-				}
-			} else {
-				return nil, fmt.Errorf("create beatmap: %w", err)
-			}
-		}
+	// Atomic upsert: only touches API-owned fields via $set.
+	bm, err := f.beatmaps.UpsertOsuFields(ctx, osuID, beatmapOsuFields(resp))
+	if err != nil {
+		return nil, fmt.Errorf("upsert beatmap from osu! api: %w", err)
 	}
 
 	f.cacheBeatmap(ctx, bm)
@@ -212,6 +186,16 @@ func (f *fetcher) SyncBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap
 }
 
 // --- Cache helpers ---
+
+// InvalidateUser implements Fetcher.
+func (f *fetcher) InvalidateUser(ctx context.Context, osuID int64) error {
+	return f.rdb.Del(ctx, userCacheKey(osuID)).Err()
+}
+
+// InvalidateBeatmap implements Fetcher.
+func (f *fetcher) InvalidateBeatmap(ctx context.Context, osuID int64) error {
+	return f.rdb.Del(ctx, beatmapCacheKey(osuID)).Err()
+}
 
 func userCacheKey(osuID int64) string {
 	return fmt.Sprintf("fetcher:user:%d", osuID)
@@ -269,68 +253,39 @@ func (f *fetcher) cacheBeatmap(ctx context.Context, bm *domain.Beatmap) {
 	}
 }
 
-// --- Merge helpers ---
+// --- Field mapping helpers ---
 
-// mergeUser applies osu! API data to an existing user (or creates a new one),
-// preserving local-only fields such as Roles, VerifyStatus, and IsBanned.
-func mergeUser(existing *domain.User, resp *OsuUserResponse) *domain.User {
-	if existing == nil {
-		return &domain.User{
-			OnlineID:     resp.ID,
-			Username:     resp.Username,
-			AvatarURL:    resp.AvatarURL,
-			CountryCode:  resp.Country.Code,
-			GlobalRank:   resp.Statistics.GlobalRank,
-			PP:           resp.Statistics.PP,
-			Roles:        []domain.UserRole{domain.RolePlayer},
-			VerifyStatus: domain.Pending,
-		}
+// userOsuFields returns a bson.M containing only the fields owned by the
+// osu! API. These are the fields that UpsertOsuFields will $set, leaving
+// local-only fields (Roles, VerifyStatus, IsBanned) untouched.
+func userOsuFields(resp *OsuUserResponse) bson.M {
+	return bson.M{
+		"username":     resp.Username,
+		"avatar_url":   resp.AvatarURL,
+		"country_code": resp.Country.Code,
+		"global_rank":  resp.Statistics.GlobalRank,
+		"pp":           resp.Statistics.PP,
 	}
-	existing.Username = resp.Username
-	existing.AvatarURL = resp.AvatarURL
-	existing.CountryCode = resp.Country.Code
-	existing.GlobalRank = resp.Statistics.GlobalRank
-	existing.PP = resp.Statistics.PP
-	return existing
 }
 
-// mergeBeatmap applies osu! API data to an existing beatmap (or creates a new
-// one), preserving local-only extended fields.
-func mergeBeatmap(existing *domain.Beatmap, resp *OsuBeatmapResponse) *domain.Beatmap {
-	if existing == nil {
-		return &domain.Beatmap{
-			OnlineID:          resp.ID,
-			BeatmapsetID:      resp.BeatmapsetID,
-			Title:             resp.Beatmapset.Title,
-			Artist:            resp.Beatmapset.Artist,
-			DifficultyName:    resp.Version,
-			AuthorID:          resp.UserID,
-			RulesetID:         resp.ModeInt,
-			Status:            resp.Status,
-			StarRating:        resp.DifficultyRating,
-			BPM:               resp.BPM,
-			TotalLength:       resp.TotalLength,
-			DrainRate:         resp.Drain,
-			CircleSize:        resp.CS,
-			ApproachRate:      resp.AR,
-			OverallDifficulty: resp.Accuracy,
-			CoverURL:          resp.Beatmapset.Covers.Cover,
-		}
+// beatmapOsuFields returns a bson.M containing only the fields owned by
+// the osu! API. Local-only extended fields are left untouched.
+func beatmapOsuFields(resp *OsuBeatmapResponse) bson.M {
+	return bson.M{
+		"beatmapset_id":     resp.BeatmapsetID,
+		"title":             resp.Beatmapset.Title,
+		"artist":            resp.Beatmapset.Artist,
+		"version":           resp.Version,
+		"user_id":           resp.UserID,
+		"mode_int":          resp.ModeInt,
+		"status":            resp.Status,
+		"difficulty_rating": resp.DifficultyRating,
+		"bpm":               resp.BPM,
+		"total_length":      resp.TotalLength,
+		"drain":             resp.Drain,
+		"cs":                resp.CS,
+		"ar":                resp.AR,
+		"accuracy":          resp.Accuracy,
+		"cover_url":         resp.Beatmapset.Covers.Cover,
 	}
-	existing.BeatmapsetID = resp.BeatmapsetID
-	existing.Title = resp.Beatmapset.Title
-	existing.Artist = resp.Beatmapset.Artist
-	existing.DifficultyName = resp.Version
-	existing.AuthorID = resp.UserID
-	existing.RulesetID = resp.ModeInt
-	existing.Status = resp.Status
-	existing.StarRating = resp.DifficultyRating
-	existing.BPM = resp.BPM
-	existing.TotalLength = resp.TotalLength
-	existing.DrainRate = resp.Drain
-	existing.CircleSize = resp.CS
-	existing.ApproachRate = resp.AR
-	existing.OverallDifficulty = resp.Accuracy
-	existing.CoverURL = resp.Beatmapset.Covers.Cover
-	return existing
 }

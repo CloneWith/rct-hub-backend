@@ -18,6 +18,7 @@ import (
 type UserRepository interface {
 	Create(ctx context.Context, user *domain.User) error
 	Update(ctx context.Context, user *domain.User) error
+	UpsertOsuFields(ctx context.Context, osuID int64, fields bson.M) (*domain.User, error)
 	ByID(ctx context.Context, id bson.ObjectID) (*domain.User, error)
 	ByOsuID(ctx context.Context, osuID int64) (*domain.User, error)
 	List(ctx context.Context, params paginate.Params) (paginate.Result[domain.User], error)
@@ -55,6 +56,42 @@ func (r *userRepo) Update(ctx context.Context, user *domain.User) error {
 		return errs.ErrNotFound
 	}
 	return nil
+}
+
+// UpsertOsuFields atomically upserts a user by osu! ID, setting only the
+// provided API-owned fields via $set and defaulting local-only fields via
+// $setOnInsert. It returns the full stored document after the operation.
+// This eliminates read-before-write races on local fields (Issue 1),
+// guarantees a non-zero _id (Issue 2), and handles concurrent cold misses
+// atomically (Issue 3).
+func (r *userRepo) UpsertOsuFields(ctx context.Context, osuID int64, fields bson.M) (*domain.User, error) {
+	now := time.Now().UTC()
+	setFields := bson.M{"updated_at": now}
+	for k, v := range fields {
+		setFields[k] = v
+	}
+	update := bson.M{
+		"$set": setFields,
+		"$setOnInsert": bson.M{
+			"_id":           bson.NewObjectID(),
+			"created_at":    now,
+			"roles":         []domain.UserRole{domain.RolePlayer},
+			"verify_status": domain.Pending,
+			"is_banned":     false,
+		},
+	}
+	opts := options.FindOneAndUpdate().
+		SetUpsert(true).
+		SetReturnDocument(options.After)
+	var user domain.User
+	err := r.coll.FindOneAndUpdate(ctx, bson.M{"id": osuID}, update, opts).Decode(&user)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 func (r *userRepo) ByID(ctx context.Context, id bson.ObjectID) (*domain.User, error) {

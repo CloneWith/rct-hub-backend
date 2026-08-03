@@ -91,6 +91,10 @@ func (r *fakeUserRepo) List(ctx context.Context, params paginate.Params) (pagina
 	return paginate.Result[domain.User]{}, nil
 }
 
+func (r *fakeUserRepo) UpsertOsuFields(ctx context.Context, osuID int64, fields bson.M) (*domain.User, error) {
+	return nil, errs.ErrNotFound
+}
+
 var _ repository.UserRepository = (*fakeUserRepo)(nil)
 var _ oauth.OAuthClient = (*fakeOAuthClient)(nil)
 
