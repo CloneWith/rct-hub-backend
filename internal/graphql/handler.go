@@ -59,8 +59,8 @@ func NewHandler(resolver *Resolver) *handler.Server {
 //   - ping 等公开查询不需要 token；me 等查询在 resolver 中检查 claims 是否存在
 //
 // DataLoader 策略：
-//   - 每个请求创建独立的 BeatmapLoader，防止 N+1 重复查询
-func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, beatmapSvc *service.BeatmapService) gin.HandlerFunc {
+//   - 每个请求创建独立的 BeatmapLoader 与 UserLoader，防止 N+1 重复查询
+func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, services *service.Services) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
@@ -75,8 +75,9 @@ func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, beatmapSvc *
 			}
 		}
 
-		// 请求级 BeatmapLoader
-		ctx = WithBeatmapLoader(ctx, NewBeatmapLoader(beatmapSvc))
+		// 请求级 DataLoader
+		ctx = WithBeatmapLoader(ctx, NewBeatmapLoader(services.Beatmaps))
+		ctx = WithUserLoader(ctx, NewUserLoader(services.Users))
 
 		c.Request = c.Request.WithContext(ctx)
 		gqlHandler.ServeHTTP(c.Writer, c.Request)

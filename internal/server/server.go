@@ -134,7 +134,7 @@ func (s *Server) registerRoutes() {
 	gqlResolver := graphql.NewResolver(s.deps.Services)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
-	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.Services.Beatmaps))
+	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.Services))
 
 	users := handler.NewUserHandler(s.deps.UserSvc)
 	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc)

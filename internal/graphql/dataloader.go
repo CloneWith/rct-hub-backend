@@ -77,3 +77,63 @@ func BeatmapLoaderFromCtx(ctx context.Context) *BeatmapLoader {
 	}
 	return v.(*BeatmapLoader)
 }
+
+// ============================================================================
+// UserLoader — 请求级用户缓存加载器
+// ============================================================================
+
+type userLoaderKey struct{}
+
+// UserLoader 是请求级缓存加载器，防止嵌套用户字段的 N+1 查询。
+type UserLoader struct {
+	svc   *service.UserService
+	cache sync.Map // map[int64]*domain.User
+}
+
+// NewUserLoader 创建请求级 UserLoader。
+func NewUserLoader(svc *service.UserService) *UserLoader {
+	return &UserLoader{svc: svc}
+}
+
+// Load 按 osu! user ID 加载用户，命中缓存则不查库。
+// osuID <= 0 返回 nil, nil。
+func (l *UserLoader) Load(ctx context.Context, osuID int) (*domain.User, error) {
+	if osuID <= 0 {
+		return nil, nil
+	}
+
+	key := int64(osuID)
+	if v, ok := l.cache.Load(key); ok {
+		return v.(*domain.User), nil
+	}
+
+	u, err := l.svc.GetByOsuID(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+
+	if u != nil {
+		actual, _ := l.cache.LoadOrStore(key, u)
+		return actual.(*domain.User), nil
+	}
+
+	l.cache.Store(key, (*domain.User)(nil))
+	return nil, nil
+}
+
+// WithUserLoader 将 UserLoader 注入 context。
+func WithUserLoader(ctx context.Context, loader *UserLoader) context.Context {
+	if loader == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, userLoaderKey{}, loader)
+}
+
+// UserLoaderFromCtx 从 context 中获取 UserLoader。
+func UserLoaderFromCtx(ctx context.Context) *UserLoader {
+	v := ctx.Value(userLoaderKey{})
+	if v == nil {
+		return nil
+	}
+	return v.(*UserLoader)
+}
