@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -92,7 +93,27 @@ func (r *fakeUserRepo) List(ctx context.Context, params paginate.Params) (pagina
 }
 
 func (r *fakeUserRepo) UpsertOsuFields(ctx context.Context, osuID int64, fields bson.M) (*domain.User, error) {
-	return nil, errs.ErrNotFound
+	user, ok := r.byID[osuID]
+	if !ok {
+		user = &domain.User{
+			ID:           bson.NewObjectID(),
+			OnlineID:     osuID,
+			Roles:        []domain.UserRole{domain.RolePlayer},
+			VerifyStatus: domain.Pending,
+		}
+		r.users[user.ID] = user
+		r.byID[osuID] = user
+	}
+	if value, ok := fields["username"].(string); ok {
+		user.Username = value
+	}
+	if value, ok := fields["avatar_url"].(string); ok {
+		user.AvatarURL = value
+	}
+	if value, ok := fields["country_code"].(string); ok {
+		user.CountryCode = value
+	}
+	return user, nil
 }
 
 var _ repository.UserRepository = (*fakeUserRepo)(nil)
@@ -120,7 +141,7 @@ func TestAuthServiceCallbackCreatesUser(t *testing.T) {
 	}
 	users := newFakeUserRepo()
 	signer := jwtutil.NewSigner("this-is-a-32-byte-secret-key-for-test!", "rcthub-test")
-	svc := NewAuthService(oauthClient, users, signer, time.Hour)
+	svc := NewAuthService(oauthClient, users, nil, signer, time.Hour)
 
 	token, user, err := svc.Callback(ctx, "code", "state")
 	if err != nil {
@@ -165,7 +186,8 @@ func TestAuthServiceCallbackUpdatesExistingUser(t *testing.T) {
 		},
 	}
 	signer := jwtutil.NewSigner("this-is-a-32-byte-secret-key-for-test!", "rcthub-test")
-	svc := NewAuthService(oauthClient, users, signer, time.Hour)
+	inv := &mockInvalidator{}
+	svc := NewAuthService(oauthClient, users, inv, signer, time.Hour)
 
 	_, user, err := svc.Callback(ctx, "code", "state")
 	if err != nil {
@@ -176,6 +198,12 @@ func TestAuthServiceCallbackUpdatesExistingUser(t *testing.T) {
 	}
 	if user.CountryCode != "JP" {
 		t.Errorf("expected updated country JP, got %s", user.CountryCode)
+	}
+	if user.VerifyStatus != domain.Verified || len(user.Roles) != 1 || user.Roles[0] != domain.RolePlayer {
+		t.Errorf("expected local authorization fields to be preserved, got status=%s roles=%v", user.VerifyStatus, user.Roles)
+	}
+	if len(inv.userCalls) != 1 || inv.userCalls[0] != 42 {
+		t.Errorf("expected InvalidateUser(42), got %v", inv.userCalls)
 	}
 }
 
@@ -200,10 +228,35 @@ func TestAuthServiceCallbackRejectsBannedUser(t *testing.T) {
 		},
 	}
 	signer := jwtutil.NewSigner("this-is-a-32-byte-secret-key-for-test!", "rcthub-test")
-	svc := NewAuthService(oauthClient, users, signer, time.Hour)
+	svc := NewAuthService(oauthClient, users, nil, signer, time.Hour)
 
 	_, _, err := svc.Callback(ctx, "code", "state")
 	if err != errs.ErrForbidden {
 		t.Fatalf("expected forbidden, got %v", err)
+	}
+}
+
+func TestAuthServiceCallbackReturnsCacheInvalidationFailure(t *testing.T) {
+	ctx := context.Background()
+	users := newFakeUserRepo()
+	oauthClient := &fakeOAuthClient{
+		token: &oauth2.Token{AccessToken: "test-token"},
+		user: &oauth.OsuUser{
+			ID:       42,
+			Username: "tester",
+			Country:  countryCode("CN"),
+		},
+	}
+	cacheErr := errors.New("redis unavailable")
+	inv := &mockInvalidator{err: cacheErr}
+	signer := jwtutil.NewSigner("this-is-a-32-byte-secret-key-for-test!", "rcthub-test")
+	svc := NewAuthService(oauthClient, users, inv, signer, time.Hour)
+
+	token, user, err := svc.Callback(ctx, "code", "state")
+	if !errors.Is(err, cacheErr) {
+		t.Fatalf("expected cache invalidation error, got %v", err)
+	}
+	if token != "" || user != nil {
+		t.Fatal("expected login to fail closed before issuing a token")
 	}
 }

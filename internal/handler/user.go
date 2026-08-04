@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
@@ -38,7 +36,7 @@ func (h *UserHandler) UpdateRoles(c *gin.Context) {
 
 	user, err := h.svc.UpdateRoles(c.Request.Context(), id, req.Roles)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		_ = c.Error(err)
 		return
 	}
 	response.JSON(c, user)
@@ -62,7 +60,7 @@ func (h *UserHandler) SetBanned(c *gin.Context) {
 
 	user, err := h.svc.SetBanned(c.Request.Context(), id, req.Banned)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		_ = c.Error(err)
 		return
 	}
 	response.JSON(c, user)
@@ -86,7 +84,7 @@ func (h *UserHandler) SetVerifyStatus(c *gin.Context) {
 
 	user, err := h.svc.SetVerifyStatus(c.Request.Context(), id, req.Status)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		_ = c.Error(err)
 		return
 	}
 	response.JSON(c, user)

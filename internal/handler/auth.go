@@ -40,7 +40,7 @@ func (h *AuthHandler) OsuCallback(c *gin.Context) {
 
 	token, _, err := h.authService.Callback(c.Request.Context(), code, state)
 	if err != nil {
-		response.Error(c, http.StatusUnauthorized, err.Error())
+		_ = c.Error(err)
 		return
 	}
 

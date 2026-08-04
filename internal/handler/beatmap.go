@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
@@ -29,7 +27,7 @@ func (h *BeatmapHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.svc.Create(c.Request.Context(), &beatmap); err != nil {
-		response.Error(c, http.StatusConflict, err.Error())
+		_ = c.Error(err)
 		return
 	}
 	response.Created(c, beatmap)
@@ -51,7 +49,7 @@ func (h *BeatmapHandler) Update(c *gin.Context) {
 	beatmap.ID = id
 
 	if err := h.svc.Update(c.Request.Context(), &beatmap); err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		_ = c.Error(err)
 		return
 	}
 	response.JSON(c, beatmap)
@@ -66,7 +64,7 @@ func (h *BeatmapHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		_ = c.Error(err)
 		return
 	}
 	response.NoContent(c)

@@ -157,6 +157,12 @@ func (c *Config) validate() error {
 	if len(c.JWT.Secret) < 32 {
 		return fmt.Errorf("JWT_SECRET must be at least 32 bytes")
 	}
+	if c.Osu.FetcherUserCacheTTL <= 0 {
+		return fmt.Errorf("OSU_FETCHER_USER_CACHE_TTL_MIN must be greater than zero")
+	}
+	if c.Osu.FetcherBeatmapCacheTTL <= 0 {
+		return fmt.Errorf("OSU_FETCHER_BEATMAP_CACHE_TTL_HR must be greater than zero")
+	}
 	return nil
 }
 

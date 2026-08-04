@@ -2,9 +2,8 @@ package service
 
 import "context"
 
-// CacheInvalidator invalidates Redis cache entries when local-only fields
-// are modified by admin write paths. fetcher.Fetcher implements this
-// interface.
+// CacheInvalidator invalidates Redis cache entries after a user or beatmap
+// write. fetcher.Fetcher implements this interface.
 type CacheInvalidator interface {
 	InvalidateUser(ctx context.Context, osuID int64) error
 	InvalidateBeatmap(ctx context.Context, osuID int64) error

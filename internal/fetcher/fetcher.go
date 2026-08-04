@@ -26,7 +26,19 @@ var (
 const (
 	defaultUserCacheTTL    = 30 * time.Minute
 	defaultBeatmapCacheTTL = 24 * time.Hour
+	cacheGenerationGrace   = time.Hour
 )
+
+// A cache fill may finish after an admin update. Only write the fetched value
+// when no invalidation advanced the resource generation in the meantime.
+var cacheIfGenerationScript = redis.NewScript(`
+local current = tonumber(redis.call("GET", KEYS[1]) or "0")
+if current ~= tonumber(ARGV[1]) then
+    return 0
+end
+redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[3])
+return 1
+`)
 
 // Fetcher is the entry point for on-demand osu! data retrieval.
 // It implements a three-tier lookup: Redis hot cache → MongoDB persistent
@@ -51,12 +63,12 @@ type Fetcher interface {
 	// fields (ModString, ModIndex, etc.) are never touched.
 	SyncBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap, error)
 
-	// InvalidateUser removes the cached user from Redis. Call this when
+	// InvalidateUser advances the cache generation and removes the cached user. Call this when
 	// local-only fields (Roles, VerifyStatus, IsBanned) are modified by
 	// admin write paths to prevent stale data from being served.
 	InvalidateUser(ctx context.Context, osuID int64) error
 
-	// InvalidateBeatmap removes the cached beatmap from Redis.
+	// InvalidateBeatmap advances the cache generation and removes the cached beatmap.
 	InvalidateBeatmap(ctx context.Context, osuID int64) error
 }
 
@@ -80,10 +92,10 @@ type Config struct {
 
 // New creates a new Fetcher.
 func New(api *APIClient, users repository.UserRepository, beatmaps repository.BeatmapRepository, rdb *redis.Client, logger *zap.Logger, cfg Config) Fetcher {
-	if cfg.UserCacheTTL == 0 {
+	if cfg.UserCacheTTL <= 0 {
 		cfg.UserCacheTTL = defaultUserCacheTTL
 	}
-	if cfg.BeatmapCacheTTL == 0 {
+	if cfg.BeatmapCacheTTL <= 0 {
 		cfg.BeatmapCacheTTL = defaultBeatmapCacheTTL
 	}
 	return &fetcher{
@@ -105,11 +117,12 @@ func (f *fetcher) GetUser(ctx context.Context, osuID int64) (*domain.User, error
 	if user, ok := f.getCachedUser(ctx, osuID); ok {
 		return user, nil
 	}
+	generation := f.cacheGeneration(ctx, userGenerationKey(osuID))
 
 	// 2. MongoDB persistent store.
 	user, err := f.users.ByOsuID(ctx, osuID)
 	if err == nil {
-		f.cacheUser(ctx, user)
+		f.cacheUser(ctx, user, generation)
 		return user, nil
 	}
 	if !errors.Is(err, errs.ErrNotFound) {
@@ -122,6 +135,8 @@ func (f *fetcher) GetUser(ctx context.Context, osuID int64) (*domain.User, error
 
 // SyncUser implements Fetcher.
 func (f *fetcher) SyncUser(ctx context.Context, osuID int64) (*domain.User, error) {
+	generation := f.cacheGeneration(ctx, userGenerationKey(osuID))
+
 	resp, err := f.api.GetUser(ctx, osuID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -138,7 +153,7 @@ func (f *fetcher) SyncUser(ctx context.Context, osuID int64) (*domain.User, erro
 		return nil, fmt.Errorf("upsert user from osu! api: %w", err)
 	}
 
-	f.cacheUser(ctx, user)
+	f.cacheUser(ctx, user, generation)
 	return user, nil
 }
 
@@ -150,11 +165,12 @@ func (f *fetcher) GetBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap,
 	if bm, ok := f.getCachedBeatmap(ctx, osuID); ok {
 		return bm, nil
 	}
+	generation := f.cacheGeneration(ctx, beatmapGenerationKey(osuID))
 
 	// 2. MongoDB persistent store.
 	bm, err := f.beatmaps.ByOsuID(ctx, osuID)
 	if err == nil {
-		f.cacheBeatmap(ctx, bm)
+		f.cacheBeatmap(ctx, bm, generation)
 		return bm, nil
 	}
 	if !errors.Is(err, errs.ErrNotFound) {
@@ -167,6 +183,8 @@ func (f *fetcher) GetBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap,
 
 // SyncBeatmap implements Fetcher.
 func (f *fetcher) SyncBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap, error) {
+	generation := f.cacheGeneration(ctx, beatmapGenerationKey(osuID))
+
 	resp, err := f.api.GetBeatmap(ctx, osuID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -181,7 +199,7 @@ func (f *fetcher) SyncBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap
 		return nil, fmt.Errorf("upsert beatmap from osu! api: %w", err)
 	}
 
-	f.cacheBeatmap(ctx, bm)
+	f.cacheBeatmap(ctx, bm, generation)
 	return bm, nil
 }
 
@@ -189,12 +207,20 @@ func (f *fetcher) SyncBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap
 
 // InvalidateUser implements Fetcher.
 func (f *fetcher) InvalidateUser(ctx context.Context, osuID int64) error {
-	return f.rdb.Del(ctx, userCacheKey(osuID)).Err()
+	err := f.invalidate(ctx, userGenerationKey(osuID), userCacheKey(osuID), f.userCacheTTL)
+	if err != nil {
+		f.logger.Error("failed to invalidate user cache", zap.Int64("osu_id", osuID), zap.Error(err))
+	}
+	return err
 }
 
 // InvalidateBeatmap implements Fetcher.
 func (f *fetcher) InvalidateBeatmap(ctx context.Context, osuID int64) error {
-	return f.rdb.Del(ctx, beatmapCacheKey(osuID)).Err()
+	err := f.invalidate(ctx, beatmapGenerationKey(osuID), beatmapCacheKey(osuID), f.beatmapCacheTTL)
+	if err != nil {
+		f.logger.Error("failed to invalidate beatmap cache", zap.Int64("osu_id", osuID), zap.Error(err))
+	}
+	return err
 }
 
 func userCacheKey(osuID int64) string {
@@ -203,6 +229,32 @@ func userCacheKey(osuID int64) string {
 
 func beatmapCacheKey(osuID int64) string {
 	return fmt.Sprintf("fetcher:beatmap:%d", osuID)
+}
+
+func userGenerationKey(osuID int64) string {
+	return fmt.Sprintf("fetcher:user:%d:generation", osuID)
+}
+
+func beatmapGenerationKey(osuID int64) string {
+	return fmt.Sprintf("fetcher:beatmap:%d:generation", osuID)
+}
+
+func (f *fetcher) cacheGeneration(ctx context.Context, key string) int64 {
+	generation, err := f.rdb.Get(ctx, key).Int64()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		f.logger.Warn("failed to read cache generation", zap.String("key", key), zap.Error(err))
+	}
+	return generation
+}
+
+func (f *fetcher) invalidate(ctx context.Context, generationKey, cacheKey string, cacheTTL time.Duration) error {
+	_, err := f.rdb.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+		pipe.Incr(ctx, generationKey)
+		pipe.Expire(ctx, generationKey, cacheTTL+cacheGenerationGrace)
+		pipe.Del(ctx, cacheKey)
+		return nil
+	})
+	return err
 }
 
 func (f *fetcher) getCachedUser(ctx context.Context, osuID int64) (*domain.User, bool) {
@@ -218,13 +270,13 @@ func (f *fetcher) getCachedUser(ctx context.Context, osuID int64) (*domain.User,
 	return &user, true
 }
 
-func (f *fetcher) cacheUser(ctx context.Context, user *domain.User) {
+func (f *fetcher) cacheUser(ctx context.Context, user *domain.User, generation int64) {
 	data, err := json.Marshal(user)
 	if err != nil {
 		f.logger.Warn("failed to marshal user for cache", zap.Int64("osu_id", user.OnlineID), zap.Error(err))
 		return
 	}
-	if err := f.rdb.Set(ctx, userCacheKey(user.OnlineID), data, f.userCacheTTL).Err(); err != nil {
+	if err := f.cacheIfGeneration(ctx, userGenerationKey(user.OnlineID), userCacheKey(user.OnlineID), generation, data, f.userCacheTTL); err != nil {
 		f.logger.Warn("failed to cache user in redis", zap.Int64("osu_id", user.OnlineID), zap.Error(err))
 	}
 }
@@ -242,15 +294,26 @@ func (f *fetcher) getCachedBeatmap(ctx context.Context, osuID int64) (*domain.Be
 	return &bm, true
 }
 
-func (f *fetcher) cacheBeatmap(ctx context.Context, bm *domain.Beatmap) {
+func (f *fetcher) cacheBeatmap(ctx context.Context, bm *domain.Beatmap, generation int64) {
 	data, err := json.Marshal(bm)
 	if err != nil {
 		f.logger.Warn("failed to marshal beatmap for cache", zap.Int64("osu_id", bm.OnlineID), zap.Error(err))
 		return
 	}
-	if err := f.rdb.Set(ctx, beatmapCacheKey(bm.OnlineID), data, f.beatmapCacheTTL).Err(); err != nil {
+	if err := f.cacheIfGeneration(ctx, beatmapGenerationKey(bm.OnlineID), beatmapCacheKey(bm.OnlineID), generation, data, f.beatmapCacheTTL); err != nil {
 		f.logger.Warn("failed to cache beatmap in redis", zap.Int64("osu_id", bm.OnlineID), zap.Error(err))
 	}
+}
+
+func (f *fetcher) cacheIfGeneration(ctx context.Context, generationKey, cacheKey string, generation int64, data []byte, ttl time.Duration) error {
+	return cacheIfGenerationScript.Run(
+		ctx,
+		f.rdb,
+		[]string{generationKey, cacheKey},
+		generation,
+		data,
+		ttl.Milliseconds(),
+	).Err()
 }
 
 // --- Field mapping helpers ---

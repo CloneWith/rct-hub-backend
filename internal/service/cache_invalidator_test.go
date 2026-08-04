@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -140,6 +141,20 @@ func TestUserServiceNilInvalidatorIsSafe(t *testing.T) {
 	}
 }
 
+func TestUserServiceReturnsCacheInvalidationFailure(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeUserRepo()
+	uid := bson.NewObjectID()
+	_ = repo.Create(ctx, &domain.User{ID: uid, OnlineID: 42})
+	cacheErr := errors.New("redis unavailable")
+	svc := NewUserService(repo, &mockInvalidator{err: cacheErr})
+
+	_, err := svc.SetBanned(ctx, uid, true)
+	if !errors.Is(err, cacheErr) {
+		t.Fatalf("expected cache invalidation error, got %v", err)
+	}
+}
+
 // --- fakeBeatmapRepo ---
 
 type fakeBeatmapRepo struct {
@@ -228,6 +243,40 @@ func TestBeatmapServiceUpdateInvalidatesCache(t *testing.T) {
 
 	if len(inv.beatmapCalls) != 1 || inv.beatmapCalls[0] != 100 {
 		t.Errorf("expected InvalidateBeatmap(100), got %v", inv.beatmapCalls)
+	}
+}
+
+func TestBeatmapServiceUpdateRejectsOnlineIDChange(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeBeatmapRepo()
+	bid := bson.NewObjectID()
+	stored := &domain.Beatmap{ID: bid, OnlineID: 100, Title: "Original"}
+	_ = repo.Create(ctx, stored)
+	svc := NewBeatmapService(repo, &mockInvalidator{})
+
+	changed := *stored
+	changed.OnlineID = 101
+	err := svc.Update(ctx, &changed)
+	if !errors.Is(err, errs.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+	if got, _ := repo.ByID(ctx, bid); got.OnlineID != 100 {
+		t.Fatalf("expected stored osu! id to remain 100, got %d", got.OnlineID)
+	}
+}
+
+func TestBeatmapServiceReturnsCacheInvalidationFailure(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeBeatmapRepo()
+	bid := bson.NewObjectID()
+	stored := &domain.Beatmap{ID: bid, OnlineID: 100}
+	_ = repo.Create(ctx, stored)
+	cacheErr := errors.New("redis unavailable")
+	svc := NewBeatmapService(repo, &mockInvalidator{err: cacheErr})
+
+	err := svc.Update(ctx, stored)
+	if !errors.Is(err, cacheErr) {
+		t.Fatalf("expected cache invalidation error, got %v", err)
 	}
 }
 

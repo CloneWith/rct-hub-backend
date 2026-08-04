@@ -283,10 +283,15 @@ func (s *osuTestServer) handle(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	// User endpoint: /api/v2/users/{id}
+	// User endpoint: /api/v2/users/{id}/osu
 	if strings.HasPrefix(r.URL.Path, "/api/v2/users/") {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v2/users/")
+		if !strings.HasSuffix(path, "/osu") {
+			http.Error(w, "missing osu ruleset path", http.StatusBadRequest)
+			return
+		}
 		var id int64
-		fmt.Sscanf(strings.TrimPrefix(r.URL.Path, "/api/v2/users/"), "%d", &id)
+		fmt.Sscanf(strings.TrimSuffix(path, "/osu"), "%d", &id)
 		if u, ok := s.userResp[id]; ok {
 			json.NewEncoder(w).Encode(u)
 			return
@@ -921,6 +926,52 @@ func TestFetcherInvalidateBeatmap(t *testing.T) {
 	exists, _ = rdb.Exists(context.Background(), beatmapCacheKey(100)).Result()
 	if exists != 0 {
 		t.Fatal("expected cache entry to be removed after invalidation")
+	}
+}
+
+func TestStaleUserReadCannotRefillCacheAfterInvalidation(t *testing.T) {
+	ctx := context.Background()
+	rdb, _ := newMiniRedis(t)
+	f := New(nil, newFakeUserRepo(), newFakeBeatmapRepo(), rdb, testLogger(), Config{}).(*fetcher)
+	staleGeneration := f.cacheGeneration(ctx, userGenerationKey(42))
+
+	if err := f.InvalidateUser(ctx, 42); err != nil {
+		t.Fatalf("InvalidateUser: %v", err)
+	}
+	f.cacheUser(ctx, &domain.User{OnlineID: 42, IsBanned: false}, staleGeneration)
+
+	if exists, _ := rdb.Exists(ctx, userCacheKey(42)).Result(); exists != 0 {
+		t.Fatal("stale user was written after cache invalidation")
+	}
+
+	currentGeneration := f.cacheGeneration(ctx, userGenerationKey(42))
+	f.cacheUser(ctx, &domain.User{OnlineID: 42, IsBanned: true}, currentGeneration)
+	user, ok := f.getCachedUser(ctx, 42)
+	if !ok || !user.IsBanned {
+		t.Fatal("current user generation was not cached")
+	}
+}
+
+func TestStaleBeatmapReadCannotRefillCacheAfterInvalidation(t *testing.T) {
+	ctx := context.Background()
+	rdb, _ := newMiniRedis(t)
+	f := New(nil, newFakeUserRepo(), newFakeBeatmapRepo(), rdb, testLogger(), Config{}).(*fetcher)
+	staleGeneration := f.cacheGeneration(ctx, beatmapGenerationKey(100))
+
+	if err := f.InvalidateBeatmap(ctx, 100); err != nil {
+		t.Fatalf("InvalidateBeatmap: %v", err)
+	}
+	f.cacheBeatmap(ctx, &domain.Beatmap{OnlineID: 100, Title: "stale"}, staleGeneration)
+
+	if exists, _ := rdb.Exists(ctx, beatmapCacheKey(100)).Result(); exists != 0 {
+		t.Fatal("stale beatmap was written after cache invalidation")
+	}
+
+	currentGeneration := f.cacheGeneration(ctx, beatmapGenerationKey(100))
+	f.cacheBeatmap(ctx, &domain.Beatmap{OnlineID: 100, Title: "current"}, currentGeneration)
+	bm, ok := f.getCachedBeatmap(ctx, 100)
+	if !ok || bm.Title != "current" {
+		t.Fatal("current beatmap generation was not cached")
 	}
 }
 

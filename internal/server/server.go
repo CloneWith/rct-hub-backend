@@ -98,7 +98,7 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 		DB:          db,
 		Repos:       repos,
 		Services:    services,
-		AuthSvc:     service.NewAuthService(oauthClient, repos.Users, signer, cfg.JWT.Expiry),
+		AuthSvc:     service.NewAuthService(oauthClient, repos.Users, osuFetcher, signer, cfg.JWT.Expiry),
 		UserSvc:     services.Users,
 		BeatmapSvc:  services.Beatmaps,
 		AnnounceSvc: service.NewAnnouncementService(repos.Announcements),

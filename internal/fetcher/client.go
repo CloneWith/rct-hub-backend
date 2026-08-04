@@ -212,7 +212,7 @@ func (c *APIClient) refreshToken(ctx context.Context) (string, error) {
 // GetUser fetches a user from GET /api/v2/users/{id}.
 func (c *APIClient) GetUser(ctx context.Context, osuID int64) (*OsuUserResponse, error) {
 	var user OsuUserResponse
-	url := fmt.Sprintf("%s/api/v2/users/%s?mode=osu", c.cfg.APIBase, strconv.FormatInt(osuID, 10))
+	url := fmt.Sprintf("%s/api/v2/users/%s/osu", c.cfg.APIBase, strconv.FormatInt(osuID, 10))
 	if err := c.do(ctx, http.MethodGet, url, nil, &user); err != nil {
 		return nil, err
 	}

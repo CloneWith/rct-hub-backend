@@ -48,7 +48,9 @@ func (s *UserService) UpdateRoles(ctx context.Context, id bson.ObjectID, roles [
 		return nil, err
 	}
 	// Invalidate cached copy so the new roles are visible immediately.
-	_ = s.invalidator.InvalidateUser(ctx, user.OnlineID)
+	if err := s.invalidator.InvalidateUser(ctx, user.OnlineID); err != nil {
+		return nil, fmt.Errorf("%w: update roles: %w", errs.ErrCacheSync, err)
+	}
 	return user, nil
 }
 
@@ -63,7 +65,9 @@ func (s *UserService) SetBanned(ctx context.Context, id bson.ObjectID, banned bo
 		return nil, err
 	}
 	// Invalidate cached copy so the ban status is visible immediately.
-	_ = s.invalidator.InvalidateUser(ctx, user.OnlineID)
+	if err := s.invalidator.InvalidateUser(ctx, user.OnlineID); err != nil {
+		return nil, fmt.Errorf("%w: update ban status: %w", errs.ErrCacheSync, err)
+	}
 	return user, nil
 }
 
@@ -83,6 +87,8 @@ func (s *UserService) SetVerifyStatus(ctx context.Context, id bson.ObjectID, sta
 		return nil, err
 	}
 	// Invalidate cached copy so the new verify status is visible immediately.
-	_ = s.invalidator.InvalidateUser(ctx, user.OnlineID)
+	if err := s.invalidator.InvalidateUser(ctx, user.OnlineID); err != nil {
+		return nil, fmt.Errorf("%w: update verification status: %w", errs.ErrCacheSync, err)
+	}
 	return user, nil
 }

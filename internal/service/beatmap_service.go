@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/repository"
+	"rctHubBackend/pkg/errs"
 	"rctHubBackend/pkg/paginate"
 )
 
@@ -45,18 +47,29 @@ func (s *BeatmapService) Create(ctx context.Context, beatmap *domain.Beatmap) er
 	if err := s.beatmaps.Create(ctx, beatmap); err != nil {
 		return err
 	}
-	// New entry — invalidate in case a stale "not found" sentinel was cached.
-	_ = s.invalidator.InvalidateBeatmap(ctx, beatmap.OnlineID)
+	// Invalidate any stale entry left from an earlier lifecycle of this osu! ID.
+	if err := s.invalidator.InvalidateBeatmap(ctx, beatmap.OnlineID); err != nil {
+		return fmt.Errorf("%w: create beatmap: %w", errs.ErrCacheSync, err)
+	}
 	return nil
 }
 
 // Update updates an existing beatmap.
 func (s *BeatmapService) Update(ctx context.Context, beatmap *domain.Beatmap) error {
+	stored, err := s.beatmaps.ByID(ctx, beatmap.ID)
+	if err != nil {
+		return err
+	}
+	if beatmap.OnlineID != stored.OnlineID {
+		return fmt.Errorf("%w: beatmap osu! id cannot be changed", errs.ErrInvalidInput)
+	}
 	if err := s.beatmaps.Update(ctx, beatmap); err != nil {
 		return err
 	}
 	// Invalidate cached copy so local-only field changes are visible.
-	_ = s.invalidator.InvalidateBeatmap(ctx, beatmap.OnlineID)
+	if err := s.invalidator.InvalidateBeatmap(ctx, beatmap.OnlineID); err != nil {
+		return fmt.Errorf("%w: update beatmap: %w", errs.ErrCacheSync, err)
+	}
 	return nil
 }
 
@@ -71,6 +84,8 @@ func (s *BeatmapService) Delete(ctx context.Context, id bson.ObjectID) error {
 		return err
 	}
 	// Invalidate cached copy so the deleted beatmap is not served from cache.
-	_ = s.invalidator.InvalidateBeatmap(ctx, bm.OnlineID)
+	if err := s.invalidator.InvalidateBeatmap(ctx, bm.OnlineID); err != nil {
+		return fmt.Errorf("%w: delete beatmap: %w", errs.ErrCacheSync, err)
+	}
 	return nil
 }
