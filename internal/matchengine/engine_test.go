@@ -475,6 +475,9 @@ func TestFourWonPiecesFinishOnlyAfterRefereeConfirmation(t *testing.T) {
 	if state.Result == nil || state.Result.Winner != TeamRed || state.Result.Reason != ResultReasonFourAlignment {
 		t.Fatalf("four-alignment result = %+v", state.Result)
 	}
+	if err := ValidateState(state); err != nil {
+		t.Fatalf("ValidateState rejected engine-produced four-alignment result: %v", err)
+	}
 }
 
 func TestFourAlignmentDirections(t *testing.T) {

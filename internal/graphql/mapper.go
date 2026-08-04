@@ -77,14 +77,6 @@ func mapMatchStatus(s domain.MatchStatus) MatchStatus {
 	return MatchStatus(upperEnum(string(s)))
 }
 
-func mapMatchStatusPtr(s *domain.MatchStatus) *MatchStatus {
-	if s == nil {
-		return nil
-	}
-	v := mapMatchStatus(*s)
-	return &v
-}
-
 func mapMatchPhase(p domain.MatchPhase) MatchPhase {
 	return MatchPhase(upperEnum(string(p)))
 }
@@ -260,19 +252,6 @@ func mapBoardCell(c *domain.Cell) *BoardCell {
 		State:    string(c.State),
 		PieceID:  c.PieceID,
 		TeamID:   c.TeamID,
-	}
-}
-
-func mapPiece(p *domain.Piece) *Piece {
-	if p == nil {
-		return nil
-	}
-	return &Piece{
-		BeatmapID: int64PtrToIntPtr(p.BeatmapID),
-		State:     mapPieceState(p.State),
-		TeamID:    p.TeamID,
-		ForceMod:  mapForceModPtr(p.ForceMod),
-		Position:  mapPositionPtr(p.Position),
 	}
 }
 

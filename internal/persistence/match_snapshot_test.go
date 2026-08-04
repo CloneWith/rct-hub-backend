@@ -2,7 +2,9 @@ package persistence
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,6 +12,19 @@ import (
 
 	"rctHubBackend/internal/matchengine"
 )
+
+func TestSnapshotStoreLoadRejectsMissingMatchID(t *testing.T) {
+	t.Parallel()
+
+	store := &SnapshotStore{}
+	_, err := store.Load(context.Background(), bson.NilObjectID)
+	if !errors.Is(err, ErrInvalidSnapshotIdentifier) {
+		t.Fatalf("Load missing match ID error = %v, want ErrInvalidSnapshotIdentifier", err)
+	}
+	if errors.Is(err, ErrSnapshotNotFound) {
+		t.Fatalf("Load missing match ID must not report a missing stored snapshot: %v", err)
+	}
+}
 
 func TestMatchSnapshotBSONRoundTripPreservesEngineBehavior(t *testing.T) {
 	t.Parallel()
@@ -28,6 +43,12 @@ func TestMatchSnapshotBSONRoundTripPreservesEngineBehavior(t *testing.T) {
 	}
 	if _, ok := bson.Raw(encoded).Lookup("state").DocumentOK(); !ok {
 		t.Fatalf("snapshot state is not an embedded BSON document: %v", bson.Raw(encoded).Lookup("state").Type)
+	}
+	if got := bson.Raw(encoded).Lookup("schema_version").Type; got != bson.TypeInt32 {
+		t.Fatalf("schema_version BSON type = %v, want int32", got)
+	}
+	if got := bson.Raw(encoded).Lookup("match_version").Type; got != bson.TypeInt64 {
+		t.Fatalf("match_version BSON type = %v, want int64", got)
 	}
 	var recoveredDocument MatchSnapshotDocument
 	if err := bson.Unmarshal(encoded, &recoveredDocument); err != nil {
@@ -58,6 +79,29 @@ func TestMatchSnapshotBSONRoundTripPreservesEngineBehavior(t *testing.T) {
 	}
 }
 
+func TestRecoveredTimerUsesPersistedAbsoluteAnchor(t *testing.T) {
+	t.Parallel()
+
+	startedAt := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
+	ready := snapshotReadyState(t)
+	transition, err := matchengine.Execute(ready, matchengine.RefereeActor(), matchengine.StartMatch{}, startedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := NewMatchSnapshotDocument(bson.NewObjectID(), transition.State, startedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := document.DecodeState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := startedAt.Add(17 * time.Second)
+	if got, want := recovered.Timer.Remaining(at), transition.State.Timer.Remaining(at); got != want || got != 43*time.Second {
+		t.Fatalf("recovered remaining time = %s, original = %s", got, want)
+	}
+}
+
 func TestMatchSnapshotRejectsUnsupportedOrInconsistentDocuments(t *testing.T) {
 	t.Parallel()
 
@@ -73,10 +117,16 @@ func TestMatchSnapshotRejectsUnsupportedOrInconsistentDocuments(t *testing.T) {
 		mutate func(*MatchSnapshotDocument)
 	}{
 		{name: "unsupported schema", mutate: func(d *MatchSnapshotDocument) { d.SchemaVersion++ }},
+		{name: "reversed timestamps", mutate: func(d *MatchSnapshotDocument) { d.UpdatedAt = d.CreatedAt.Add(-time.Second) }},
+		{name: "missing origin", mutate: func(d *MatchSnapshotDocument) { d.Origin = "" }},
+		{name: "missing configuration hash", mutate: func(d *MatchSnapshotDocument) { d.ConfigurationHash = "" }},
+		{name: "configuration hash mismatch", mutate: func(d *MatchSnapshotDocument) { d.ConfigurationHash = "tampered" }},
 		{name: "version mismatch", mutate: func(d *MatchSnapshotDocument) { d.MatchVersion++ }},
 		{name: "missing state", mutate: func(d *MatchSnapshotDocument) { d.State = nil }},
 		{name: "invalid BSON state", mutate: func(d *MatchSnapshotDocument) { d.State = bson.Raw{1, 2, 3} }},
 		{name: "missing match ID", mutate: func(d *MatchSnapshotDocument) { d.MatchID = bson.NilObjectID }},
+		{name: "missing created timestamp", mutate: func(d *MatchSnapshotDocument) { d.CreatedAt = time.Time{} }},
+		{name: "missing updated timestamp", mutate: func(d *MatchSnapshotDocument) { d.UpdatedAt = time.Time{} }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -91,11 +141,41 @@ func TestMatchSnapshotRejectsUnsupportedOrInconsistentDocuments(t *testing.T) {
 	if _, err := NewMatchSnapshotDocument(bson.NilObjectID, state, now); err == nil {
 		t.Fatal("NewMatchSnapshotDocument accepted a missing match ID")
 	}
+	if _, err := NewMatchSnapshotDocument(bson.NewObjectID(), state, time.Time{}); err == nil {
+		t.Fatal("NewMatchSnapshotDocument accepted a missing timestamp")
+	}
+	invalidState := state.Clone()
+	invalidState.Lifecycle = "BROKEN"
+	if _, err := NewMatchSnapshotDocument(bson.NewObjectID(), invalidState, now); err == nil {
+		t.Fatal("NewMatchSnapshotDocument accepted an invalid engine state")
+	}
 }
 
 func snapshotTestState(t *testing.T, now time.Time) matchengine.State {
 	t.Helper()
 
+	state := snapshotReadyState(t)
+	apply := func(actor matchengine.Actor, command matchengine.Command) {
+		t.Helper()
+		now = now.Add(time.Second)
+		transition, executeErr := matchengine.Execute(state, actor, command, now)
+		if executeErr != nil {
+			t.Fatalf("execute %T: %v", command, executeErr)
+		}
+		state = transition.State
+	}
+	apply(matchengine.RefereeActor(), matchengine.StartMatch{})
+	apply(matchengine.StrategistActor(matchengine.TeamRed), matchengine.BanPoolSlot{PoolSlotID: "NM1"})
+	apply(matchengine.StrategistActor(matchengine.TeamBlue), matchengine.BanPoolSlot{PoolSlotID: "NM2"})
+	apply(matchengine.StrategistActor(matchengine.TeamBlue), matchengine.BanPoolSlot{PoolSlotID: "NM3"})
+	apply(matchengine.StrategistActor(matchengine.TeamRed), matchengine.BanPoolSlot{PoolSlotID: "NM4"})
+	apply(matchengine.StrategistActor(matchengine.TeamBlue), matchengine.PlacePiece{PoolSlotID: "NM5", PieceID: "piece-1", Cell: "A1"})
+	apply(matchengine.RefereeActor(), matchengine.ConfirmBeatmapResult{BoardPieceID: "piece-1", WinningTeam: matchengine.TeamRed})
+	return state
+}
+
+func snapshotReadyState(t *testing.T) matchengine.State {
+	t.Helper()
 	configuration := matchengine.Configuration{
 		FirstBan:  matchengine.TeamRed,
 		FirstPick: matchengine.TeamBlue,
@@ -118,21 +198,5 @@ func snapshotTestState(t *testing.T, now time.Time) matchengine.State {
 	if err != nil {
 		t.Fatalf("new ready state: %v", err)
 	}
-	apply := func(actor matchengine.Actor, command matchengine.Command) {
-		t.Helper()
-		now = now.Add(time.Second)
-		transition, executeErr := matchengine.Execute(state, actor, command, now)
-		if executeErr != nil {
-			t.Fatalf("execute %T: %v", command, executeErr)
-		}
-		state = transition.State
-	}
-	apply(matchengine.RefereeActor(), matchengine.StartMatch{})
-	apply(matchengine.StrategistActor(matchengine.TeamRed), matchengine.BanPoolSlot{PoolSlotID: "NM1"})
-	apply(matchengine.StrategistActor(matchengine.TeamBlue), matchengine.BanPoolSlot{PoolSlotID: "NM2"})
-	apply(matchengine.StrategistActor(matchengine.TeamBlue), matchengine.BanPoolSlot{PoolSlotID: "NM3"})
-	apply(matchengine.StrategistActor(matchengine.TeamRed), matchengine.BanPoolSlot{PoolSlotID: "NM4"})
-	apply(matchengine.StrategistActor(matchengine.TeamBlue), matchengine.PlacePiece{PoolSlotID: "NM5", PieceID: "piece-1", Cell: "A1"})
-	apply(matchengine.RefereeActor(), matchengine.ConfirmBeatmapResult{BoardPieceID: "piece-1", WinningTeam: matchengine.TeamRed})
 	return state
 }

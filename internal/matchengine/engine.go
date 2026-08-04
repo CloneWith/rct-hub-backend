@@ -85,7 +85,7 @@ func startMatch(state *State, actor Actor, now time.Time) ([]Event, error) {
 
 	state.Lifecycle = LifecycleRunning
 	state.Phase = PhaseBan
-	state.Turn = -3
+	state.Turn = firstBanTurn
 	state.ActiveTeam = state.FirstBan
 	state.Timer = Timer{StartedAt: now, Duration: state.Timers.Ban}
 	return []Event{
@@ -119,8 +119,8 @@ func banPoolSlot(state *State, actor Actor, command BanPoolSlot, now time.Time) 
 	events := []Event{{Type: EventPoolSlotBanned, Team: state.ActiveTeam, PoolSlotID: slot.ID}}
 
 	state.Turn++
-	if state.Turn > 0 {
-		state.Turn = 1
+	if state.Turn > finalBanTurn {
+		state.Turn = firstPickTurn
 		state.ActiveTeam = state.FirstPick
 		events = append(events,
 			Event{Type: EventTurnAdvanced, Team: state.ActiveTeam},
@@ -131,9 +131,9 @@ func banPoolSlot(state *State, actor Actor, command BanPoolSlot, now time.Time) 
 	}
 
 	switch state.Turn {
-	case -2, -1:
+	case secondBanTurn, thirdBanTurn:
 		state.ActiveTeam = state.FirstBan.opponent()
-	case 0:
+	case finalBanTurn:
 		state.ActiveTeam = state.FirstBan
 	}
 	state.Timer = Timer{StartedAt: now, Duration: state.Timers.Ban}
@@ -538,8 +538,8 @@ func skipCurrentAction(state *State, actor Actor, command SkipCurrentAction, now
 
 	if state.Phase == PhaseBan {
 		state.Turn++
-		if state.Turn > 0 {
-			state.Turn = 1
+		if state.Turn > finalBanTurn {
+			state.Turn = firstPickTurn
 			state.ActiveTeam = state.FirstPick
 			events = append(events,
 				Event{Type: EventTurnAdvanced, Team: state.ActiveTeam},
@@ -548,9 +548,9 @@ func skipCurrentAction(state *State, actor Actor, command SkipCurrentAction, now
 			events = append(events, enterPickOrTerminal(state, now)...)
 		} else {
 			switch state.Turn {
-			case -2, -1:
+			case secondBanTurn, thirdBanTurn:
 				state.ActiveTeam = state.FirstBan.opponent()
-			case 0:
+			case finalBanTurn:
 				state.ActiveTeam = state.FirstBan
 			}
 			state.Timer = Timer{StartedAt: now, Duration: state.Timers.Ban}

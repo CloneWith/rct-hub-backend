@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"rctHubBackend/internal/config"
+	"rctHubBackend/internal/persistence"
 )
 
 // DB holds all external data store clients.
@@ -120,5 +121,16 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 		return fmt.Errorf("announcements indexes: %w", err)
 	}
 
+	snapshotStore := persistence.NewSnapshotStore(db.MongoDB)
+	if err := snapshotStore.EnsureIndexes(ctx); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// VerifySchema checks every database-level contract required by this binary.
+// Match snapshots are currently the only collection with a runtime validator.
+func (db *DB) VerifySchema(ctx context.Context) error {
+	return persistence.NewSnapshotStore(db.MongoDB).VerifyValidator(ctx)
 }

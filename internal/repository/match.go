@@ -31,6 +31,9 @@ func NewMatchRepository(db *mongo.Database) MatchRepository {
 }
 
 func (r *matchRepo) Create(ctx context.Context, match *domain.Match) error {
+	if match.ID == bson.NilObjectID {
+		match.ID = bson.NewObjectID()
+	}
 	now := time.Now().UTC()
 	match.CreatedAt = now
 	match.UpdatedAt = now

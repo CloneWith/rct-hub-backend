@@ -15,6 +15,7 @@ import (
 	"rctHubBackend/internal/database"
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/logger"
+	"rctHubBackend/internal/persistence"
 )
 
 func main() {
@@ -56,6 +57,7 @@ func main() {
 		"beatmaps",
 		"rooms",
 		"matches",
+		"match_snapshots",
 		"moves",
 		"results",
 		"announcements",
@@ -142,6 +144,10 @@ func ensureSchemaValidation(ctx context.Context, db *mongo.Database) error {
 		{Key: "validationLevel", Value: "moderate"},
 	}).Err(); err != nil {
 		return fmt.Errorf("rooms validation: %w", err)
+	}
+
+	if err := persistence.NewSnapshotStore(db).InstallValidator(ctx); err != nil {
+		return err
 	}
 
 	return nil

@@ -77,7 +77,7 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 		APIBase:      cfg.Osu.APIBase,
 	}, db.Redis)
 
-	repos := repository.NewRepositories(db.MongoDB)
+	repos := repository.NewRepositories(db.Mongo, db.MongoDB)
 
 	// osu! API fetcher — three-tier lookup (Redis → MongoDB → osu! API v2).
 	// Created before services so it can be injected as a CacheInvalidator.

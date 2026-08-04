@@ -11,6 +11,7 @@ var (
 	ErrInternal      = errors.New("internal server error")
 	ErrCacheSync     = errors.New("cache synchronization failed after write")
 	ErrDuplicateKey  = errors.New("duplicate key")
+	ErrConflict      = errors.New("resource state conflict")
 )
 
 // AppError pairs a domain error with an optional public message.
