@@ -22,6 +22,7 @@ const (
 
 var (
 	ErrSnapshotNotFound             = errors.New("authoritative match snapshot not found")
+	ErrInvalidSnapshotIdentifier    = errors.New("invalid authoritative match snapshot identifier")
 	ErrSnapshotAlreadyExists        = errors.New("authoritative match snapshot already exists")
 	ErrSnapshotVersionConflict      = errors.New("authoritative match snapshot version conflict")
 	ErrInvalidSnapshotTransition    = errors.New("invalid authoritative snapshot transition")
@@ -191,7 +192,7 @@ func (s *SnapshotStore) Create(ctx context.Context, matchID bson.ObjectID, state
 
 func (s *SnapshotStore) Load(ctx context.Context, matchID bson.ObjectID) (matchengine.State, error) {
 	if matchID == bson.NilObjectID {
-		return matchengine.State{}, fmt.Errorf("%w: match ID is required", ErrSnapshotNotFound)
+		return matchengine.State{}, fmt.Errorf("%w: match ID is required", ErrInvalidSnapshotIdentifier)
 	}
 	var document MatchSnapshotDocument
 	err := s.snapshots.FindOne(ctx, bson.M{"_id": matchID}).Decode(&document)

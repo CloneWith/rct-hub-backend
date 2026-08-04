@@ -129,8 +129,8 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 	return nil
 }
 
-// VerifySchema fails closed when privileged database initialization has not
-// installed the authoritative snapshot contract expected by this binary.
+// VerifySchema checks every database-level contract required by this binary.
+// Match snapshots are currently the only collection with a runtime validator.
 func (db *DB) VerifySchema(ctx context.Context) error {
 	return persistence.NewSnapshotStore(db.MongoDB).VerifyValidator(ctx)
 }

@@ -287,6 +287,17 @@ type State struct {
 	AbortReason      string             `json:"abortReason,omitempty"`
 }
 
+// Turn boundaries are shared by transitions and recovery validation. Ban uses
+// -3 through 0; normal placement starts at turn 1.
+const (
+	readyTurn     = 0
+	firstBanTurn  = -3
+	secondBanTurn = -2
+	thirdBanTurn  = -1
+	finalBanTurn  = 0
+	firstPickTurn = 1
+)
+
 // Clone returns an independent state suitable for deterministic transitions.
 func (s State) Clone() State {
 	clone := s

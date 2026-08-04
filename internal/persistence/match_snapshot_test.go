@@ -2,7 +2,9 @@ package persistence
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,6 +12,19 @@ import (
 
 	"rctHubBackend/internal/matchengine"
 )
+
+func TestSnapshotStoreLoadRejectsMissingMatchID(t *testing.T) {
+	t.Parallel()
+
+	store := &SnapshotStore{}
+	_, err := store.Load(context.Background(), bson.NilObjectID)
+	if !errors.Is(err, ErrInvalidSnapshotIdentifier) {
+		t.Fatalf("Load missing match ID error = %v, want ErrInvalidSnapshotIdentifier", err)
+	}
+	if errors.Is(err, ErrSnapshotNotFound) {
+		t.Fatalf("Load missing match ID must not report a missing stored snapshot: %v", err)
+	}
+}
 
 func TestMatchSnapshotBSONRoundTripPreservesEngineBehavior(t *testing.T) {
 	t.Parallel()

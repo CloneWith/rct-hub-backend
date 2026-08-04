@@ -42,6 +42,8 @@ func BuildFormalMatchSeed(room domain.Room, now time.Time) (FormalMatchSeed, err
 		return FormalMatchSeed{}, fmt.Errorf("%w: invalid MatchEngine configuration: %v", errs.ErrInvalidInput, err)
 	}
 
+	// RoomSettings has no team presentation fields. These defaults only fill
+	// the temporary legacy read-model shell; they do not configure the engine.
 	redTeam := domain.Team{
 		ID:           bson.NewObjectID(),
 		Side:         domain.TeamSideRed,
@@ -116,6 +118,8 @@ func engineConfigurationFromRoom(room domain.Room) (matchengine.Configuration, e
 				PlayerIDs: append([]int64(nil), room.Settings.BluePlayers...),
 			},
 		},
+		// Formal rooms currently expose no timer-preset setting, so the
+		// organizer-confirmed RCTS1 preset is frozen into the new aggregate.
 		Timers: matchengine.StandardTimerConfiguration(),
 	}, nil
 }

@@ -52,25 +52,25 @@ func validateTurnAndTimer(state State) error {
 	case PhaseNone:
 		switch state.Lifecycle {
 		case LifecycleReady:
-			if state.Turn != 0 {
+			if state.Turn != readyTurn {
 				return fmt.Errorf("READY state must start at turn zero")
 			}
 		case LifecycleAdjudicationRequired:
-			if state.Turn < 1 {
+			if state.Turn < firstPickTurn {
 				return fmt.Errorf("ADJUDICATION_REQUIRED state has an invalid turn")
 			}
 		case LifecycleFinished, LifecycleAborted:
-			if state.Turn < -3 {
+			if state.Turn < firstBanTurn {
 				return fmt.Errorf("terminal state has an invalid turn")
 			}
 		}
 	case PhaseBan:
 		requiresTimer = true
-		if state.Turn < -3 || state.Turn > 0 {
+		if state.Turn < firstBanTurn || state.Turn > finalBanTurn {
 			return fmt.Errorf("ban phase has invalid turn %d", state.Turn)
 		}
 		expectedTeam := state.FirstBan
-		if state.Turn == -2 || state.Turn == -1 {
+		if state.Turn == secondBanTurn || state.Turn == thirdBanTurn {
 			expectedTeam = state.FirstBan.opponent()
 		}
 		if state.ActiveTeam != expectedTeam {
@@ -78,7 +78,7 @@ func validateTurnAndTimer(state State) error {
 		}
 	case PhasePick, PhaseWaitingForResult:
 		requiresTimer = true
-		if state.Turn < 1 {
+		if state.Turn < firstPickTurn {
 			return fmt.Errorf("phase %s has invalid turn %d", state.Phase, state.Turn)
 		}
 		if state.ActiveTeam != pickTeam(state.FirstPick, state.Turn) {
@@ -86,11 +86,11 @@ func validateTurnAndTimer(state State) error {
 		}
 	case PhaseTBPreparation:
 		requiresTimer = true
-		if state.Turn < 1 {
+		if state.Turn < firstPickTurn {
 			return fmt.Errorf("TB preparation has an invalid turn")
 		}
 	case PhaseTBPlaying:
-		if state.Turn < 1 {
+		if state.Turn < firstPickTurn {
 			return fmt.Errorf("TB play has an invalid turn")
 		}
 	}
