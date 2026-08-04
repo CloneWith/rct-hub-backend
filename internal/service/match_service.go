@@ -18,11 +18,12 @@ type MatchService struct {
 	matches repository.MatchRepository
 	rooms   repository.RoomRepository
 	moves   repository.MoveRepository
+	results repository.ResultRepository
 }
 
 // NewMatchService creates a new MatchService.
-func NewMatchService(matches repository.MatchRepository, rooms repository.RoomRepository, moves repository.MoveRepository) *MatchService {
-	return &MatchService{matches: matches, rooms: rooms, moves: moves}
+func NewMatchService(matches repository.MatchRepository, rooms repository.RoomRepository, moves repository.MoveRepository, results repository.ResultRepository) *MatchService {
+	return &MatchService{matches: matches, rooms: rooms, moves: moves, results: results}
 }
 
 // List returns a paginated list of matches filtered by optional status.
@@ -361,6 +362,11 @@ func (s *MatchService) ResumeMatch(ctx context.Context, matchID bson.ObjectID) e
 	}
 	match.Timer.Resume()
 	return s.matches.Update(ctx, match)
+}
+
+// GetResult fetches the result for a match, if any.
+func (s *MatchService) GetResult(ctx context.Context, matchID bson.ObjectID) (*domain.Result, error) {
+	return s.results.ByMatchID(ctx, matchID)
 }
 
 func (s *MatchService) saveMatchAndMove(ctx context.Context, match *domain.Match, move domain.Move) error {

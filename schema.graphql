@@ -138,6 +138,7 @@ type Room {
   name: String!
   type: RoomType!
   ownerID: Int!
+  owner: User @goField(forceResolver: true)
   settings: RoomSettings!
   matchID: ID               # 内部关联, null 表示尚未开始比赛
   match: Match @goField(forceResolver: true)
@@ -147,8 +148,11 @@ type Room {
 
 type RoomSettings {
   redStrategistUserID: Int
+  redStrategist: User @goField(forceResolver: true)
   blueStrategistUserID: Int
+  blueStrategist: User @goField(forceResolver: true)
   streamerUserID: Int
+  streamer: User @goField(forceResolver: true)
   mappool: Mappool!
   firstPick: TeamSide
   firstBan: TeamSide
@@ -175,6 +179,7 @@ type Match {
   bpOrder: BPOrder
   turnState: TurnState
   timer: TimerState
+  result: MatchResult @goField(forceResolver: true)   # domain.Result 独立实体，需 resolver 查询
 
   # 嵌套查询 — 需要 service 调用
   moves(limit: Int = 50, offset: Int = 0): [Move!]! @goField(forceResolver: true)
@@ -191,6 +196,7 @@ type Match {
   createdAt: Time!
   startedAt: Time
   finishedAt: Time
+  updatedAt: Time!
 }
 
 type MatchTeams {
@@ -206,8 +212,11 @@ type Team {
   seed: String!
   color: String!
   leaderID: Int
+  leader: User @goField(forceResolver: true)
   strategistID: Int
+  strategist: User @goField(forceResolver: true)
   players: [Int!]!
+  playerUsers: [User!]! @goField(forceResolver: true)
 }
 
 type Board {
@@ -266,6 +275,7 @@ type Beatmap {
   difficultyName: String!
   status: String!
   authorID: Int!
+  author: User @goField(forceResolver: true)
   rulesetID: Int!
   starRating: Float!
   bpm: Float!
@@ -277,6 +287,10 @@ type Beatmap {
   coverURL: String!
   modString: String!
   modIndex: Int!
+  selectorID: Int               # domain: SelectorID int64 (谱面选择者)
+  selector: User @goField(forceResolver: true)
+  creditUserIDs: [Int!]!        # domain: CreditUserIDs []int64 (贡献者)
+  credits: [User!]! @goField(forceResolver: true)
   skill: String
   comment: String
   isOriginal: Boolean!
@@ -291,6 +305,7 @@ type Move {
   type: MoveType!
   teamSide: TeamSide
   operatorID: Int!
+  operator: User @goField(forceResolver: true)
   slot: PoolSlot
   from: Position
   to: Position
@@ -306,7 +321,6 @@ type PlayerScore {
   score: Int!
   accuracy: Float!
   combo: Int!
-  misses: Int
 }
 
 type BPOrder {
@@ -342,9 +356,39 @@ type Announcement {
   title: String!
   content: String!
   authorID: Int!
+  author: User @goField(forceResolver: true)
   publishedAt: Time
   createdAt: Time!
   updatedAt: Time!
+}
+
+# =============================================================================
+# 比赛结果类型 (domain.Result / domain.TeamScore / domain.WinningAlignment)
+# =============================================================================
+
+type MatchResult {
+  id: ObjectID!
+  matchID: ObjectID!
+  roomID: ObjectID!
+  winner: TeamSide              # domain: *TeamSide (nil = 平局/无赢家 → null)
+  winReason: WinReason!
+  scores: [TeamScore!]!
+  wonPieces: JSON               # domain: map[TeamSide]int → {"red":N,"blue":N}
+  alignments: [WinningAlignment!]!
+  summary: String               # domain: string (空 = null)
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+type TeamScore {
+  teamSide: TeamSide!           # domain: TeamID TeamSide
+  score: Int!
+}
+
+type WinningAlignment {
+  length: Int!                  # domain: Length int (连子长度)
+  positions: [Position!]!      # domain: Positions []Position
+  teamID: String!               # domain: TeamID string ("red"/"blue")
 }
 
 # =============================================================================

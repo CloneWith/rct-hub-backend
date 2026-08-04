@@ -138,9 +138,32 @@ func (r *fakeMoveRepo) LatestByMatch(ctx context.Context, matchID bson.ObjectID,
 	return nil, nil
 }
 
+type fakeResultRepo struct{}
+
+func newFakeResultRepo() *fakeResultRepo {
+	return &fakeResultRepo{}
+}
+
+func (r *fakeResultRepo) Create(ctx context.Context, result *domain.Result) error {
+	return errs.ErrAlreadyExists
+}
+
+func (r *fakeResultRepo) Update(ctx context.Context, result *domain.Result) error {
+	return errs.ErrNotFound
+}
+
+func (r *fakeResultRepo) ByMatchID(ctx context.Context, matchID bson.ObjectID) (*domain.Result, error) {
+	return nil, errs.ErrNotFound
+}
+
+func (r *fakeResultRepo) ByID(ctx context.Context, id bson.ObjectID) (*domain.Result, error) {
+	return nil, errs.ErrNotFound
+}
+
 var _ repository.RoomRepository = (*fakeRoomRepo)(nil)
 var _ repository.MatchRepository = (*fakeMatchRepo)(nil)
 var _ repository.MoveRepository = (*fakeMoveRepo)(nil)
+var _ repository.ResultRepository = (*fakeResultRepo)(nil)
 
 func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	ctx := context.Background()
@@ -205,7 +228,7 @@ func TestMatchServiceBanAndPick(t *testing.T) {
 	matches := newFakeMatchRepo()
 	rooms := newFakeRoomRepo()
 	moves := newFakeMoveRepo()
-	svc := NewMatchService(matches, rooms, moves)
+	svc := NewMatchService(matches, rooms, moves, newFakeResultRepo())
 
 	match := makeTestMatch()
 	matches.Create(ctx, match)
@@ -242,7 +265,7 @@ func TestFormalMatchCannotUseLegacyWriteMethods(t *testing.T) {
 	matches := newFakeMatchRepo()
 	rooms := newFakeRoomRepo()
 	moves := newFakeMoveRepo()
-	svc := NewMatchService(matches, rooms, moves)
+	svc := NewMatchService(matches, rooms, moves, newFakeResultRepo())
 	match := makeTestMatch()
 	match.RoomType = domain.RoomTypeMatch
 	if err := matches.Create(ctx, match); err != nil {

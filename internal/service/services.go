@@ -18,7 +18,7 @@ type Services struct {
 func NewServices(repos *repository.Repositories, invalidator CacheInvalidator) *Services {
 	return &Services{
 		Rooms:         NewRoomService(repos.Rooms, repos.Matches),
-		Matchs:        NewMatchService(repos.Matches, repos.Rooms, repos.Moves),
+		Matchs:        NewMatchService(repos.Matches, repos.Rooms, repos.Moves, repos.Results),
 		Moves:         NewMoveService(repos.Moves),
 		Users:         NewUserService(repos.Users, invalidator),
 		Beatmaps:      NewBeatmapService(repos.Beatmaps, invalidator),

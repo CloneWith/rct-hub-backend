@@ -229,6 +229,22 @@ func (r *queryResolver) Announcement(ctx context.Context, id string) (*Announcem
 // Match 嵌套字段 Resolver
 // ============================================================================
 
+func (r *matchResolver) Result(ctx context.Context, obj *Match) (*MatchResult, error) {
+	matchID, err := bson.ObjectIDFromHex(obj.ID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid match ID: %w", err)
+	}
+
+	result, err := r.svc.Matchs.GetResult(ctx, matchID)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return mapMatchResult(result), nil
+}
+
 func (r *matchResolver) Moves(ctx context.Context, obj *Match, limit *int, offset *int) ([]*Move, error) {
 	matchID, err := bson.ObjectIDFromHex(obj.ID)
 	if err != nil {
@@ -387,19 +403,213 @@ func (r *poolSlotResolver) Beatmap(ctx context.Context, obj *PoolSlot) (*Beatmap
 // Resolver Roots
 // ============================================================================
 
-func (r *Resolver) Match() MatchResolver       { return &matchResolver{r} }
-func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
-func (r *Resolver) PoolSlot() PoolSlotResolver { return &poolSlotResolver{r} }
-func (r *Resolver) Query() QueryResolver       { return &queryResolver{r} }
-func (r *Resolver) Room() RoomResolver         { return &roomResolver{r} }
+func (r *Resolver) Announcement() AnnouncementResolver { return &announcementResolver{r} }
+func (r *Resolver) Beatmap() BeatmapResolver           { return &beatmapResolver{r} }
+func (r *Resolver) Match() MatchResolver               { return &matchResolver{r} }
+func (r *Resolver) Move() MoveResolver                 { return &moveResolver{r} }
+func (r *Resolver) Mutation() MutationResolver         { return &mutationResolver{r} }
+func (r *Resolver) PoolSlot() PoolSlotResolver         { return &poolSlotResolver{r} }
+func (r *Resolver) Query() QueryResolver               { return &queryResolver{r} }
+func (r *Resolver) Room() RoomResolver                 { return &roomResolver{r} }
+func (r *Resolver) RoomSettings() RoomSettingsResolver { return &roomSettingsResolver{r} }
+func (r *Resolver) Team() TeamResolver                 { return &teamResolver{r} }
 
 type (
-	matchResolver    struct{ *Resolver }
-	mutationResolver struct{ *Resolver }
-	poolSlotResolver struct{ *Resolver }
-	queryResolver    struct{ *Resolver }
-	roomResolver     struct{ *Resolver }
+	announcementResolver struct{ *Resolver }
+	beatmapResolver      struct{ *Resolver }
+	matchResolver        struct{ *Resolver }
+	moveResolver         struct{ *Resolver }
+	mutationResolver     struct{ *Resolver }
+	poolSlotResolver     struct{ *Resolver }
+	queryResolver        struct{ *Resolver }
+	roomResolver         struct{ *Resolver }
+	roomSettingsResolver struct{ *Resolver }
+	teamResolver         struct{ *Resolver }
 )
+
+// ============================================================================
+// 新增嵌套字段 Resolver — 用户/谱面对象关联
+// ============================================================================
+
+func (r *announcementResolver) Author(ctx context.Context, obj *Announcement) (*User, error) {
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, obj.AuthorID)
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+func (r *roomResolver) Owner(ctx context.Context, obj *Room) (*User, error) {
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, obj.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+func (r *roomSettingsResolver) RedStrategist(ctx context.Context, obj *RoomSettings) (*User, error) {
+	if obj.RedStrategistUserID == nil || *obj.RedStrategistUserID <= 0 {
+		return nil, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, int(*obj.RedStrategistUserID))
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+func (r *roomSettingsResolver) BlueStrategist(ctx context.Context, obj *RoomSettings) (*User, error) {
+	if obj.BlueStrategistUserID == nil || *obj.BlueStrategistUserID <= 0 {
+		return nil, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, int(*obj.BlueStrategistUserID))
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+func (r *roomSettingsResolver) Streamer(ctx context.Context, obj *RoomSettings) (*User, error) {
+	if obj.StreamerUserID == nil || *obj.StreamerUserID <= 0 {
+		return nil, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, int(*obj.StreamerUserID))
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+func (r *teamResolver) Leader(ctx context.Context, obj *Team) (*User, error) {
+	if obj.LeaderID == nil || *obj.LeaderID <= 0 {
+		return nil, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, *obj.LeaderID)
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+func (r *teamResolver) Strategist(ctx context.Context, obj *Team) (*User, error) {
+	if obj.StrategistID == nil || *obj.StrategistID <= 0 {
+		return nil, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, *obj.StrategistID)
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+func (r *teamResolver) PlayerUsers(ctx context.Context, obj *Team) ([]*User, error) {
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	users := make([]*User, 0, len(obj.Players))
+	for _, id := range obj.Players {
+		if id <= 0 {
+			continue
+		}
+		u, err := loader.Load(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if u != nil {
+			users = append(users, mapUser(u))
+		}
+	}
+	return users, nil
+}
+
+func (r *moveResolver) Operator(ctx context.Context, obj *Move) (*User, error) {
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, obj.OperatorID)
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+func (r *beatmapResolver) Author(ctx context.Context, obj *Beatmap) (*User, error) {
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, obj.AuthorID)
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+func (r *beatmapResolver) Selector(ctx context.Context, obj *Beatmap) (*User, error) {
+	if obj.SelectorID == nil || *obj.SelectorID <= 0 {
+		return nil, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, *obj.SelectorID)
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+func (r *beatmapResolver) Credits(ctx context.Context, obj *Beatmap) ([]*User, error) {
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	users := make([]*User, 0, len(obj.CreditUserIDs))
+	for _, id := range obj.CreditUserIDs {
+		if id <= 0 {
+			continue
+		}
+		u, err := loader.Load(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if u != nil {
+			users = append(users, mapUser(u))
+		}
+	}
+	return users, nil
+}
 
 // ============================================================================
 // 辅助函数

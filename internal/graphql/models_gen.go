@@ -25,6 +25,7 @@ type Announcement struct {
 	Title       string     `json:"title"`
 	Content     string     `json:"content"`
 	AuthorID    int        `json:"authorID"`
+	Author      *User      `json:"author,omitempty"`
 	PublishedAt *time.Time `json:"publishedAt,omitempty"`
 	CreatedAt   time.Time  `json:"createdAt"`
 	UpdatedAt   time.Time  `json:"updatedAt"`
@@ -93,6 +94,7 @@ type Beatmap struct {
 	DifficultyName    string    `json:"difficultyName"`
 	Status            string    `json:"status"`
 	AuthorID          int       `json:"authorID"`
+	Author            *User     `json:"author,omitempty"`
 	RulesetID         int       `json:"rulesetID"`
 	StarRating        float64   `json:"starRating"`
 	Bpm               float64   `json:"bpm"`
@@ -104,6 +106,10 @@ type Beatmap struct {
 	CoverURL          string    `json:"coverURL"`
 	ModString         string    `json:"modString"`
 	ModIndex          int       `json:"modIndex"`
+	SelectorID        *int      `json:"selectorID,omitempty"`
+	Selector          *User     `json:"selector,omitempty"`
+	CreditUserIDs     []int     `json:"creditUserIDs"`
+	Credits           []*User   `json:"credits"`
 	Skill             *string   `json:"skill,omitempty"`
 	Comment           *string   `json:"comment,omitempty"`
 	IsOriginal        bool      `json:"isOriginal"`
@@ -244,6 +250,7 @@ type Match struct {
 	BpOrder        *BPOrder        `json:"bpOrder,omitempty"`
 	TurnState      *TurnState      `json:"turnState,omitempty"`
 	Timer          *TimerState     `json:"timer,omitempty"`
+	Result         *MatchResult    `json:"result,omitempty"`
 	Moves          []*Move         `json:"moves"`
 	RecentMove     *Move           `json:"recentMove,omitempty"`
 	Room           *Room           `json:"room,omitempty"`
@@ -254,6 +261,7 @@ type Match struct {
 	CreatedAt      time.Time       `json:"createdAt"`
 	StartedAt      *time.Time      `json:"startedAt,omitempty"`
 	FinishedAt     *time.Time      `json:"finishedAt,omitempty"`
+	UpdatedAt      time.Time       `json:"updatedAt"`
 }
 
 type MatchError struct {
@@ -270,6 +278,20 @@ type MatchPage struct {
 	TotalPages int      `json:"totalPages"`
 }
 
+type MatchResult struct {
+	ID         string              `json:"id"`
+	MatchID    string              `json:"matchID"`
+	RoomID     string              `json:"roomID"`
+	Winner     *TeamSide           `json:"winner,omitempty"`
+	WinReason  WinReason           `json:"winReason"`
+	Scores     []*TeamScore        `json:"scores"`
+	WonPieces  map[string]any      `json:"wonPieces,omitempty"`
+	Alignments []*WinningAlignment `json:"alignments"`
+	Summary    *string             `json:"summary,omitempty"`
+	CreatedAt  time.Time           `json:"createdAt"`
+	UpdatedAt  time.Time           `json:"updatedAt"`
+}
+
 type MatchTeams struct {
 	Red  *Team `json:"red"`
 	Blue *Team `json:"blue"`
@@ -282,6 +304,7 @@ type Move struct {
 	Type       MoveType     `json:"type"`
 	TeamSide   *TeamSide    `json:"teamSide,omitempty"`
 	OperatorID int          `json:"operatorID"`
+	Operator   *User        `json:"operator,omitempty"`
 	Slot       *PoolSlot    `json:"slot,omitempty"`
 	From       *Position    `json:"from,omitempty"`
 	To         *Position    `json:"to,omitempty"`
@@ -357,7 +380,6 @@ type PlayerScore struct {
 	Score    int     `json:"score"`
 	Accuracy float64 `json:"accuracy"`
 	Combo    int     `json:"combo"`
-	Misses   *int    `json:"misses,omitempty"`
 }
 
 type PoolSlot struct {
@@ -410,6 +432,7 @@ type Room struct {
 	Name      string        `json:"name"`
 	Type      RoomType      `json:"type"`
 	OwnerID   int           `json:"ownerID"`
+	Owner     *User         `json:"owner,omitempty"`
 	Settings  *RoomSettings `json:"settings"`
 	MatchID   *string       `json:"matchID,omitempty"`
 	Match     *Match        `json:"match,omitempty"`
@@ -427,8 +450,11 @@ type RoomPage struct {
 
 type RoomSettings struct {
 	RedStrategistUserID  *int      `json:"redStrategistUserID,omitempty"`
+	RedStrategist        *User     `json:"redStrategist,omitempty"`
 	BlueStrategistUserID *int      `json:"blueStrategistUserID,omitempty"`
+	BlueStrategist       *User     `json:"blueStrategist,omitempty"`
 	StreamerUserID       *int      `json:"streamerUserID,omitempty"`
+	Streamer             *User     `json:"streamer,omitempty"`
 	Mappool              *Mappool  `json:"mappool"`
 	FirstPick            *TeamSide `json:"firstPick,omitempty"`
 	FirstBan             *TeamSide `json:"firstBan,omitempty"`
@@ -495,8 +521,16 @@ type Team struct {
 	Seed         string   `json:"seed"`
 	Color        string   `json:"color"`
 	LeaderID     *int     `json:"leaderID,omitempty"`
+	Leader       *User    `json:"leader,omitempty"`
 	StrategistID *int     `json:"strategistID,omitempty"`
+	Strategist   *User    `json:"strategist,omitempty"`
 	Players      []int    `json:"players"`
+	PlayerUsers  []*User  `json:"playerUsers"`
+}
+
+type TeamScore struct {
+	TeamSide TeamSide `json:"teamSide"`
+	Score    int      `json:"score"`
 }
 
 type TeamScores struct {
@@ -570,6 +604,12 @@ type UserPage struct {
 	PerPage    int     `json:"perPage"`
 	Total      int     `json:"total"`
 	TotalPages int     `json:"totalPages"`
+}
+
+type WinningAlignment struct {
+	Length    int         `json:"length"`
+	Positions []*Position `json:"positions"`
+	TeamID    string      `json:"teamID"`
 }
 
 type BoardZone string

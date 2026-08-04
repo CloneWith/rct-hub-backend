@@ -32,6 +32,11 @@ func (s *UserService) Get(ctx context.Context, id bson.ObjectID) (*domain.User, 
 	return s.users.ByID(ctx, id)
 }
 
+// GetByOsuID returns a user by osu! online id.
+func (s *UserService) GetByOsuID(ctx context.Context, osuID int64) (*domain.User, error) {
+	return s.users.ByOsuID(ctx, osuID)
+}
+
 // List returns a paginated list of non-banned users.
 func (s *UserService) List(ctx context.Context, params paginate.Params) (paginate.Result[domain.User], error) {
 	return s.users.List(ctx, params)

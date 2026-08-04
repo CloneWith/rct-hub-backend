@@ -202,7 +202,8 @@ func mapMatch(m *domain.Match) *Match {
 		CreatedAt:  m.CreatedAt,
 		StartedAt:  m.StartedAt,
 		FinishedAt: m.FinishedAt,
-		// Moves, RecentMove, Room 由 resolver 方法解析
+		UpdatedAt:  m.UpdatedAt,
+		// Moves, RecentMove, Room, Result 由 resolver 方法解析
 	}
 	return result
 }
@@ -349,6 +350,8 @@ func mapBeatmap(b *domain.Beatmap) *Beatmap {
 		CoverURL:          b.CoverURL,
 		ModString:         b.ModString,
 		ModIndex:          b.ModIndex,
+		SelectorID:        ptrInt(b.SelectorID),
+		CreditUserIDs:     int64SliceToIntSlice(b.CreditUserIDs),
 		Skill:             nullableStr(b.Skill),
 		Comment:           nullableStr(b.Comment),
 		IsOriginal:        b.IsOriginal,
@@ -388,7 +391,6 @@ func mapPlayerScore(s *domain.PlayerScore) *PlayerScore {
 		Score:    int(s.Score),
 		Accuracy: s.Acc,
 		Combo:    s.Combo,
-		// Misses: domain.PlayerScore 没有 misses 字段
 	}
 }
 
@@ -432,6 +434,68 @@ func mapTimerState(t *domain.TimerState) *TimerState {
 		PausedAt:         t.PausedAt,
 		RemainingAtPause: durationSeconds(t.RemainingAtPause),
 	}
+}
+
+func mapMatchResult(r *domain.Result) *MatchResult {
+	if r == nil {
+		return nil
+	}
+	return &MatchResult{
+		ID:         r.ID.Hex(),
+		MatchID:    r.MatchID.Hex(),
+		RoomID:     r.RoomID.Hex(),
+		Winner:     mapTeamSidePtr(r.WinnerID),
+		WinReason:  mapWinReason(r.WinReason),
+		Scores:     mapTeamScores(r.Scores),
+		WonPieces:  mapWonPieces(r.WonPieces),
+		Alignments: mapWinningAlignments(r.Alignments),
+		Summary:    nullableStr(r.Summary),
+		CreatedAt:  r.CreatedAt,
+		UpdatedAt:  r.UpdatedAt,
+	}
+}
+
+func mapWinReason(r domain.WinReason) WinReason {
+	return WinReason(upperEnum(string(r)))
+}
+
+func mapTeamScores(scores []domain.TeamScore) []*TeamScore {
+	result := make([]*TeamScore, len(scores))
+	for i, s := range scores {
+		result[i] = &TeamScore{
+			TeamSide: mapTeamSide(s.TeamID),
+			Score:    s.Score,
+		}
+	}
+	return result
+}
+
+func mapWonPieces(won map[domain.TeamSide]int) map[string]any {
+	if won == nil {
+		return nil
+	}
+	// map[TeamSide]int → JSON object {"red":N,"blue":N}
+	m := map[string]any{}
+	for side, count := range won {
+		m[string(side)] = count
+	}
+	return m
+}
+
+func mapWinningAlignments(aligned []domain.WinningAlignment) []*WinningAlignment {
+	result := make([]*WinningAlignment, len(aligned))
+	for i, a := range aligned {
+		positions := make([]*Position, len(a.Positions))
+		for j, p := range a.Positions {
+			positions[j] = mapPosition(p)
+		}
+		result[i] = &WinningAlignment{
+			Length:    a.Length,
+			Positions: positions,
+			TeamID:    a.TeamID,
+		}
+	}
+	return result
 }
 
 func mapAnnouncement(a *domain.Announcement) *Announcement {
