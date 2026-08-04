@@ -1,0 +1,8 @@
+root = true
+
+# Go has its own formatter, and we may don't need to specify rules here.
+
+[*]
+end_of_line = lf
+trim_trailing_whitespace = true
+insert_final_newline = true
