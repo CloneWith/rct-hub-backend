@@ -1,8 +1,6 @@
 package service
 
-import (
-	"rctHubBackend/internal/repository"
-)
+import "rctHubBackend/internal/repository"
 
 // Services wires together all domain services.
 type Services struct {
@@ -15,13 +13,15 @@ type Services struct {
 }
 
 // NewServices creates a service container from repositories.
-func NewServices(repos *repository.Repositories) *Services {
+// invalidator is used by UserService and BeatmapService to invalidate
+// Redis cache entries when local-only fields are modified.
+func NewServices(repos *repository.Repositories, invalidator CacheInvalidator) *Services {
 	return &Services{
 		Rooms:         NewRoomService(repos.Rooms, repos.Matches),
 		Matchs:        NewMatchService(repos.Matches, repos.Rooms, repos.Moves),
 		Moves:         NewMoveService(repos.Moves),
-		Users:         NewUserService(repos.Users),
-		Beatmaps:      NewBeatmapService(repos.Beatmaps),
+		Users:         NewUserService(repos.Users, invalidator),
+		Beatmaps:      NewBeatmapService(repos.Beatmaps, invalidator),
 		Announcements: NewAnnouncementService(repos.Announcements),
 	}
 }

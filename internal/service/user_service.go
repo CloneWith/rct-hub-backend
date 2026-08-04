@@ -14,12 +14,17 @@ import (
 
 // UserService handles user management operations.
 type UserService struct {
-	users repository.UserRepository
+	users       repository.UserRepository
+	invalidator CacheInvalidator
 }
 
-// NewUserService creates a new UserService.
-func NewUserService(users repository.UserRepository) *UserService {
-	return &UserService{users: users}
+// NewUserService creates a new UserService. If invalidator is nil, a
+// no-op implementation is used (cache entries will expire naturally).
+func NewUserService(users repository.UserRepository, invalidator CacheInvalidator) *UserService {
+	if invalidator == nil {
+		invalidator = noopInvalidator{}
+	}
+	return &UserService{users: users, invalidator: invalidator}
 }
 
 // Get returns a user by id.
@@ -42,6 +47,8 @@ func (s *UserService) UpdateRoles(ctx context.Context, id bson.ObjectID, roles [
 	if err := s.users.Update(ctx, user); err != nil {
 		return nil, err
 	}
+	// Invalidate cached copy so the new roles are visible immediately.
+	_ = s.invalidator.InvalidateUser(ctx, user.OnlineID)
 	return user, nil
 }
 
@@ -55,6 +62,8 @@ func (s *UserService) SetBanned(ctx context.Context, id bson.ObjectID, banned bo
 	if err := s.users.Update(ctx, user); err != nil {
 		return nil, err
 	}
+	// Invalidate cached copy so the ban status is visible immediately.
+	_ = s.invalidator.InvalidateUser(ctx, user.OnlineID)
 	return user, nil
 }
 
@@ -73,5 +82,7 @@ func (s *UserService) SetVerifyStatus(ctx context.Context, id bson.ObjectID, sta
 	if err := s.users.Update(ctx, user); err != nil {
 		return nil, err
 	}
+	// Invalidate cached copy so the new verify status is visible immediately.
+	_ = s.invalidator.InvalidateUser(ctx, user.OnlineID)
 	return user, nil
 }
