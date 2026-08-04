@@ -46,6 +46,9 @@ func (s *MatchService) BanPiece(ctx context.Context, matchID bson.ObjectID, memb
 	if err != nil {
 		return err
 	}
+	if err := requireLegacyWritableMatch(match); err != nil {
+		return err
+	}
 	if !match.CanBan(member) {
 		return errs.ErrForbidden
 	}
@@ -77,6 +80,9 @@ func (s *MatchService) BanPiece(ctx context.Context, matchID bson.ObjectID, memb
 func (s *MatchService) PickPiece(ctx context.Context, matchID bson.ObjectID, member domain.RoomMember, slot domain.PoolSlot, pos domain.Position, forceMod *domain.ForceMod, placementTeam *domain.TeamSide) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
+		return err
+	}
+	if err := requireLegacyWritableMatch(match); err != nil {
 		return err
 	}
 	if !match.CanPick(member) {
@@ -121,6 +127,9 @@ func (s *MatchService) PickPiece(ctx context.Context, matchID bson.ObjectID, mem
 func (s *MatchService) RobPiece(ctx context.Context, matchID bson.ObjectID, member domain.RoomMember, from, to domain.Position) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
+		return err
+	}
+	if err := requireLegacyWritableMatch(match); err != nil {
 		return err
 	}
 	if !match.CanRob(member) {
@@ -168,6 +177,9 @@ func (s *MatchService) RobPiece(ctx context.Context, matchID bson.ObjectID, memb
 func (s *MatchService) WinPiece(ctx context.Context, matchID bson.ObjectID, member domain.RoomMember, pos domain.Position, winEnabledForTeam map[domain.TeamSide]bool) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
+		return err
+	}
+	if err := requireLegacyWritableMatch(match); err != nil {
 		return err
 	}
 	if !match.CanWin(member, winEnabledForTeam) {
@@ -222,6 +234,9 @@ func (s *MatchService) EndMatch(ctx context.Context, matchID bson.ObjectID, reas
 	if err != nil {
 		return err
 	}
+	if err := requireLegacyWritableMatch(match); err != nil {
+		return err
+	}
 	if match.IsFinished() {
 		return errs.ErrAlreadyExists
 	}
@@ -239,6 +254,9 @@ func (s *MatchService) EndMatch(ctx context.Context, matchID bson.ObjectID, reas
 func (s *MatchService) AdvanceTurn(ctx context.Context, matchID bson.ObjectID) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
+		return err
+	}
+	if err := requireLegacyWritableMatch(match); err != nil {
 		return err
 	}
 	match.TurnState.Next(match.BPOrder)
@@ -319,6 +337,9 @@ func (s *MatchService) PauseMatch(ctx context.Context, matchID bson.ObjectID) er
 	if err != nil {
 		return err
 	}
+	if err := requireLegacyWritableMatch(match); err != nil {
+		return err
+	}
 	if match.Timer.IsPaused {
 		return fmt.Errorf("%w: match already paused", errs.ErrInvalidInput)
 	}
@@ -330,6 +351,9 @@ func (s *MatchService) PauseMatch(ctx context.Context, matchID bson.ObjectID) er
 func (s *MatchService) ResumeMatch(ctx context.Context, matchID bson.ObjectID) error {
 	match, err := s.matches.ByID(ctx, matchID)
 	if err != nil {
+		return err
+	}
+	if err := requireLegacyWritableMatch(match); err != nil {
 		return err
 	}
 	if !match.Timer.IsPaused {
@@ -349,4 +373,15 @@ func (s *MatchService) saveMatchAndMove(ctx context.Context, match *domain.Match
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+func requireLegacyWritableMatch(match *domain.Match) error {
+	if match.RoomType == domain.RoomTypeMatch {
+		return formalLegacyWriteError()
+	}
+	return nil
+}
+
+func formalLegacyWriteError() error {
+	return fmt.Errorf("%w: formal match writes require the authoritative command orchestrator", errs.ErrConflict)
 }

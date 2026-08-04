@@ -52,6 +52,8 @@ func mapError(err error) *MatchError {
 		return &MatchError{Code: "NOT_FOUND", Message: msg}
 	case errors.Is(err, errs.ErrAlreadyExists):
 		return &MatchError{Code: "ALREADY_EXISTS", Message: msg}
+	case errors.Is(err, errs.ErrConflict):
+		return &MatchError{Code: "CONFLICT", Message: msg}
 	case errors.Is(err, errs.ErrUnauthorized):
 		return &MatchError{Code: "AUTH_REQUIRED", Message: msg}
 	default:

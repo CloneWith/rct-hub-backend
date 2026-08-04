@@ -42,6 +42,10 @@ func main() {
 		log.Error("failed to ensure indexes", zap.Error(err))
 		os.Exit(1)
 	}
+	if err := db.VerifySchema(ctx); err != nil {
+		log.Error("database schema is not initialized or is incompatible; run cmd/initdb with migration privileges", zap.Error(err))
+		os.Exit(1)
+	}
 
 	srv := server.New(cfg, db, log)
 

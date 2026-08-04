@@ -167,6 +167,9 @@ func (s *RoomService) StartMatch(ctx context.Context, roomID bson.ObjectID) (*do
 	if room.MatchID != nil {
 		return nil, errs.ErrAlreadyExists
 	}
+	if room.Type == domain.RoomTypeMatch {
+		return nil, formalLegacyWriteError()
+	}
 	if !room.Settings.CanStart(room.Type) {
 		return nil, fmt.Errorf("%w: room settings do not satisfy start requirements", errs.ErrInvalidInput)
 	}

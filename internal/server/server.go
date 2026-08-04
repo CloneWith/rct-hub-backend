@@ -75,7 +75,7 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 		APIBase:      cfg.Osu.APIBase,
 	}, db.Redis)
 
-	repos := repository.NewRepositories(db.MongoDB)
+	repos := repository.NewRepositories(db.Mongo, db.MongoDB)
 	services := service.NewServices(repos)
 
 	deps := &Deps{

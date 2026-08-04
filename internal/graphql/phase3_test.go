@@ -29,6 +29,7 @@ func TestMapError(t *testing.T) {
 		{"invalid input", errs.ErrInvalidInput, "INVALID_INPUT"},
 		{"not found", errs.ErrNotFound, "NOT_FOUND"},
 		{"already exists", errs.ErrAlreadyExists, "ALREADY_EXISTS"},
+		{"conflict", errs.ErrConflict, "CONFLICT"},
 		{"unauthorized", errs.ErrUnauthorized, "AUTH_REQUIRED"},
 		{"wrapped forbidden", wrapErr(errs.ErrForbidden, "not your turn"), "ACTION_NOT_ALLOWED"},
 		{"wrapped invalid", wrapErr(errs.ErrInvalidInput, "piece not found"), "INVALID_INPUT"},

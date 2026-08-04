@@ -1,4 +1,4 @@
-.PHONY: verify dev test lint build run docker-up docker-down initdb initdb-seed initdb-drop generate
+.PHONY: verify dev test test-integration lint build run docker-up docker-down initdb initdb-seed initdb-drop generate
 
 # Load environment variables from .env if it exists
 ifneq (,$(wildcard .env))
@@ -18,10 +18,15 @@ run:
 	go run ./cmd/server
 
 dev: docker-up
+	$(MAKE) initdb
 	go run ./cmd/server
 
 test:
 	go test ./...
+
+test-integration:
+	@test -n "$(MONGODB_TEST_URI)" || (echo "MONGODB_TEST_URI is required" && exit 1)
+	go test -race -count=1 -run '^TestMongoIntegration' -v ./internal/persistence
 
 lint:
 	go vet ./...
