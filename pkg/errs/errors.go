@@ -9,6 +9,7 @@ var (
 	ErrUnauthorized  = errors.New("unauthorized")
 	ErrForbidden     = errors.New("forbidden")
 	ErrInternal      = errors.New("internal server error")
+	ErrCacheSync     = errors.New("cache synchronization failed after write")
 	ErrDuplicateKey  = errors.New("duplicate key")
 	ErrConflict      = errors.New("resource state conflict")
 )

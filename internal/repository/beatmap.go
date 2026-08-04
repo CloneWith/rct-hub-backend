@@ -17,6 +17,7 @@ import (
 type BeatmapRepository interface {
 	Create(ctx context.Context, beatmap *domain.Beatmap) error
 	Update(ctx context.Context, beatmap *domain.Beatmap) error
+	UpsertOsuFields(ctx context.Context, osuID int64, fields bson.M) (*domain.Beatmap, error)
 	ByID(ctx context.Context, id bson.ObjectID) (*domain.Beatmap, error)
 	ByOsuID(ctx context.Context, osuID int64) (*domain.Beatmap, error)
 	List(ctx context.Context, params paginate.Params) (paginate.Result[domain.Beatmap], error)
@@ -52,6 +53,36 @@ func (r *beatmapRepo) Update(ctx context.Context, beatmap *domain.Beatmap) error
 		return errs.ErrNotFound
 	}
 	return nil
+}
+
+// UpsertOsuFields atomically upserts a beatmap by osu! ID, setting only the
+// provided API-owned fields via $set and defaulting local-only fields via
+// $setOnInsert. It returns the full stored document after the operation.
+func (r *beatmapRepo) UpsertOsuFields(ctx context.Context, osuID int64, fields bson.M) (*domain.Beatmap, error) {
+	now := time.Now().UTC()
+	setFields := bson.M{"updated_at": now}
+	for k, v := range fields {
+		setFields[k] = v
+	}
+	update := bson.M{
+		"$set": setFields,
+		"$setOnInsert": bson.M{
+			"_id":        bson.NewObjectID(),
+			"created_at": now,
+		},
+	}
+	opts := options.FindOneAndUpdate().
+		SetUpsert(true).
+		SetReturnDocument(options.After)
+	var b domain.Beatmap
+	err := r.coll.FindOneAndUpdate(ctx, bson.M{"id": osuID}, update, opts).Decode(&b)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, errs.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
 }
 
 func (r *beatmapRepo) ByID(ctx context.Context, id bson.ObjectID) (*domain.Beatmap, error) {

@@ -41,6 +41,8 @@ func ErrorHandler() gin.HandlerFunc {
 			response.Unauthorized(c, err.Error())
 		case errors.Is(err, errs.ErrForbidden):
 			response.Forbidden(c, err.Error())
+		case errors.Is(err, errs.ErrCacheSync):
+			response.Error(c, http.StatusServiceUnavailable, errs.ErrCacheSync.Error())
 		default:
 			response.InternalError(c, "internal server error")
 		}

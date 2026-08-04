@@ -6,6 +6,22 @@ import (
 	"testing"
 )
 
+func isolateConfigEnv(t *testing.T) {
+	t.Helper()
+	keys := []string{
+		"APP_ENV", "PORT", "LOG_LEVEL",
+		"MONGODB_URI", "MONGODB_NAME",
+		"REDIS_ADDR", "REDIS_PASSWORD", "REDIS_DB",
+		"JWT_SECRET", "JWT_EXPIRY_HOURS",
+		"OSU_CLIENT_ID", "OSU_CLIENT_SECRET", "OSU_REDIRECT_URI", "OSU_API_BASE",
+		"OSU_FETCHER_USER_CACHE_TTL_MIN", "OSU_FETCHER_BEATMAP_CACHE_TTL_HR",
+		"ALLOWED_ORIGINS",
+	}
+	for _, key := range keys {
+		t.Setenv(key, "")
+	}
+}
+
 func writeTempEnv(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -17,6 +33,7 @@ func writeTempEnv(t *testing.T, content string) string {
 }
 
 func TestLoad_RequiresJWTSecret(t *testing.T) {
+	isolateConfigEnv(t)
 	_ = os.Setenv("ENV_FILE", writeTempEnv(t, "JWT_SECRET=\n"))
 	t.Cleanup(func() {
 		_ = os.Unsetenv("ENV_FILE")
@@ -29,6 +46,7 @@ func TestLoad_RequiresJWTSecret(t *testing.T) {
 }
 
 func TestLoad_DefaultValues(t *testing.T) {
+	isolateConfigEnv(t)
 	envPath := writeTempEnv(t, "JWT_SECRET=this-is-a-32-byte-secret-key-for-test!\n")
 	_ = os.Setenv("ENV_FILE", envPath)
 	t.Cleanup(func() {
@@ -58,6 +76,7 @@ func TestLoad_DefaultValues(t *testing.T) {
 }
 
 func TestLoad_FromEnvFile(t *testing.T) {
+	isolateConfigEnv(t)
 	envPath := writeTempEnv(t, "JWT_SECRET=this-is-a-32-byte-secret-key-for-test!\nPORT=9999\nMONGODB_URI=mongodb://custom:27017\n")
 
 	_ = os.Setenv("ENV_FILE", envPath)
@@ -79,6 +98,7 @@ func TestLoad_FromEnvFile(t *testing.T) {
 }
 
 func TestLoad_MissingExplicitEnvFile(t *testing.T) {
+	isolateConfigEnv(t)
 	_ = os.Setenv("ENV_FILE", filepath.Join(t.TempDir(), "missing.env"))
 	t.Cleanup(func() {
 		_ = os.Unsetenv("ENV_FILE")
@@ -87,5 +107,26 @@ func TestLoad_MissingExplicitEnvFile(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Fatal("expected error when ENV_FILE points to missing file")
+	}
+}
+
+func TestLoad_RejectsNonPositiveFetcherTTL(t *testing.T) {
+	tests := []struct {
+		name string
+		env  string
+	}{
+		{name: "user", env: "OSU_FETCHER_USER_CACHE_TTL_MIN=-1\n"},
+		{name: "beatmap", env: "OSU_FETCHER_BEATMAP_CACHE_TTL_HR=-1\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isolateConfigEnv(t)
+			envPath := writeTempEnv(t, "JWT_SECRET=this-is-a-32-byte-secret-key-for-test!\n"+tt.env)
+			t.Setenv("ENV_FILE", envPath)
+
+			if _, err := Load(); err == nil {
+				t.Fatal("expected non-positive fetcher TTL to be rejected")
+			}
+		})
 	}
 }

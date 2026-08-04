@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -25,6 +24,7 @@ type AuthService interface {
 type authService struct {
 	oauthClient oauth.OAuthClient
 	userRepo    repository.UserRepository
+	invalidator CacheInvalidator
 	signer      *jwtutil.Signer
 	jwtExpiry   time.Duration
 }
@@ -33,12 +33,17 @@ type authService struct {
 func NewAuthService(
 	oauthClient oauth.OAuthClient,
 	userRepo repository.UserRepository,
+	invalidator CacheInvalidator,
 	signer *jwtutil.Signer,
 	jwtExpiry time.Duration,
 ) AuthService {
+	if invalidator == nil {
+		invalidator = noopInvalidator{}
+	}
 	return &authService{
 		oauthClient: oauthClient,
 		userRepo:    userRepo,
+		invalidator: invalidator,
 		signer:      signer,
 		jwtExpiry:   jwtExpiry,
 	}
@@ -59,33 +64,16 @@ func (s *authService) Callback(ctx context.Context, code, state string) (string,
 		return "", nil, fmt.Errorf("%w: %v", errs.ErrUnauthorized, err)
 	}
 
-	user, err := s.userRepo.ByOsuID(ctx, osuUser.ID)
+	user, err := s.userRepo.UpsertOsuFields(ctx, osuUser.ID, bson.M{
+		"username":     osuUser.Username,
+		"avatar_url":   osuUser.AvatarURL,
+		"country_code": osuUser.Country.Code,
+	})
 	if err != nil {
-		if !errors.Is(err, errs.ErrNotFound) {
-			return "", nil, err
-		}
-		// Create a new user on first login.
-		user = &domain.User{
-			ID:           bson.NewObjectID(),
-			OnlineID:     osuUser.ID,
-			Username:     osuUser.Username,
-			AvatarURL:    osuUser.AvatarURL,
-			CountryCode:  osuUser.Country.Code,
-			Roles:        []domain.UserRole{domain.RolePlayer},
-			IsBanned:     false,
-			VerifyStatus: domain.Pending,
-		}
-		if err := s.userRepo.Create(ctx, user); err != nil {
-			return "", nil, err
-		}
-	} else {
-		// Update profile metadata on each login.
-		user.Username = osuUser.Username
-		user.AvatarURL = osuUser.AvatarURL
-		user.CountryCode = osuUser.Country.Code
-		if err := s.userRepo.Update(ctx, user); err != nil {
-			return "", nil, err
-		}
+		return "", nil, err
+	}
+	if err := s.invalidator.InvalidateUser(ctx, user.OnlineID); err != nil {
+		return "", nil, fmt.Errorf("%w: oauth login: %w", errs.ErrCacheSync, err)
 	}
 
 	if user.IsBanned {
