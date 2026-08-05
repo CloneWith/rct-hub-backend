@@ -9,7 +9,7 @@ import (
 func isolateConfigEnv(t *testing.T) {
 	t.Helper()
 	keys := []string{
-		"APP_ENV", "PORT", "LOG_LEVEL",
+		"APP_ENV", "PORT", "LOG_LEVEL", "FRONTEND_URI",
 		"MONGODB_URI", "MONGODB_NAME",
 		"REDIS_ADDR", "REDIS_PASSWORD", "REDIS_DB",
 		"JWT_SECRET", "JWT_EXPIRY_HOURS",

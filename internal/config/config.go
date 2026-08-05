@@ -14,14 +14,15 @@ import (
 
 // Config holds all runtime configuration for the application.
 type Config struct {
-	AppEnv   string
-	Port     string
-	LogLevel string
-	MongoDB  MongoDBConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	Osu      OsuConfig
-	CORS     CORSConfig
+	AppEnv      string
+	Port        string
+	LogLevel    string
+	FrontEndURI string
+	MongoDB     MongoDBConfig
+	Redis       RedisConfig
+	JWT         JWTConfig
+	Osu         OsuConfig
+	CORS        CORSConfig
 }
 
 type MongoDBConfig struct {
@@ -64,9 +65,10 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		AppEnv:   getEnv("APP_ENV", "development"),
-		Port:     getEnv("PORT", "8080"),
-		LogLevel: getEnv("LOG_LEVEL", "info"),
+		AppEnv:      getEnv("APP_ENV", "development"),
+		Port:        getEnv("PORT", "8080"),
+		LogLevel:    getEnv("LOG_LEVEL", "info"),
+		FrontEndURI: getEnv("FRONTEND_URI", "http://localhost:3000"),
 		MongoDB: MongoDBConfig{
 			URI:  getEnv("MONGODB_URI", "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true"),
 			Name: getEnv("MONGODB_NAME", "rcthub"),
