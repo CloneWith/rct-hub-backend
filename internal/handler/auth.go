@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,10 +13,11 @@ import (
 // AuthHandler exposes osu! OAuth endpoints.
 type AuthHandler struct {
 	authService service.AuthService
+	frontEndURI string
 }
 
-func NewAuthHandler(authService service.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService service.AuthService, frontEndURI string) *AuthHandler {
+	return &AuthHandler{authService: authService, frontEndURI: frontEndURI}
 }
 
 // OsuLogin redirects the browser to the osu! OAuth authorization page.
@@ -46,5 +48,6 @@ func (h *AuthHandler) OsuCallback(c *gin.Context) {
 
 	// Redirect to the frontend with the JWT in the URL fragment.
 	// The frontend is responsible for storing the token securely.
-	c.Redirect(http.StatusTemporaryRedirect, "/auth/callback?token="+token)
+	redirectLink := fmt.Sprintf("%s/auth/callback?token=%s", h.frontEndURI, token)
+	c.Redirect(http.StatusTemporaryRedirect, redirectLink)
 }

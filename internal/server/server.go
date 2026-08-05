@@ -124,7 +124,7 @@ func (s *Server) registerRoutes() {
 	health := handler.NewHealthHandler(s.deps.DB)
 	s.router.GET("/health", health.Check)
 
-	auth := handler.NewAuthHandler(s.deps.AuthSvc)
+	auth := handler.NewAuthHandler(s.deps.AuthSvc, s.deps.Cfg.FrontEndURI)
 	s.router.GET("/auth/osu", auth.OsuLogin)
 	s.router.GET("/auth/osu/callback", auth.OsuCallback)
 
