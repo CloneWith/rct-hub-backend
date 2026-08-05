@@ -5,6 +5,7 @@ import (
 	"rctHubBackend/internal/config"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // New builds a zap.Logger based on the application environment and log level.
@@ -23,11 +24,13 @@ func New(cfg *config.Config) (*zap.Logger, error) {
 
 	if cfg.AppEnv == "development" {
 		zapCfg := zap.NewDevelopmentConfig()
+		zapCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		zapCfg.Level = level
 		return zapCfg.Build()
 	}
 
 	zapCfg := zap.NewProductionConfig()
+	zapCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	zapCfg.Level = level
 	return zapCfg.Build()
 }
