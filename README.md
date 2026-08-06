@@ -123,6 +123,12 @@ make initdb-seed   # Collections + indexes + validators + sample data
 make initdb-drop   # Drop and rebuild with sample data
 ```
 
+Run `make initdb` after upgrading an existing environment. The server now
+checks the snapshot, command receipt, action log, and outbox validators at
+startup and will fail closed if they have not been installed. Match commands
+use MongoDB transactions, so MongoDB must run as a replica set; the bundled
+single-node Docker setup already does this.
+
 The `cmd/initdb` tool accepts flags:
 - `-drop` — drop existing collections before rebuilding
 - `-seed` — insert sample admin user, beatmaps, rooms, and announcements
@@ -186,7 +192,7 @@ Use `middleware.RequireRole(domain.RoleAdmin, domain.RoleReferee, ...)` to prote
 
 ## REST API
 
-After the GraphQL migration, REST was slimmed down to 23 routes focused on OAuth, health, room setup, and admin CRUD. All `/api/v1` endpoints return a unified format: `{"success": true, "data": ...}` or `{"success": false, "error": "..."}`.
+After the GraphQL migration, REST is focused on OAuth, health, room setup, and admin CRUD. All `/api/v1` endpoints return a unified format: `{"success": true, "data": ...}` or `{"success": false, "error": "..."}`.
 
 ### Infrastructure & Auth
 
@@ -206,11 +212,12 @@ Pre-match setup endpoints — all require a valid JWT.
 | POST | `/api/v1/rooms` | Create a room |
 | PATCH | `/api/v1/rooms/:id/strategists` | Set team strategists |
 | PATCH | `/api/v1/rooms/:id/streamer` | Set streamer |
+| PATCH | `/api/v1/rooms/:id/mappool` | Set the pre-match mappool |
 | PATCH | `/api/v1/rooms/:id/bp-order` | Set first pick / first ban order |
 | PATCH | `/api/v1/rooms/:id/players` | Set team rosters |
 | PATCH | `/api/v1/rooms/:id/mp-link` | Set multiplayer match link |
 | PATCH | `/api/v1/rooms/:id/stream-link` | Set stream link |
-| POST | `/api/v1/rooms/:id/start-match` | Start the match |
+| POST | `/api/v1/rooms/:id/start-match` | Create the formal READY match; play starts through GraphQL `startMatch` |
 
 ### Admin CRUD (Admin Role Required)
 
@@ -259,25 +266,24 @@ Each match exposes four tailored views to prevent over-fetching and under-fetchi
 | `overlayView` | Public | Minimal render data for OBS overlays |
 | `refereeView` | `@requireRole(role: REFEREE, admin: true)` | Full match data, audit log placeholder, connection status placeholder |
 
-### Mutations (14)
+### Authoritative Match Mutations
 
-Board commands with optimistic locking via `expectedVersion` and idempotency via `commandId`:
+Every formal match mutation requires `expectedVersion` and a client-generated
+UUID `commandId`. A retry with the same request returns the original committed
+result; a stale page receives `MATCH_VERSION_CONFLICT` and `currentVersion`.
 
-| Mutation | Status | Description |
-|----------|--------|-------------|
-| `banPoolSlot` | ✅ Implemented | Ban a pool slot |
-| `placePiece` | ✅ Implemented | Pick a beatmap and place on board |
-| `completeRobbery` | ✅ Implemented | Complete a robbery (sacrifice pieces for target) |
-| `declareTbWinner` | ✅ Implemented | Declare tiebreaker winner — ends match |
-| `declareSurrender` | ✅ Implemented | Declare surrender — ends match |
-| `advanceTurn` | ✅ Implemented | Advance to next turn |
-| `pauseMatch` | ✅ Implemented | Pause match timer |
-| `resumeMatch` | ✅ Implemented | Resume match timer |
-| `unbanPoolSlot` | ⏳ Not implemented | Unban a pool slot |
-| `grantWinPermission` | ⏳ Not implemented | Grant win permission |
-| `beginRobbery` | ⏳ Not implemented | Begin robbery sequence |
-| `cancelRobbery` | ⏳ Not implemented | Cancel robbery |
-| `undoAction` | ⏳ Not implemented | Undo a previous action |
+| Area | Mutations |
+|------|-----------|
+| Lifecycle | `startMatch`, `suspendMatch`, `resumeMatch`, `abortMatch` |
+| Ban and placement | `banPoolSlot`, `placePiece`, `placeShiro` and their explicit `referee*` proxy variants |
+| Results and robbery | `confirmBeatmapResult`, `robPiece`, `refereeRobPiece` |
+| Timer | `grantAdditionalTime`, `calibrateTimer`, `pauseTimer`, `resumeTimer`, `skipCurrentAction` |
+| Tie-break and surrender | `requestTb`, `respondTbRequest`, referee proxy variants, `startTb`, `confirmTbResult`, `recordSurrender` |
+
+Successful results include the new match version and committed events with
+stable event IDs and per-match sequence numbers. The legacy direct-win,
+advance-turn, robbery-stage, unban, and undo mutations are not public because
+they do not represent valid MatchEngine commands.
 
 ### Example Query
 
@@ -307,7 +313,9 @@ After modifying `schema.graphql`:
 make generate
 ```
 
-> **Note:** `resolver.go` is overwritten by gqlgen during generation. Move custom resolver implementations to separate files (`mutation.go`, `views.go`, etc.) to avoid losing work.
+`resolver.go` holds manually maintained dependencies; gqlgen writes field
+implementations to `schema.resolvers.go`. Keep shared helpers out of the
+generated file.
 
 ## Match Engine
 

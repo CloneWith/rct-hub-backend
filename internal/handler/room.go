@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,7 @@ import (
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/middleware"
 	"rctHubBackend/internal/service"
+	"rctHubBackend/pkg/errs"
 	"rctHubBackend/pkg/response"
 )
 
@@ -40,7 +42,7 @@ func (h *RoomHandler) Create(c *gin.Context) {
 
 	room, err := h.svc.CreateRoom(c.Request.Context(), claims.OsuID, domain.RoomType(req.Type), req.Name)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		writeRoomError(c, err)
 		return
 	}
 	response.Created(c, room)
@@ -63,9 +65,13 @@ func (h *RoomHandler) SetStrategists(c *gin.Context) {
 		return
 	}
 
-	room, err := h.svc.SetStrategists(c.Request.Context(), id, req.RedUID, req.BlueUID)
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.SetStrategists(c.Request.Context(), callerID, id, req.RedUID, req.BlueUID)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		writeRoomError(c, err)
 		return
 	}
 	response.JSON(c, room)
@@ -87,9 +93,39 @@ func (h *RoomHandler) SetStreamer(c *gin.Context) {
 		return
 	}
 
-	room, err := h.svc.SetStreamer(c.Request.Context(), id, req.UID)
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.SetStreamer(c.Request.Context(), callerID, id, req.UID)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		writeRoomError(c, err)
+		return
+	}
+	response.JSON(c, room)
+}
+
+// SetMappool replaces the room's pre-game pool configuration.
+func (h *RoomHandler) SetMappool(c *gin.Context) {
+	id, err := bson.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		response.BadRequest(c, "invalid room id")
+		return
+	}
+	var req struct {
+		Mappool domain.Mappool `json:"mappool" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request body")
+		return
+	}
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.SetMappool(c.Request.Context(), callerID, id, req.Mappool)
+	if err != nil {
+		writeRoomError(c, err)
 		return
 	}
 	response.JSON(c, room)
@@ -112,12 +148,16 @@ func (h *RoomHandler) SetBPOrder(c *gin.Context) {
 		return
 	}
 
-	room, err := h.svc.SetBPOrder(c.Request.Context(), id, domain.BPOrder{
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.SetBPOrder(c.Request.Context(), callerID, id, domain.BPOrder{
 		FirstPick: req.FirstPick,
 		FirstBan:  req.FirstBan,
 	})
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		writeRoomError(c, err)
 		return
 	}
 	response.JSON(c, room)
@@ -142,9 +182,13 @@ func (h *RoomHandler) SetPlayers(c *gin.Context) {
 		return
 	}
 
-	room, err := h.svc.SetPlayers(c.Request.Context(), id, req.RedLeader, req.BlueLeader, req.RedPlayers, req.BluePlayers)
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.SetPlayers(c.Request.Context(), callerID, id, req.RedLeader, req.BlueLeader, req.RedPlayers, req.BluePlayers)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		writeRoomError(c, err)
 		return
 	}
 	response.JSON(c, room)
@@ -166,9 +210,13 @@ func (h *RoomHandler) SetMPLink(c *gin.Context) {
 		return
 	}
 
-	room, err := h.svc.SetMPLink(c.Request.Context(), id, req.Link)
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.SetMPLink(c.Request.Context(), callerID, id, req.Link)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		writeRoomError(c, err)
 		return
 	}
 	response.JSON(c, room)
@@ -190,9 +238,13 @@ func (h *RoomHandler) SetStreamLink(c *gin.Context) {
 		return
 	}
 
-	room, err := h.svc.SetStreamLink(c.Request.Context(), id, req.Link)
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.SetStreamLink(c.Request.Context(), callerID, id, req.Link)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		writeRoomError(c, err)
 		return
 	}
 	response.JSON(c, room)
@@ -206,10 +258,49 @@ func (h *RoomHandler) StartMatch(c *gin.Context) {
 		return
 	}
 
-	match, err := h.svc.StartMatch(c.Request.Context(), id)
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	match, err := h.svc.StartMatch(c.Request.Context(), callerID, id)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		writeRoomError(c, err)
 		return
 	}
 	response.Created(c, match)
+}
+
+func roomCallerID(c *gin.Context) (int64, bool) {
+	claims, ok := middleware.ClaimsFromContext(c)
+	if !ok || claims == nil {
+		response.Unauthorized(c, "missing authentication")
+		return 0, false
+	}
+	return claims.OsuID, true
+}
+
+func roomErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, errs.ErrUnauthorized):
+		return http.StatusUnauthorized
+	case errors.Is(err, errs.ErrForbidden):
+		return http.StatusForbidden
+	case errors.Is(err, errs.ErrNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, errs.ErrAlreadyExists), errors.Is(err, errs.ErrConflict):
+		return http.StatusConflict
+	case errors.Is(err, errs.ErrInvalidInput):
+		return http.StatusBadRequest
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+func writeRoomError(c *gin.Context, err error) {
+	status := roomErrorStatus(err)
+	message := err.Error()
+	if status == http.StatusInternalServerError {
+		message = "internal server error"
+	}
+	response.Error(c, status, message)
 }

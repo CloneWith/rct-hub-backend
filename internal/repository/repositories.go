@@ -17,6 +17,7 @@ type Repositories struct {
 	Announcements  AnnouncementRepository
 	MatchSnapshots *persistence.SnapshotStore
 	FormalMatches  *persistence.FormalMatchBootstrapStore
+	MatchCommands  *persistence.CommandStore
 }
 
 // NewRepositories creates all repository implementations from a MongoDB database.
@@ -31,5 +32,6 @@ func NewRepositories(client *mongo.Client, db *mongo.Database) *Repositories {
 		Announcements:  NewAnnouncementRepository(db),
 		MatchSnapshots: persistence.NewSnapshotStore(db),
 		FormalMatches:  persistence.NewFormalMatchBootstrapStore(client, db),
+		MatchCommands:  persistence.NewCommandStore(client, db),
 	}
 }

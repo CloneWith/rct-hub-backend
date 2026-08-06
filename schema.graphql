@@ -599,151 +599,89 @@ type Query {
 }
 
 # =============================================================================
-# Mutation (Phase 3 — Command Mutations)
-# 复用现有 MatchService 方法，不引入新业务逻辑分支
+# Authoritative formal-match commands
 # =============================================================================
 
-# --- 通用 Command 元数据 (文档 §13) ---
 input CommandMeta {
   matchId: ID!
-  expectedVersion: Int!            # 乐观锁版本号 (当前预留，暂不强制校验)
-  commandId: String!               # 客户端生成的幂等键
-}
-
-# --- Input 类型 ---
-
-input PoolSlotRef {
-  mod: PieceMod!
-  index: Int!
+  expectedVersion: Int!
+  commandId: String!
 }
 
 input PositionInput {
-  row: Int!                         # domain: Y
-  col: Int!                         # domain: X
+  row: Int!
+  col: Int!
 }
 
-input BanPoolSlotInput {
-  meta: CommandMeta!
-  slot: PoolSlotRef!
-}
-
-input UnbanPoolSlotInput {
-  meta: CommandMeta!
-  slot: PoolSlotRef!
-}
-
-input PlacePieceInput {
-  meta: CommandMeta!
-  slot: PoolSlotRef!
-  position: PositionInput!
-  forceMod: String                  # FM 槽位的强制 mod
-}
-
-input GrantWinInput {
-  meta: CommandMeta!
-  team: TeamSide!
-}
-
-input ConfirmWinnerInput {
-  meta: CommandMeta!
-  team: TeamSide!
-}
-
-input BeginRobberyInput {
-  meta: CommandMeta!
-}
-
-input CompleteRobberyInput {
-  meta: CommandMeta!
-  sacrificePieceIds: [String!]!
-  targetPieceId: String!
-}
-
-input CancelRobberyInput {
-  meta: CommandMeta!
-}
-
-input DeclareTbInput {
-  meta: CommandMeta!
-  winner: TeamSide!
-}
-
-input SurrenderInput {
-  meta: CommandMeta!
-  team: TeamSide!
-}
-
-input UndoInput {
-  meta: CommandMeta!
-  targetActionId: ID!
-  reason: String!
-}
-
-# --- Result 类型 ---
-
-interface CommandResult {
-  success: Boolean!
-  match: Match
-  events: [DomainEventSnapshot!]!   # 预留: WebSocket 事件系统尚未实现，返回空数组
-  error: MatchError
-}
+input BanPoolSlotInput { meta: CommandMeta!, poolSlotId: String! }
+input RefereeBanPoolSlotInput { meta: CommandMeta!, actingTeam: TeamSide!, poolSlotId: String!, reason: String! }
+input PlacePieceInput { meta: CommandMeta!, poolSlotId: String!, position: PositionInput! }
+input RefereePlacePieceInput { meta: CommandMeta!, actingTeam: TeamSide!, poolSlotId: String!, position: PositionInput!, reason: String! }
+input PlaceShiroInput { meta: CommandMeta!, position: PositionInput! }
+input RefereePlaceShiroInput { meta: CommandMeta!, actingTeam: TeamSide!, position: PositionInput!, reason: String! }
+input RobPieceInput { meta: CommandMeta!, targetPieceId: String!, sacrificeSets: [[String!]!]! }
+input RefereeRobPieceInput { meta: CommandMeta!, actingTeam: TeamSide!, targetPieceId: String!, sacrificeSets: [[String!]!]!, reason: String! }
+input ReasonCommandInput { meta: CommandMeta!, reason: String! }
+input CalibrateTimerInput { meta: CommandMeta!, remainingMilliseconds: Int!, reason: String! }
+input RequestTbInput { meta: CommandMeta!, requestId: String! }
+input RefereeRequestTbInput { meta: CommandMeta!, actingTeam: TeamSide!, requestId: String!, reason: String! }
+input RespondTbRequestInput { meta: CommandMeta!, requestId: String!, accept: Boolean! }
+input RefereeRespondTbRequestInput { meta: CommandMeta!, actingTeam: TeamSide!, requestId: String!, accept: Boolean!, reason: String! }
+input ConfirmTbResultInput { meta: CommandMeta!, winningTeam: TeamSide! }
+input ConfirmBeatmapResultInput { meta: CommandMeta!, boardPieceId: String!, winningTeam: TeamSide! }
+input RecordSurrenderInput { meta: CommandMeta!, surrenderingTeam: TeamSide!, confirmingPlayerIds: [Int!]!, reason: String! }
 
 type MatchError {
   code: String!
   message: String!
-  field: String
+  currentVersion: Int
 }
 
-type BanPoolSlotResult implements CommandResult {
+type MatchCommandEvent {
+  eventId: ID!
+  sequence: Int!
+  resultingVersion: Int!
+  type: String!
+  occurredAt: Time!
+  payload: JSON!
+}
+
+type MatchCommandResult {
   success: Boolean!
-  match: Match
-  events: [DomainEventSnapshot!]!
+  commandId: String!
+  disposition: String
+  previousVersion: Int
+  resultingVersion: Int
+  currentVersion: Int
+  state: JSON
+  events: [MatchCommandEvent!]!
   error: MatchError
 }
-
-type PlacePieceResult implements CommandResult {
-  success: Boolean!
-  match: Match
-  events: [DomainEventSnapshot!]!
-  error: MatchError
-}
-
-type CompleteRobberyResult implements CommandResult {
-  success: Boolean!
-  match: Match
-  events: [DomainEventSnapshot!]!
-  error: MatchError
-}
-
-type SimpleCommandResult implements CommandResult {
-  success: Boolean!
-  match: Match
-  events: [DomainEventSnapshot!]!
-  error: MatchError
-}
-
-# --- Mutation ---
 
 type Mutation {
-  # 棋盘操作 (文档 §12.1)
-  banPoolSlot(input: BanPoolSlotInput!): BanPoolSlotResult!
-  unbanPoolSlot(input: UnbanPoolSlotInput!): SimpleCommandResult!
-  placePiece(input: PlacePieceInput!): PlacePieceResult!
-  grantWinPermission(input: GrantWinInput!): SimpleCommandResult!
-  confirmPieceWinner(input: ConfirmWinnerInput!): SimpleCommandResult!
-  beginRobbery(input: BeginRobberyInput!): SimpleCommandResult!
-  completeRobbery(input: CompleteRobberyInput!): CompleteRobberyResult!
-  cancelRobbery(input: CancelRobberyInput!): SimpleCommandResult!
-
-  # 终局
-  declareTbWinner(input: DeclareTbInput!): SimpleCommandResult!
-  declareSurrender(input: SurrenderInput!): SimpleCommandResult!
-
-  # 回合控制
-  advanceTurn(input: CommandMeta!): SimpleCommandResult!
-  pauseMatch(input: CommandMeta!): SimpleCommandResult!
-  resumeMatch(input: CommandMeta!): SimpleCommandResult!
-
-  # 撤销
-  undoAction(input: UndoInput!): SimpleCommandResult!
+  startMatch(input: CommandMeta!): MatchCommandResult!
+  banPoolSlot(input: BanPoolSlotInput!): MatchCommandResult!
+  refereeBanPoolSlot(input: RefereeBanPoolSlotInput!): MatchCommandResult!
+  placePiece(input: PlacePieceInput!): MatchCommandResult!
+  refereePlacePiece(input: RefereePlacePieceInput!): MatchCommandResult!
+  placeShiro(input: PlaceShiroInput!): MatchCommandResult!
+  refereePlaceShiro(input: RefereePlaceShiroInput!): MatchCommandResult!
+  robPiece(input: RobPieceInput!): MatchCommandResult!
+  refereeRobPiece(input: RefereeRobPieceInput!): MatchCommandResult!
+  confirmBeatmapResult(input: ConfirmBeatmapResultInput!): MatchCommandResult!
+  grantAdditionalTime(input: ReasonCommandInput!): MatchCommandResult!
+  calibrateTimer(input: CalibrateTimerInput!): MatchCommandResult!
+  pauseTimer(input: ReasonCommandInput!): MatchCommandResult!
+  resumeTimer(input: ReasonCommandInput!): MatchCommandResult!
+  suspendMatch(input: ReasonCommandInput!): MatchCommandResult!
+  resumeMatch(input: ReasonCommandInput!): MatchCommandResult!
+  skipCurrentAction(input: ReasonCommandInput!): MatchCommandResult!
+  abortMatch(input: ReasonCommandInput!): MatchCommandResult!
+  requestTb(input: RequestTbInput!): MatchCommandResult!
+  refereeRequestTb(input: RefereeRequestTbInput!): MatchCommandResult!
+  respondTbRequest(input: RespondTbRequestInput!): MatchCommandResult!
+  refereeRespondTbRequest(input: RefereeRespondTbRequestInput!): MatchCommandResult!
+  startTb(input: ReasonCommandInput!): MatchCommandResult!
+  confirmTbResult(input: ConfirmTbResultInput!): MatchCommandResult!
+  recordSurrender(input: RecordSurrenderInput!): MatchCommandResult!
 }

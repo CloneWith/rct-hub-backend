@@ -58,6 +58,9 @@ func main() {
 		"rooms",
 		"matches",
 		"match_snapshots",
+		"match_command_receipts",
+		"match_action_log",
+		"match_outbox",
 		"moves",
 		"results",
 		"announcements",
@@ -147,6 +150,9 @@ func ensureSchemaValidation(ctx context.Context, db *mongo.Database) error {
 	}
 
 	if err := persistence.NewSnapshotStore(db).InstallValidator(ctx); err != nil {
+		return err
+	}
+	if err := persistence.NewCommandStore(db.Client(), db).InstallValidators(ctx); err != nil {
 		return err
 	}
 

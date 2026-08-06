@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	ErrFormalMatchAlreadyStarted   = errors.New("formal room already has a match")
+	ErrFormalMatchAlreadyStarted   = errs.ErrFormalMatchAlreadyStarted
 	ErrFormalMatchBootstrapInvalid = errors.New("invalid formal match bootstrap")
 )
 
