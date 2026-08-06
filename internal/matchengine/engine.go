@@ -307,15 +307,24 @@ func robPiece(state *State, actor Actor, command RobPiece, now time.Time) ([]Eve
 	}
 	if targetIsShiro {
 		if len(command.SacrificeSets) != 1 || len(command.SacrificeSets[0]) != 2 ||
-			!state.Board.allOwnWon(team, sacrificeIDs) {
-			return nil, ruleError(CodeRobberyRequirementsNotMet, "Shiro requires any two distinct own WON pieces")
+			!state.Board.isAlignment(team, command.SacrificeSets[0], 2) {
+			return nil, ruleError(CodeRobberyRequirementsNotMet, "Shiro robbery requires one own two-alignment")
 		}
 	} else if !validNormalRobberySacrifice(state.Board, team, command.SacrificeSets) {
 		return nil, ruleError(CodeRobberyRequirementsNotMet, "opponent robbery requires one three-alignment or two distinct two-alignments")
 	}
 
-	state.Board.markDead(sacrificeIDs)
-	state.Board.setOwner(target.ID, team)
+	nextBoard := state.Board.Clone()
+	nextBoard.markDead(sacrificeIDs)
+	nextBoard.setOwner(target.ID, team)
+	requiredAlignmentLength := 3
+	if targetIsShiro {
+		requiredAlignmentLength = 2
+	}
+	if !nextBoard.pieceParticipatesInAlignment(team, target.ID, requiredAlignmentLength) {
+		return nil, ruleError(CodeRobberyRequirementsNotMet, "robbed target does not participate in the required resulting alignment")
+	}
+	state.Board = nextBoard
 	if state.RobberyUsed == nil {
 		state.RobberyUsed = make(map[TeamSide]bool, 2)
 	}
@@ -328,6 +337,10 @@ func robPiece(state *State, actor Actor, command RobPiece, now time.Time) ([]Eve
 		winner := team
 		finishMatch(state, winner, Result{Winner: winner, Reason: ResultReasonFourAlignment})
 		events = append(events, Event{Type: EventMatchFinished, Team: winner})
+		return events, nil
+	}
+	if shouldForceTB(*state) {
+		events = append(events, startForcedTBPreparation(state, now)...)
 	}
 	return events, nil
 }
@@ -378,8 +391,8 @@ func grantAdditionalTime(state *State, actor Actor, command GrantAdditionalTime,
 	if missingReason(command.Reason) {
 		return nil, ruleError(CodeInvalidRequest, "additional-time reason is required")
 	}
-	if state.Phase != PhaseBan && state.Phase != PhasePick {
-		return nil, ruleError(CodeActionNotAllowed, "additional time applies only to team-action timers")
+	if state.Phase != PhaseBan && state.Phase != PhasePick && state.Phase != PhaseWaitingForResult {
+		return nil, ruleError(CodeActionNotAllowed, "additional time is not available for this phase")
 	}
 	if !state.ActiveTeam.valid() {
 		return nil, ruleError(CodeActionNotAllowed, "team-action timer has no active team")
@@ -394,6 +407,8 @@ func grantAdditionalTime(state *State, actor Actor, command GrantAdditionalTime,
 	duration := state.Timers.PickAdditional
 	if state.Phase == PhaseBan {
 		duration = state.Timers.BanAdditional
+	} else if state.Phase == PhaseWaitingForResult {
+		duration = state.Timers.ResultConfirmationAdditional
 	}
 	team := state.ActiveTeam
 	if state.TeamPauseUsed == nil {
@@ -599,11 +614,11 @@ func requestTB(state *State, actor Actor, command RequestTB, now time.Time) ([]E
 	if err := requireRunningPhase(*state, PhasePick); err != nil {
 		return nil, err
 	}
-	if actor.Capability != CapabilityStrategist || actor.Team == nil || !actor.Team.valid() {
-		return nil, ruleError(CodeActionNotAllowed, "a team strategist is required")
+	if actor.Capability != CapabilityCaptain || actor.Team == nil || !actor.Team.valid() {
+		return nil, ruleError(CodeActionNotAllowed, "a team captain is required")
 	}
-	if err := requireStrategistTimer(state.Timer, now); err != nil {
-		return nil, err
+	if state.Timer.Paused {
+		return nil, ruleError(CodeTimerPaused, "TB agreement is unavailable while the timer is paused")
 	}
 	if command.RequestID == "" {
 		return nil, ruleError(CodeInvalidRequest, "TB request id is required")
@@ -611,10 +626,7 @@ func requestTB(state *State, actor Actor, command RequestTB, now time.Time) ([]E
 	if state.PendingTBRequest != nil {
 		return nil, ruleError(CodeTBNotAvailable, "a TB request is already pending")
 	}
-	available := command.Basis == TBBasisTurnThirteen && state.Turn >= 13
-	if command.Basis == TBBasisNoFourWithoutRobbery {
-		available = Analyze(*state).NoFourWithoutRobbery
-	}
+	available := command.Basis == TBBasisCaptainAgreement && state.Turn >= 11 && state.Turn <= 14
 	if !available {
 		return nil, ruleError(CodeTBNotAvailable, "requested TB basis is not currently available")
 	}
@@ -624,15 +636,15 @@ func requestTB(state *State, actor Actor, command RequestTB, now time.Time) ([]E
 		RequestedBy: *actor.Team,
 		Basis:       command.Basis,
 	}
-	return []Event{{Type: EventTBRequested, Team: *actor.Team, RequestID: command.RequestID}}, nil
+	return []Event{{Type: EventTBRequested, Team: *actor.Team, RequestID: command.RequestID, Basis: command.Basis}}, nil
 }
 
 func refereeRequestTB(state *State, actor Actor, command RefereeRequestTB, now time.Time) ([]Event, error) {
-	proxyActor, effectiveNow, err := refereeProxyContext(*state, actor, command.ActingTeam, command.Reason, now)
+	proxyActor, err := refereeProxyCaptainContext(actor, command.ActingTeam, command.Reason)
 	if err != nil {
 		return nil, err
 	}
-	events, err := requestTB(state, proxyActor, RequestTB{RequestID: command.RequestID, Basis: command.Basis}, effectiveNow)
+	events, err := requestTB(state, proxyActor, RequestTB{RequestID: command.RequestID, Basis: command.Basis}, now)
 	return appendRefereeProxyEvent(events, command.ActingTeam, command.Reason, err)
 }
 
@@ -640,11 +652,14 @@ func respondTBRequest(state *State, actor Actor, command RespondTBRequest, now t
 	if err := requireRunningPhase(*state, PhasePick); err != nil {
 		return nil, err
 	}
-	if actor.Capability != CapabilityStrategist || actor.Team == nil || !actor.Team.valid() {
-		return nil, ruleError(CodeActionNotAllowed, "a team strategist is required")
+	if actor.Capability != CapabilityCaptain || actor.Team == nil || !actor.Team.valid() {
+		return nil, ruleError(CodeActionNotAllowed, "a team captain is required")
 	}
-	if err := requireStrategistTimer(state.Timer, now); err != nil {
-		return nil, err
+	if state.Timer.Paused {
+		return nil, ruleError(CodeTimerPaused, "TB agreement is unavailable while the timer is paused")
+	}
+	if state.Turn < 11 || state.Turn > 14 {
+		return nil, ruleError(CodeTBNotAvailable, "TB agreement is outside turns 11 through 14")
 	}
 	pending := state.PendingTBRequest
 	if pending == nil || command.RequestID == "" || command.RequestID != pending.ID {
@@ -657,26 +672,37 @@ func respondTBRequest(state *State, actor Actor, command RespondTBRequest, now t
 	requestID := pending.ID
 	state.PendingTBRequest = nil
 	if !command.Accept {
-		return []Event{{Type: EventTBRequestRejected, Team: *actor.Team, RequestID: requestID}}, nil
+		return []Event{{Type: EventTBRequestRejected, Team: *actor.Team, RequestID: requestID, Basis: pending.Basis}}, nil
 	}
 
 	state.Phase = PhaseTBPreparation
 	state.ActiveTeam = ""
+	state.TBEntry = &TBEntryState{Basis: pending.Basis, RequestID: requestID, RequestedBy: pending.RequestedBy}
 	state.Timer = Timer{StartedAt: now, Duration: state.Timers.TBPreparation}
 	return []Event{
-		{Type: EventTBRequestAccepted, Team: *actor.Team, RequestID: requestID},
-		{Type: EventTBPreparationStarted, RequestID: requestID},
+		{Type: EventTBRequestAccepted, Team: *actor.Team, RequestID: requestID, Basis: pending.Basis},
+		{Type: EventTBPreparationStarted, RequestID: requestID, Basis: pending.Basis},
 		{Type: EventTimerStarted},
 	}, nil
 }
 
 func refereeRespondTBRequest(state *State, actor Actor, command RefereeRespondTBRequest, now time.Time) ([]Event, error) {
-	proxyActor, effectiveNow, err := refereeProxyContext(*state, actor, command.ActingTeam, command.Reason, now)
+	proxyActor, err := refereeProxyCaptainContext(actor, command.ActingTeam, command.Reason)
 	if err != nil {
 		return nil, err
 	}
-	events, err := respondTBRequest(state, proxyActor, RespondTBRequest{RequestID: command.RequestID, Accept: command.Accept}, effectiveNow)
+	events, err := respondTBRequest(state, proxyActor, RespondTBRequest{RequestID: command.RequestID, Accept: command.Accept}, now)
 	return appendRefereeProxyEvent(events, command.ActingTeam, command.Reason, err)
+}
+
+func refereeProxyCaptainContext(actor Actor, actingTeam TeamSide, reason string) (Actor, error) {
+	if actor.Capability != CapabilityReferee {
+		return Actor{}, ruleError(CodeActionNotAllowed, "only a referee can proxy a captain action")
+	}
+	if !actingTeam.valid() || missingReason(reason) {
+		return Actor{}, ruleError(CodeInvalidRequest, "proxy acting team and reason are required")
+	}
+	return CaptainActor(actingTeam), nil
 }
 
 func refereeProxyContext(state State, actor Actor, actingTeam TeamSide, reason string, now time.Time) (Actor, time.Time, error) {
@@ -845,17 +871,28 @@ func confirmBeatmapResult(state *State, actor Actor, command ConfirmBeatmapResul
 
 func enterPickOrTerminal(state *State, now time.Time) []Event {
 	state.Phase = PhasePick
+	var events []Event
+	if state.Turn > 14 && state.PendingTBRequest != nil {
+		pending := *state.PendingTBRequest
+		state.PendingTBRequest = nil
+		events = append(events, Event{
+			Type: EventTBRequestExpired, Team: pending.RequestedBy, RequestID: pending.ID, Basis: pending.Basis,
+		})
+	}
+	if shouldForceTB(*state) {
+		return append(events, startForcedTBPreparation(state, now)...)
+	}
 	analysis := Analyze(*state)
 	if !analysis.Stalemate {
 		state.Timer = Timer{StartedAt: now, Duration: state.Timers.Pick}
-		return []Event{{Type: EventTimerStarted}}
+		return append(events, Event{Type: EventTimerStarted})
 	}
 
 	redCount := analysis.WonCounts[TeamRed]
 	blueCount := analysis.WonCounts[TeamBlue]
 	state.Timer = Timer{}
 	state.PendingTBRequest = nil
-	events := []Event{{Type: EventStalemateDetected}}
+	events = append(events, Event{Type: EventStalemateDetected})
 	if redCount == blueCount {
 		state.Lifecycle = LifecycleAdjudicationRequired
 		state.Phase = PhaseNone
@@ -873,6 +910,24 @@ func enterPickOrTerminal(state *State, now time.Time) []Event {
 		RedWonCount: redCount, BlueWonCount: blueCount,
 	})
 	return append(events, Event{Type: EventMatchFinished, Team: winner})
+}
+
+func shouldForceTB(state State) bool {
+	return state.Lifecycle == LifecycleRunning && state.Phase == PhasePick && state.Turn >= 15 &&
+		state.RobberyUsed[TeamRed] && state.RobberyUsed[TeamBlue]
+}
+
+func startForcedTBPreparation(state *State, now time.Time) []Event {
+	state.Phase = PhaseTBPreparation
+	state.ActiveTeam = ""
+	state.PendingTBRequest = nil
+	state.TBEntry = &TBEntryState{Basis: TBBasisForcedAfterRobberies}
+	state.Timer = Timer{StartedAt: now, Duration: state.Timers.TBPreparation}
+	return []Event{
+		{Type: EventTBForced, Basis: TBBasisForcedAfterRobberies},
+		{Type: EventTBPreparationStarted, Basis: TBBasisForcedAfterRobberies},
+		{Type: EventTimerStarted},
+	}
 }
 
 func requireRunningPhase(state State, phase Phase) error {

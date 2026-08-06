@@ -25,7 +25,7 @@
     <button data-scenario="ready">Ready</button>
     <button data-scenario="first-pick">首个 Pick</button>
     <button data-scenario="robbery-ready">可夺棋</button>
-    <button data-scenario="turn-13">Turn 13</button>
+    <button data-scenario="turn-13">TB 协商窗口</button>
     <button data-scenario="stalemate-final">流局终手</button>
     <span class="divider"></span>
     <button data-time="10">+10s</button>
@@ -73,8 +73,10 @@
       </div>
       <div class="actor-switch" role="group" aria-label="操作者">
         <button data-actor="REFEREE" class="active">裁判</button>
-        <button data-actor="RED">红方</button>
-        <button data-actor="BLUE">蓝方</button>
+        <button data-actor="RED">红方策略师</button>
+        <button data-actor="BLUE">蓝方策略师</button>
+        <button data-actor="CAPTAIN_RED">红方队长</button>
+        <button data-actor="CAPTAIN_BLUE">蓝方队长</button>
       </div>
       <form id="command-form">
         <label>Command

@@ -150,62 +150,6 @@ func TestShiroPlacementDetectsPoolExhaustionAtNextPick(t *testing.T) {
 	assertEventTypes(t, transition.Events, EventShiroPlaced, EventTurnAdvanced, EventStalemateDetected, EventMatchFinished)
 }
 
-func TestNoFourWithoutRobberyRequiresEveryFourLineToBeImpossible(t *testing.T) {
-	t.Parallel()
-
-	state := stateAtFirstPick(t)
-	analysis := Analyze(state)
-	if analysis.NoFourWithoutRobbery {
-		t.Fatal("empty board with selectable normal slots still permits a future four")
-	}
-
-	blockEveryFourLine(&state)
-	analysis = Analyze(state)
-	if !analysis.NoFourWithoutRobbery {
-		t.Fatal("blocking columns A and B should intersect every possible four-line")
-	}
-}
-
-func TestNoFourTBRequestUsesServerAnalysis(t *testing.T) {
-	t.Parallel()
-
-	state := stateAtFirstPick(t)
-	blockEveryFourLine(&state)
-
-	transition := mustExecute(t, state, StrategistActor(TeamRed), RequestTB{
-		RequestID: "no-four", Basis: TBBasisNoFourWithoutRobbery,
-	}, testStart.Add(5*time.Second))
-	if transition.State.PendingTBRequest == nil || transition.State.PendingTBRequest.Basis != TBBasisNoFourWithoutRobbery {
-		t.Fatalf("pending TB request = %+v", transition.State.PendingTBRequest)
-	}
-}
-
-func TestNoFourAnalysisRequiresDistinctCompatibleNormalSlots(t *testing.T) {
-	t.Parallel()
-
-	state := stateAtFirstPick(t)
-	for id, slot := range state.PoolSlots {
-		if slot.Mod != ModTB && slot.Mod != ModShiro {
-			slot.State = PoolSlotSelected
-			state.PoolSlots[id] = slot
-		}
-	}
-	state.PoolSlots["HD1"] = PoolSlot{ID: "HD1", Mod: ModHD, State: PoolSlotAvailable}
-	placeFixturePiece(&state, "red-a1", "A1", TeamRed, OutcomeWon)
-	placeFixturePiece(&state, "red-b1", "B1", TeamRed, OutcomeWon)
-	placeFixturePiece(&state, "red-c1", "C1", TeamRed, OutcomeWon)
-
-	if Analyze(state).NoFourWithoutRobbery {
-		t.Fatal("HD1 can fill D1, so RED can still form four without robbery")
-	}
-
-	state.PoolSlots["HD1"] = PoolSlot{ID: "HD1", Mod: ModHD, State: PoolSlotSelected}
-	state.PoolSlots["DT1"] = PoolSlot{ID: "DT1", Mod: ModDT, State: PoolSlotAvailable}
-	if !Analyze(state).NoFourWithoutRobbery {
-		t.Fatal("DT1 cannot fill the required HD cell and one slot cannot build another four-line")
-	}
-}
-
 func TestEqualStalemateJSONRecoveryPreservesClosedBehavior(t *testing.T) {
 	t.Parallel()
 
@@ -264,12 +208,6 @@ func fillBoardForStalemate(state *State, redCount int) {
 
 func placeFixturePiece(state *State, id string, cell Cell, owner TeamSide, outcome Outcome) {
 	seedPiece(&state.Board, cell, id, ModNM, outcome, team(owner))
-}
-
-func blockEveryFourLine(state *State) {
-	for index, cell := range []Cell{"A1", "B3", "C2", "D4"} {
-		placeFixturePiece(state, "dead-"+string(rune('1'+index)), cell, TeamRed, OutcomeDead)
-	}
 }
 
 func containsSlot(slots []string, wanted string) bool {

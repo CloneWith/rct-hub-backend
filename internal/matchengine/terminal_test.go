@@ -2,32 +2,36 @@ package matchengine
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 )
 
-func TestTurnThirteenTBRequestCanBeRejectedWithoutChangingPick(t *testing.T) {
+func TestCaptainTBRequestInNegotiationWindowCanBeRejectedWithoutChangingPick(t *testing.T) {
 	t.Parallel()
 
-	state := stateAtTurn13(t)
+	state := stateAtTurn(t, 11)
 	beforeTimer := state.Timer
-	requested := mustExecute(t, state, StrategistActor(TeamRed), RequestTB{
+	requested := mustExecute(t, state, CaptainActor(TeamRed), RequestTB{
 		RequestID: "tb-request-1",
-		Basis:     TBBasisTurnThirteen,
+		Basis:     TBBasisCaptainAgreement,
 	}, testStart.Add(30*time.Second))
 	state = requested.State
 
 	if state.PendingTBRequest == nil || state.PendingTBRequest.ID != "tb-request-1" || state.PendingTBRequest.RequestedBy != TeamRed {
 		t.Fatalf("pending TB request = %+v", state.PendingTBRequest)
 	}
-	assertStateHeader(t, state, LifecycleRunning, PhasePick, 13, TeamBlue)
+	assertStateHeader(t, state, LifecycleRunning, PhasePick, 11, TeamBlue)
 	if state.Timer != beforeTimer {
 		t.Fatal("TB request reset the active Pick timer")
 	}
 	assertEventTypes(t, requested.Events, EventTBRequested)
+	if event := requested.Events[0]; event.Basis != TBBasisCaptainAgreement || event.Team != TeamRed {
+		t.Fatalf("TB request event evidence = %+v", event)
+	}
 
-	rejected := mustExecute(t, state, StrategistActor(TeamBlue), RespondTBRequest{
+	rejected := mustExecute(t, state, CaptainActor(TeamBlue), RespondTBRequest{
 		RequestID: "tb-request-1",
 		Accept:    false,
 	}, testStart.Add(31*time.Second))
@@ -35,11 +39,14 @@ func TestTurnThirteenTBRequestCanBeRejectedWithoutChangingPick(t *testing.T) {
 	if state.PendingTBRequest != nil {
 		t.Fatalf("rejected TB request remains pending: %+v", state.PendingTBRequest)
 	}
-	assertStateHeader(t, state, LifecycleRunning, PhasePick, 13, TeamBlue)
+	assertStateHeader(t, state, LifecycleRunning, PhasePick, 11, TeamBlue)
 	if state.Timer != beforeTimer {
 		t.Fatal("TB rejection reset the active Pick timer")
 	}
 	assertEventTypes(t, rejected.Events, EventTBRequestRejected)
+	if event := rejected.Events[0]; event.Basis != TBBasisCaptainAgreement || event.Team != TeamBlue {
+		t.Fatalf("TB rejection event evidence = %+v", event)
+	}
 }
 
 func TestAcceptedTBRequestStartsNinetySecondPreparation(t *testing.T) {
@@ -47,7 +54,7 @@ func TestAcceptedTBRequestStartsNinetySecondPreparation(t *testing.T) {
 
 	state := requestedTBState(t)
 	acceptAt := testStart.Add(31 * time.Second)
-	transition := mustExecute(t, state, StrategistActor(TeamBlue), RespondTBRequest{
+	transition := mustExecute(t, state, CaptainActor(TeamBlue), RespondTBRequest{
 		RequestID: "tb-request-1",
 		Accept:    true,
 	}, acceptAt)
@@ -56,22 +63,27 @@ func TestAcceptedTBRequestStartsNinetySecondPreparation(t *testing.T) {
 	if state.Phase != PhaseTBPreparation || state.ActiveTeam != "" || state.PendingTBRequest != nil {
 		t.Fatalf("accepted TB state = phase %q active %q pending %+v", state.Phase, state.ActiveTeam, state.PendingTBRequest)
 	}
+	if state.TBEntry == nil || state.TBEntry.Basis != TBBasisCaptainAgreement || state.TBEntry.RequestID != "tb-request-1" {
+		t.Fatalf("accepted TB entry evidence = %+v", state.TBEntry)
+	}
 	assertTimer(t, state.Timer, acceptAt, TBPreparationDuration)
 	assertEventTypes(t, transition.Events, EventTBRequestAccepted, EventTBPreparationStarted, EventTimerStarted)
+	if transition.Events[0].Basis != TBBasisCaptainAgreement || transition.Events[1].Basis != TBBasisCaptainAgreement {
+		t.Fatalf("TB acceptance event evidence = %+v", transition.Events)
+	}
 }
 
 func TestTBRequestAndResponseRejectInvalidCommandsWithoutMutation(t *testing.T) {
 	t.Parallel()
 
-	turn13 := stateAtTurn13(t)
-	turn12 := turn13.Clone()
-	turn12.Turn = 12
-	turn12.ActiveTeam = pickTeam(turn12.FirstPick, turn12.Turn)
-	waiting := turn13.Clone()
+	turn11 := stateAtTurn(t, 11)
+	turn10 := stateAtTurn(t, 10)
+	turn15 := stateAtTurn(t, 15)
+	waiting := turn11.Clone()
 	waiting.Phase = PhaseWaitingForResult
-	expired := turn13.Clone()
+	expired := turn11.Clone()
 	expired.Timer = Timer{StartedAt: testStart, Duration: time.Second}
-	paused := turn13.Clone()
+	paused := turn11.Clone()
 	paused.Timer.pause(testStart.Add(21 * time.Second))
 
 	requestTests := []struct {
@@ -81,21 +93,29 @@ func TestTBRequestAndResponseRejectInvalidCommandsWithoutMutation(t *testing.T) 
 		cmd   RequestTB
 		code  ErrorCode
 	}{
-		{name: "too early", state: turn12, actor: StrategistActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisTurnThirteen}, code: CodeTBNotAvailable},
-		{name: "wrong phase", state: waiting, actor: StrategistActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisTurnThirteen}, code: CodeMatchPhaseConflict},
-		{name: "referee cannot request", state: turn13, actor: RefereeActor(), cmd: RequestTB{RequestID: "request", Basis: TBBasisTurnThirteen}, code: CodeActionNotAllowed},
-		{name: "request id required", state: turn13, actor: StrategistActor(TeamRed), cmd: RequestTB{Basis: TBBasisTurnThirteen}, code: CodeInvalidRequest},
-		{name: "unsupported no-four basis deferred", state: turn13, actor: StrategistActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisNoFourWithoutRobbery}, code: CodeTBNotAvailable},
-		{name: "expired timer", state: expired, actor: StrategistActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisTurnThirteen}, code: CodeTimerExpired},
-		{name: "paused timer", state: paused, actor: StrategistActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisTurnThirteen}, code: CodeTimerPaused},
+		{name: "too early", state: turn10, actor: CaptainActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: CodeTBNotAvailable},
+		{name: "too late", state: turn15, actor: CaptainActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: CodeTBNotAvailable},
+		{name: "wrong phase", state: waiting, actor: CaptainActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: CodeMatchPhaseConflict},
+		{name: "strategist cannot request", state: turn11, actor: StrategistActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: CodeActionNotAllowed},
+		{name: "referee cannot request directly", state: turn11, actor: RefereeActor(), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: CodeActionNotAllowed},
+		{name: "request id required", state: turn11, actor: CaptainActor(TeamRed), cmd: RequestTB{Basis: TBBasisCaptainAgreement}, code: CodeInvalidRequest},
+		{name: "forced basis cannot be requested", state: turn11, actor: CaptainActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisForcedAfterRobberies}, code: CodeTBNotAvailable},
+		{name: "expired pick timer does not block captain agreement", state: expired, actor: CaptainActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: ""},
+		{name: "paused match timer", state: paused, actor: CaptainActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: CodeTimerPaused},
 	}
 	for _, tt := range requestTests {
 		t.Run(tt.name, func(t *testing.T) {
 			before := tt.state.Clone()
-			_, err := Execute(tt.state, tt.actor, tt.cmd, testStart.Add(30*time.Second))
-			assertErrorCode(t, err, tt.code)
+			transition, err := Execute(tt.state, tt.actor, tt.cmd, testStart.Add(30*time.Second))
+			if tt.code == "" {
+				if err != nil || transition.State.PendingTBRequest == nil {
+					t.Fatalf("captain request after pick expiry = transition %+v err %v", transition, err)
+				}
+			} else {
+				assertErrorCode(t, err, tt.code)
+			}
 			if !reflect.DeepEqual(tt.state, before) {
-				t.Fatal("failed TB request mutated state")
+				t.Fatal("TB request mutated input state")
 			}
 		})
 	}
@@ -107,9 +127,10 @@ func TestTBRequestAndResponseRejectInvalidCommandsWithoutMutation(t *testing.T) 
 		cmd   RespondTBRequest
 		code  ErrorCode
 	}{
-		{name: "requester cannot respond", actor: StrategistActor(TeamRed), cmd: RespondTBRequest{RequestID: "tb-request-1", Accept: true}, code: CodeActionNotAllowed},
+		{name: "requester cannot respond", actor: CaptainActor(TeamRed), cmd: RespondTBRequest{RequestID: "tb-request-1", Accept: true}, code: CodeActionNotAllowed},
+		{name: "strategist cannot respond", actor: StrategistActor(TeamBlue), cmd: RespondTBRequest{RequestID: "tb-request-1", Accept: true}, code: CodeActionNotAllowed},
 		{name: "referee cannot respond", actor: RefereeActor(), cmd: RespondTBRequest{RequestID: "tb-request-1", Accept: true}, code: CodeActionNotAllowed},
-		{name: "wrong request id", actor: StrategistActor(TeamBlue), cmd: RespondTBRequest{RequestID: "wrong", Accept: true}, code: CodeTBNotAvailable},
+		{name: "wrong request id", actor: CaptainActor(TeamBlue), cmd: RespondTBRequest{RequestID: "wrong", Accept: true}, code: CodeTBNotAvailable},
 	}
 	for _, tt := range responseTests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -120,6 +141,71 @@ func TestTBRequestAndResponseRejectInvalidCommandsWithoutMutation(t *testing.T) 
 				t.Fatal("failed TB response mutated state")
 			}
 		})
+	}
+}
+
+func TestCaptainTBRequestIsAvailableOnEveryNegotiationTurn(t *testing.T) {
+	t.Parallel()
+
+	for turn := 11; turn <= 14; turn++ {
+		t.Run(fmt.Sprintf("turn-%d", turn), func(t *testing.T) {
+			state := stateAtTurn(t, turn)
+			transition := mustExecute(t, state, CaptainActor(TeamRed), RequestTB{
+				RequestID: fmt.Sprintf("tb-%d", turn), Basis: TBBasisCaptainAgreement,
+			}, testStart.Add(30*time.Second))
+			if transition.State.PendingTBRequest == nil {
+				t.Fatalf("turn %d did not retain pending TB request", turn)
+			}
+		})
+	}
+}
+
+func TestTurnFifteenStartsForcedTBWhenBothTeamsAlreadyRobbed(t *testing.T) {
+	t.Parallel()
+
+	state := stateAtTurn(t, 14)
+	state.RobberyUsed[TeamRed] = true
+	state.RobberyUsed[TeamBlue] = true
+	transition := mustExecute(t, state, StrategistActor(state.ActiveTeam), PlaceShiro{
+		PieceID: "turn-14-shiro", Cell: "A1",
+	}, testStart.Add(30*time.Second))
+
+	state = transition.State
+	if state.Phase != PhaseTBPreparation || state.Turn != 15 || state.ActiveTeam != "" {
+		t.Fatalf("forced TB state = phase %q turn %d active %q", state.Phase, state.Turn, state.ActiveTeam)
+	}
+	if state.TBEntry == nil || state.TBEntry.Basis != TBBasisForcedAfterRobberies || state.TBEntry.RequestID != "" {
+		t.Fatalf("forced TB evidence = %+v", state.TBEntry)
+	}
+	assertTimer(t, state.Timer, testStart.Add(30*time.Second), TBPreparationDuration)
+	assertEventTypes(t, transition.Events,
+		EventShiroPlaced, EventTurnAdvanced, EventTBForced, EventTBPreparationStarted, EventTimerStarted)
+}
+
+func TestTurnFifteenDoesNotForceTBBeforeBothTeamsRob(t *testing.T) {
+	t.Parallel()
+
+	state := stateAtTurn(t, 14)
+	state.RobberyUsed[TeamRed] = true
+	state = mustExecute(t, state, CaptainActor(TeamRed), RequestTB{
+		RequestID: "expires-at-turn-15", Basis: TBBasisCaptainAgreement,
+	}, testStart.Add(29*time.Second)).State
+	transition := mustExecute(t, state, StrategistActor(state.ActiveTeam), PlaceShiro{
+		PieceID: "turn-14-shiro", Cell: "A1",
+	}, testStart.Add(30*time.Second))
+
+	assertStateHeader(t, transition.State, LifecycleRunning, PhasePick, 15, TeamBlue)
+	if transition.State.TBEntry != nil {
+		t.Fatalf("TB started before both robberies: %+v", transition.State.TBEntry)
+	}
+	if transition.State.PendingTBRequest != nil {
+		t.Fatalf("turn-14 TB request survived outside the negotiation window: %+v", transition.State.PendingTBRequest)
+	}
+	assertEventTypes(t, transition.Events,
+		EventShiroPlaced, EventTurnAdvanced, EventTBRequestExpired, EventTimerStarted)
+	expired := transition.Events[2]
+	if expired.RequestID != "expires-at-turn-15" || expired.Team != TeamRed || expired.Basis != TBBasisCaptainAgreement {
+		t.Fatalf("expired TB request event evidence = %+v", expired)
 	}
 }
 
@@ -308,32 +394,37 @@ func TestPendingTBRequestSurvivesJSONWithIdenticalResponse(t *testing.T) {
 	}
 
 	command := RespondTBRequest{RequestID: "tb-request-1", Accept: true}
-	want := mustExecute(t, state, StrategistActor(TeamBlue), command, testStart.Add(31*time.Second))
-	got := mustExecute(t, restored, StrategistActor(TeamBlue), command, testStart.Add(31*time.Second))
+	want := mustExecute(t, state, CaptainActor(TeamBlue), command, testStart.Add(31*time.Second))
+	got := mustExecute(t, restored, CaptainActor(TeamBlue), command, testStart.Add(31*time.Second))
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("TB response after restore differs\n got: %#v\nwant: %#v", got, want)
 	}
 }
 
-func stateAtTurn13(t *testing.T) State {
+func stateAtTurn(t *testing.T, turn int) State {
 	t.Helper()
 	state := stateAtFirstPick(t)
-	state.Turn = 13
+	state.Turn = turn
 	state.ActiveTeam = pickTeam(state.FirstPick, state.Turn)
 	state.Timer = Timer{StartedAt: testStart.Add(20 * time.Second), Duration: PickDuration}
 	return state
 }
 
+func stateAtTurn13(t *testing.T) State {
+	t.Helper()
+	return stateAtTurn(t, 13)
+}
+
 func requestedTBState(t *testing.T) State {
 	t.Helper()
-	return mustExecute(t, stateAtTurn13(t), StrategistActor(TeamRed), RequestTB{
-		RequestID: "tb-request-1", Basis: TBBasisTurnThirteen,
+	return mustExecute(t, stateAtTurn13(t), CaptainActor(TeamRed), RequestTB{
+		RequestID: "tb-request-1", Basis: TBBasisCaptainAgreement,
 	}, testStart.Add(30*time.Second)).State
 }
 
 func acceptedTBState(t *testing.T) State {
 	t.Helper()
-	return mustExecute(t, requestedTBState(t), StrategistActor(TeamBlue), RespondTBRequest{
+	return mustExecute(t, requestedTBState(t), CaptainActor(TeamBlue), RespondTBRequest{
 		RequestID: "tb-request-1", Accept: true,
 	}, testStart.Add(31*time.Second)).State
 }

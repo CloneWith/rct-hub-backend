@@ -107,7 +107,6 @@ analysis := matchengine.Analyze(state)
 | `legalPlacements` | Flattened legal PoolSlot/cell pairs and derived FM Force Mod. |
 | `wonCounts` | Current WON-piece count for RED and BLUE. |
 | `stalemate` | No PoolSlot is selectable or no legal placement exists. |
-| `noFourWithoutRobbery` | Neither team can still construct four using distinct compatible normal slots. |
 
 Collection fields serialize as JSON arrays or objects, never `null`.
 `Analysis` is advisory for clients and tooling; `Execute` remains authoritative.
@@ -133,7 +132,7 @@ Collection fields serialize as JSON arrays or objects, never `null`.
 | `BAN` | ABBA PoolSlot bans. |
 | `PICK` | ABAB placement, Shiro, robbery, or negotiated TB request. |
 | `WAITING_FOR_RESULT` | One BoardPiece awaits referee result confirmation. |
-| `TB_PREPARATION` | Both teams accepted TB; referee prepares play. |
+| `TB_PREPARATION` | Captains agreed to TB, or turn 15 forced TB after both robberies; referee prepares play. |
 | `TB_PLAYING` | TB is in progress and awaits referee result confirmation. |
 
 `Turn` uses `-3` through `0` during Ban, then starts at `1` for Pick.
@@ -162,24 +161,24 @@ produce NM Force Mod.
 | `BanPoolSlot` | Active strategist | `RUNNING/BAN`, live timer. |
 | `PlacePiece` | Active strategist | `RUNNING/PICK`, live timer. |
 | `PlaceShiro` | Active strategist | `RUNNING/PICK`, Shiro available. |
-| `RobPiece` | Active strategist | `RUNNING/PICK`, robbery unused and sacrifices valid. |
+| `RobPiece` | Active strategist | `RUNNING/PICK`, robbery unused, non-overlapping sacrifices valid, and the robbed target participates in the resulting required alignment. |
 | `ConfirmBeatmapResult` | Referee | `WAITING_FOR_RESULT`, matching pending piece. |
-| `GrantAdditionalTime` | Referee | Expired Ban/Pick timer; once per active team per match. |
+| `GrantAdditionalTime` | Referee | Expired Ban, Pick, or result-confirmation timer; once per active team per match. |
 | `CalibrateTimer` | Referee | Active phase with a timer. |
 | `PauseTimer` / `ResumeTimer` | Referee | Active operational timer. |
 | `SuspendMatch` / `ResumeMatch` | Referee | Running/suspended lifecycle transition. |
 | `SkipCurrentAction` | Referee | Expired Ban/Pick action, or suspended action. |
 | `AbortMatch` | Referee | Running or suspended match. |
-| `RequestTB` | Strategist | Pick turn 13+, or proven `NO_FOUR_WITHOUT_ROBBERY`. |
-| `RespondTBRequest` | Opposing strategist | Matching pending request. |
+| `RequestTB` | Team captain | Pick turns 11 through 14 with `CAPTAIN_AGREEMENT`. |
+| `RespondTBRequest` | Opposing team captain | Matching pending request. |
 | `StartTB` | Referee | `TB_PREPARATION`; reason required after expiry. |
 | `ConfirmTBResult` | Referee | `TB_PLAYING`. |
 | `RecordSurrender` | Referee | Four unique rostered confirmations including the leader. |
 
 Referee proxy variants exist for Ban, placement, Shiro, robbery, and TB
-negotiation. They override strategist identity and timer expiry only. They do
-not bypass phase, active-team, board, Mod, sacrifice, or TB rules. Every proxy
-command requires a non-blank audit reason and emits
+negotiation. They override the acting role and, for strategist actions, timer
+expiry only. They do not bypass phase, active-team, board, Mod, sacrifice, or TB
+rules. Every proxy command requires a non-blank audit reason and emits
 `REFEREE_PROXY_ACTION_RECORDED` after the normal command events.
 
 All operational and administrative audit reasons reject empty or
@@ -197,7 +196,12 @@ server time to `Execute`.
 - Resume cannot create time after expiry.
 - Standard timers are 60s Ban, 15s Ban additional, 90s Pick, 30s Pick
   additional, 20s result confirmation, 10s result additional, and 90s TB
-  preparation.
+  preparation. Result confirmation additional time is available after its timer
+  expires and consumes the active team's single pause opportunity.
+
+TB negotiation is available on turns 11 through 14 and requires both team
+captains to agree. On turn 15, once both teams have used their one robbery, the
+engine enters TB preparation immediately before another Pick can occur.
 
 Go `time.Duration` values serialize as integer nanoseconds. Public DTOs should
 convert them to an explicitly documented transport unit.

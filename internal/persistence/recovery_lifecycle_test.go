@@ -70,14 +70,14 @@ func recoveryLifecycleFixtures(t *testing.T, now time.Time) []recoveryFixture {
 	}, now.Add(10*time.Second))
 	tbBase := recoveryFirstPick(t, now)
 	tbBase.Turn = 13
-	tbRequested := recoveryExecute(t, tbBase, matchengine.StrategistActor(tbBase.ActiveTeam), matchengine.RequestTB{
-		RequestID: "tb-recovery", Basis: matchengine.TBBasisTurnThirteen,
+	tbRequested := recoveryExecute(t, tbBase, matchengine.CaptainActor(tbBase.ActiveTeam), matchengine.RequestTB{
+		RequestID: "tb-recovery", Basis: matchengine.TBBasisCaptainAgreement,
 	}, now.Add(5*time.Second))
 	respondingTeam := matchengine.TeamRed
 	if tbBase.ActiveTeam == matchengine.TeamRed {
 		respondingTeam = matchengine.TeamBlue
 	}
-	tbPreparation := recoveryExecute(t, tbRequested, matchengine.StrategistActor(respondingTeam), matchengine.RespondTBRequest{
+	tbPreparation := recoveryExecute(t, tbRequested, matchengine.CaptainActor(respondingTeam), matchengine.RespondTBRequest{
 		RequestID: "tb-recovery", Accept: true,
 	}, now.Add(6*time.Second))
 	tbPlaying := recoveryExecute(t, tbPreparation, matchengine.RefereeActor(), matchengine.StartTB{}, now.Add(7*time.Second))

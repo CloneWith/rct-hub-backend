@@ -39,7 +39,7 @@ func TestComplexMatchScenarioPauseRobberyAndNegotiatedTB(t *testing.T) {
 		winner TeamSide
 	}{
 		{"A1", TeamBlue}, {"D4", TeamRed}, {"B1", TeamBlue},
-		{"D3", TeamRed}, {"C1", TeamBlue}, {"A3", TeamRed},
+		{"D2", TeamBlue}, {"C1", TeamBlue}, {"D3", TeamBlue},
 	}
 	for index, placement := range opening {
 		pieceID := "piece-" + twoDigitless(index+1)
@@ -67,7 +67,7 @@ func TestComplexMatchScenarioPauseRobberyAndNegotiatedTB(t *testing.T) {
 		winner TeamSide
 	}{
 		{"A2", TeamRed}, {"B2", TeamBlue}, {"C2", TeamRed},
-		{"D2", TeamRed}, {"B3", TeamBlue}, {"C3", TeamRed},
+		{"A3", TeamRed}, {"B3", TeamBlue}, {"C3", TeamRed},
 	}
 	for index, placement := range closing {
 		pieceNumber := index + 7
@@ -81,8 +81,8 @@ func TestComplexMatchScenarioPauseRobberyAndNegotiatedTB(t *testing.T) {
 		t.Fatalf("pre-TB state = lifecycle %q turn %d", state.Lifecycle, state.Turn)
 	}
 
-	apply(StrategistActor(TeamRed), RequestTB{RequestID: "complex-tb", Basis: TBBasisTurnThirteen})
-	apply(StrategistActor(TeamBlue), RespondTBRequest{RequestID: "complex-tb", Accept: true})
+	apply(CaptainActor(TeamRed), RequestTB{RequestID: "complex-tb", Basis: TBBasisCaptainAgreement})
+	apply(CaptainActor(TeamBlue), RespondTBRequest{RequestID: "complex-tb", Accept: true})
 	apply(RefereeActor(), StartTB{})
 	apply(RefereeActor(), ConfirmTBResult{WinningTeam: TeamRed})
 	assertTerminalResult(t, state, TeamRed, ResultReasonTB)

@@ -13,7 +13,7 @@ import (
 )
 
 // MatchSnapshotSchemaVersion identifies the persisted MatchEngine state shape.
-const MatchSnapshotSchemaVersion = 2
+const MatchSnapshotSchemaVersion = 3
 
 // SnapshotOrigin records how an authoritative aggregate entered the snapshot
 // collection. Legacy matches are never converted implicitly.

@@ -231,14 +231,18 @@ func (b Board) isAlignment(team TeamSide, pieceIDs []string, length int) bool {
 	return false
 }
 
-func (b Board) allOwnWon(team TeamSide, pieceIDs []string) bool {
-	for _, pieceID := range pieceIDs {
-		_, piece, ok := b.pieceByID(pieceID)
-		if !ok || piece.Outcome != OutcomeWon || piece.Owner == nil || *piece.Owner != team {
-			return false
+func (b Board) pieceParticipatesInAlignment(team TeamSide, pieceID string, length int) bool {
+	if pieceID == "" {
+		return false
+	}
+	for _, alignment := range b.FindAlignments(team, length) {
+		for _, candidate := range alignment.BoardPieceIDs {
+			if candidate == pieceID {
+				return true
+			}
 		}
 	}
-	return true
+	return false
 }
 
 func cellPosition(cell Cell) (column int, row int, ok bool) {
