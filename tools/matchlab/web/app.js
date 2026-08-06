@@ -130,11 +130,12 @@ function renderAnalysis(analysis, state) {
   const pending = state.pendingTbRequest ? `${state.pendingTbRequest.requestedBy} / ${state.pendingTbRequest.basis}` : "none";
   $("#analysis").innerHTML = `
     <div class="metric">Stalemate<strong>${analysis.stalemate ? "YES" : "NO"}</strong></div>
-    <div class="metric">No-four TB<strong>${analysis.noFourWithoutRobbery ? "AVAILABLE" : "NO"}</strong></div>
+    <div class="metric">Captain TB window<strong>${state.turn >= 11 && state.turn <= 14 ? "OPEN" : "CLOSED"}</strong></div>
+    <div class="metric">TB entry<strong class="code-value">${state.tbEntry ? `${state.tbEntry.basis}` : "none"}</strong></div>
     <div class="metric">Empty cells<strong>${analysis.emptyCells.length}</strong></div>
     <div class="metric">Pending TB<strong>${pending}</strong></div>
-    <div class="metric">Red robbery<strong>${state.robberyUsed?.RED ? "USED" : "READY"}</strong></div>
-    <div class="metric">Blue robbery<strong>${state.robberyUsed?.BLUE ? "USED" : "READY"}</strong></div>`;
+    <div class="metric">Red has robbed<strong>${state.robberyUsed?.RED ? "YES" : "NO"}</strong></div>
+    <div class="metric">Blue has robbed<strong>${state.robberyUsed?.BLUE ? "YES" : "NO"}</strong></div>`;
 }
 
 function renderEvents(events) {
@@ -151,7 +152,7 @@ function fieldHTML(name) {
     return `<label>${labels[name]}<select name="${name}"><option value="RED" ${value === "RED" ? "selected" : ""}>RED</option><option value="BLUE" ${value === "BLUE" ? "selected" : ""}>BLUE</option></select></label>`;
   }
   if (name === "basis") {
-    return `<label>${labels[name]}<select name="basis"><option value="TURN_13">TURN_13</option><option value="NO_FOUR_WITHOUT_ROBBERY">NO_FOUR_WITHOUT_ROBBERY</option></select></label>`;
+    return `<label>${labels[name]}<select name="basis"><option value="CAPTAIN_AGREEMENT">CAPTAIN_AGREEMENT</option></select></label>`;
   }
   if (name === "accept") {
     return `<label class="checkbox"><input type="checkbox" name="accept">${labels[name]}</label>`;

@@ -351,10 +351,13 @@ func validateRecoveryEvidence(state State) error {
 	if state.PendingTBRequest != nil {
 		pending := state.PendingTBRequest
 		if (state.Lifecycle != LifecycleRunning && state.Lifecycle != LifecycleSuspended) || state.Phase != PhasePick ||
-			pending.ID == "" || !pending.RequestedBy.valid() ||
-			(pending.Basis != TBBasisTurnThirteen && pending.Basis != TBBasisNoFourWithoutRobbery) {
+			pending.ID == "" || !pending.RequestedBy.valid() || pending.Basis != TBBasisCaptainAgreement ||
+			state.Turn < 11 || state.Turn > 14 || state.TBEntry != nil {
 			return fmt.Errorf("pending TB request is inconsistent with match state")
 		}
+	}
+	if err := validateTBEntryEvidence(state); err != nil {
+		return err
 	}
 	if state.Suspension != nil && (strings.TrimSpace(state.Suspension.Reason) == "" || state.Suspension.SuspendedAt.IsZero()) {
 		return fmt.Errorf("suspension evidence is incomplete")
@@ -383,12 +386,18 @@ func validateRecoveryEvidence(state State) error {
 		if result.SurrenderingTeam != nil || len(result.ConfirmingPlayerIDs) != 0 || result.RedWonCount != 0 || result.BlueWonCount != 0 {
 			return fmt.Errorf("result reason %s contains incompatible evidence", result.Reason)
 		}
+		if state.TBEntry != nil {
+			return fmt.Errorf("four-alignment result cannot retain TB entry evidence")
+		}
 		if !state.Board.hasFour(result.Winner) {
 			return fmt.Errorf("four-alignment result is not supported by the board")
 		}
 	case ResultReasonTB:
 		if result.SurrenderingTeam != nil || len(result.ConfirmingPlayerIDs) != 0 || result.RedWonCount != 0 || result.BlueWonCount != 0 {
 			return fmt.Errorf("result reason %s contains incompatible evidence", result.Reason)
+		}
+		if state.TBEntry == nil {
+			return fmt.Errorf("TB result is missing entry evidence")
 		}
 	case ResultReasonSurrender:
 		if result.RedWonCount != 0 || result.BlueWonCount != 0 {
@@ -404,6 +413,9 @@ func validateRecoveryEvidence(state State) error {
 		if result.SurrenderingTeam != nil || len(result.ConfirmingPlayerIDs) != 0 {
 			return fmt.Errorf("stalemate result contains surrender evidence")
 		}
+		if state.TBEntry != nil {
+			return fmt.Errorf("stalemate result cannot retain TB entry evidence")
+		}
 		if result.RedWonCount < 0 || result.BlueWonCount < 0 || result.RedWonCount == result.BlueWonCount {
 			return fmt.Errorf("stalemate result requires unequal non-negative won counts")
 		}
@@ -417,6 +429,42 @@ func validateRecoveryEvidence(state State) error {
 		}
 	default:
 		return fmt.Errorf("invalid result reason %q", result.Reason)
+	}
+	return nil
+}
+
+func validateTBEntryEvidence(state State) error {
+	entry := state.TBEntry
+	phaseRequiresEntry := state.Phase == PhaseTBPreparation || state.Phase == PhaseTBPlaying
+	if entry == nil {
+		if (state.Lifecycle == LifecycleRunning || state.Lifecycle == LifecycleSuspended) &&
+			state.Phase == PhasePick && forcedTBRequirementsMet(state) {
+			return fmt.Errorf("turn 15 state satisfying the robbery checks is missing forced TB evidence")
+		}
+		if phaseRequiresEntry {
+			return fmt.Errorf("TB phase is missing entry evidence")
+		}
+		return nil
+	}
+	if state.PendingTBRequest != nil {
+		return fmt.Errorf("accepted TB entry cannot retain a pending request")
+	}
+	if state.Lifecycle == LifecycleReady || state.Lifecycle == LifecycleAdjudicationRequired ||
+		(state.Lifecycle == LifecycleRunning && !phaseRequiresEntry) ||
+		(state.Lifecycle == LifecycleSuspended && !phaseRequiresEntry) {
+		return fmt.Errorf("TB entry evidence is inconsistent with match state")
+	}
+	switch entry.Basis {
+	case TBBasisCaptainAgreement:
+		if entry.RequestID == "" || !entry.RequestedBy.valid() || state.Turn < 11 || state.Turn > 14 {
+			return fmt.Errorf("captain-agreement TB evidence is incomplete")
+		}
+	case TBBasisForcedAfterRobberyChecks:
+		if entry.RequestID != "" || entry.RequestedBy != "" || !forcedTBRequirementsMet(state) {
+			return fmt.Errorf("forced TB evidence is inconsistent with robbery history")
+		}
+	default:
+		return fmt.Errorf("TB entry has invalid basis %q", entry.Basis)
 	}
 	return nil
 }

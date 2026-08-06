@@ -1,6 +1,7 @@
 package matchengine
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -23,11 +24,17 @@ func TestValidateStateAcceptsEngineProducedStates(t *testing.T) {
 	}, testStart.Add(4*time.Second)).State
 	stalemateFinished := stateAtPoolExhaustion(t, false)
 	adjudication := stateAtPoolExhaustion(t, true)
+	negotiatedTB := acceptedTBState(t)
+	forcedTB := stateAtTurn(t, 14)
+	forcedTB = mustExecute(t, forcedTB, StrategistActor(forcedTB.ActiveTeam), PlaceShiro{
+		PieceID: "forced-shiro", Cell: "A1",
+	}, testStart.Add(5*time.Second)).State
 
 	for name, state := range map[string]State{
 		"ready": ready, "running": started, "waiting": waiting,
 		"suspended": suspended, "aborted": aborted, "finished": finished,
 		"stalemate-finished": stalemateFinished, "adjudication": adjudication,
+		"negotiated-TB": negotiatedTB, "forced-TB": forcedTB,
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := ValidateState(state); err != nil {
@@ -183,7 +190,16 @@ func TestValidateStateRejectsCorruptRecoveredState(t *testing.T) {
 			s.Lifecycle = LifecycleRunning
 			s.Phase = PhasePick
 			s.ActiveTeam = TeamRed
-			s.PendingTBRequest = &TBRequestState{ID: "", RequestedBy: TeamRed, Basis: TBBasisTurnThirteen}
+			s.PendingTBRequest = &TBRequestState{ID: "", RequestedBy: TeamRed, Basis: TBBasisCaptainAgreement}
+		}},
+		{name: "TB preparation without entry evidence", mutate: func(s *State) {
+			*s = started.Clone()
+			s.Phase = PhaseTBPreparation
+			s.ActiveTeam = ""
+			s.Timer = Timer{StartedAt: testStart, Duration: TBPreparationDuration}
+		}},
+		{name: "turn 15 with no legal robberies outside TB", mutate: func(s *State) {
+			*s = stateAtTurn(t, 15)
 		}},
 	}
 	for _, tt := range tests {
@@ -194,5 +210,73 @@ func TestValidateStateRejectsCorruptRecoveredState(t *testing.T) {
 				t.Fatal("ValidateState accepted corrupt state")
 			}
 		})
+	}
+}
+
+func TestValidateStateRejectsTBEntryOnNonTBTerminalResults(t *testing.T) {
+	t.Parallel()
+
+	four := stateAtFirstPick(t)
+	for index, cell := range []Cell{"A1", "B1", "C1", "D1"} {
+		pieceID := fmt.Sprintf("four-%d", index+1)
+		four = mustExecute(t, four, StrategistActor(four.ActiveTeam), PlacePiece{
+			PoolSlotID: fmt.Sprintf("NM%d", index+5), PieceID: pieceID, Cell: cell,
+		}, testStart.Add(time.Duration(index*2+1)*time.Second)).State
+		four = mustExecute(t, four, RefereeActor(), ConfirmBeatmapResult{
+			BoardPieceID: pieceID, WinningTeam: TeamRed,
+		}, testStart.Add(time.Duration(index*2+2)*time.Second)).State
+	}
+	four.Turn = 11
+	four.TBEntry = &TBEntryState{Basis: TBBasisCaptainAgreement, RequestID: "impossible-four-tb", RequestedBy: TeamRed}
+
+	stalemate := stateAtPoolExhaustion(t, false)
+	stalemate.Turn = 11
+	stalemate.TBEntry = &TBEntryState{Basis: TBBasisCaptainAgreement, RequestID: "impossible-stalemate-tb", RequestedBy: TeamBlue}
+
+	for name, state := range map[string]State{"four-alignment": four, "stalemate": stalemate} {
+		t.Run(name, func(t *testing.T) {
+			if err := ValidateState(state); err == nil {
+				t.Fatal("ValidateState accepted a non-TB result with TB entry evidence")
+			}
+		})
+	}
+}
+
+func TestValidateStateRejectsForcedTBWhileRobberyRemainsAvailable(t *testing.T) {
+	t.Parallel()
+
+	state := stateAtFirstPick(t)
+	state.PoolSlots["NM9"] = PoolSlot{ID: "NM9", Mod: ModNM, State: PoolSlotAvailable}
+	state.PoolSlots["NM10"] = PoolSlot{ID: "NM10", Mod: ModNM, State: PoolSlotAvailable}
+	plays := []struct {
+		slot, piece string
+		cell        Cell
+		winner      TeamSide
+	}{
+		{slot: "NM5", piece: "blue-sacrifice-1", cell: "A1", winner: TeamBlue},
+		{slot: "NM6", piece: "blue-sacrifice-2", cell: "B1", winner: TeamBlue},
+		{slot: "NM7", piece: "blue-sacrifice-3", cell: "C1", winner: TeamBlue},
+		{slot: "NM8", piece: "blue-result-anchor-1", cell: "D2", winner: TeamBlue},
+		{slot: "NM9", piece: "blue-result-anchor-2", cell: "D3", winner: TeamBlue},
+		{slot: "NM10", piece: "red-target", cell: "D4", winner: TeamRed},
+	}
+	for index, play := range plays {
+		state = mustExecute(t, state, StrategistActor(state.ActiveTeam), PlacePiece{
+			PoolSlotID: play.slot, PieceID: play.piece, Cell: play.cell,
+		}, testStart.Add(time.Duration(index*2+1)*time.Second)).State
+		state = mustExecute(t, state, RefereeActor(), ConfirmBeatmapResult{
+			BoardPieceID: play.piece, WinningTeam: play.winner,
+		}, testStart.Add(time.Duration(index*2+2)*time.Second)).State
+	}
+	state.Turn = 15
+	state.ActiveTeam = pickTeam(state.FirstPick, state.Turn)
+	state.RobberyUsed[TeamRed] = true
+	state.TBEntry = &TBEntryState{Basis: TBBasisForcedAfterRobberyChecks}
+	state.Phase = PhaseTBPreparation
+	state.ActiveTeam = ""
+	state.Timer = Timer{StartedAt: testStart, Duration: TBPreparationDuration}
+
+	if err := ValidateState(state); err == nil {
+		t.Fatal("ValidateState accepted forced TB while BLUE still had a legal robbery")
 	}
 }

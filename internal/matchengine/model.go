@@ -217,14 +217,22 @@ func (configuration TimerConfiguration) valid() bool {
 type TBBasis string
 
 const (
-	TBBasisTurnThirteen         TBBasis = "TURN_13"
-	TBBasisNoFourWithoutRobbery TBBasis = "NO_FOUR_WITHOUT_ROBBERY"
+	TBBasisCaptainAgreement         TBBasis = "CAPTAIN_AGREEMENT"
+	TBBasisForcedAfterRobberyChecks TBBasis = "FORCED_AFTER_ROBBERY_CHECKS"
 )
 
 type TBRequestState struct {
 	ID          string   `json:"id"`
 	RequestedBy TeamSide `json:"requestedBy"`
 	Basis       TBBasis  `json:"basis"`
+}
+
+// TBEntryState preserves why the match entered TB across persistence and
+// restart. Forced TB has no request or requesting team.
+type TBEntryState struct {
+	Basis       TBBasis  `json:"basis"`
+	RequestID   string   `json:"requestId,omitempty"`
+	RequestedBy TeamSide `json:"requestedBy,omitempty"`
 }
 
 type ResultReason string
@@ -263,16 +271,18 @@ type SuspensionState struct {
 
 // State is the pure, serializable Match aggregate used by the rule engine.
 type State struct {
-	Version       uint64              `json:"version"`
-	Lifecycle     Lifecycle           `json:"lifecycle"`
-	Phase         Phase               `json:"phase"`
-	FirstBan      TeamSide            `json:"firstBan"`
-	FirstPick     TeamSide            `json:"firstPick"`
-	Turn          int                 `json:"turn"`
-	ActiveTeam    TeamSide            `json:"activeTeam,omitempty"`
-	PoolSlots     map[string]PoolSlot `json:"poolSlots"`
-	Board         Board               `json:"board"`
-	Timer         Timer               `json:"timer"`
+	Version    uint64              `json:"version"`
+	Lifecycle  Lifecycle           `json:"lifecycle"`
+	Phase      Phase               `json:"phase"`
+	FirstBan   TeamSide            `json:"firstBan"`
+	FirstPick  TeamSide            `json:"firstPick"`
+	Turn       int                 `json:"turn"`
+	ActiveTeam TeamSide            `json:"activeTeam,omitempty"`
+	PoolSlots  map[string]PoolSlot `json:"poolSlots"`
+	Board      Board               `json:"board"`
+	Timer      Timer               `json:"timer"`
+	// RobberyUsed records whether a team has robbed at least once. It is TB
+	// evidence, not a limit on later robberies.
 	RobberyUsed   map[TeamSide]bool   `json:"robberyUsed"`
 	TeamPauseUsed map[TeamSide]bool   `json:"teamPauseUsed"`
 	Rosters       map[TeamSide]Roster `json:"rosters"`
@@ -280,6 +290,7 @@ type State struct {
 
 	PendingPieceID   string             `json:"pendingPieceId,omitempty"`
 	PendingTBRequest *TBRequestState    `json:"pendingTbRequest,omitempty"`
+	TBEntry          *TBEntryState      `json:"tbEntry,omitempty"`
 	Winner           *TeamSide          `json:"winner,omitempty"`
 	Result           *Result            `json:"result,omitempty"`
 	Stalemate        *StalemateEvidence `json:"stalemate,omitempty"`
@@ -318,6 +329,10 @@ func (s State) Clone() State {
 	if s.PendingTBRequest != nil {
 		pending := *s.PendingTBRequest
 		clone.PendingTBRequest = &pending
+	}
+	if s.TBEntry != nil {
+		entry := *s.TBEntry
+		clone.TBEntry = &entry
 	}
 	if s.Winner != nil {
 		winner := *s.Winner
@@ -442,6 +457,7 @@ type Capability string
 
 const (
 	CapabilityStrategist Capability = "STRATEGIST"
+	CapabilityCaptain    Capability = "CAPTAIN"
 	CapabilityReferee    Capability = "REFEREE"
 )
 
@@ -453,6 +469,10 @@ type Actor struct {
 
 func StrategistActor(team TeamSide) Actor {
 	return Actor{Capability: CapabilityStrategist, Team: &team}
+}
+
+func CaptainActor(team TeamSide) Actor {
+	return Actor{Capability: CapabilityCaptain, Team: &team}
 }
 
 func RefereeActor() Actor {
@@ -667,6 +687,8 @@ const (
 	EventTBRequested                 EventType = "TB_REQUESTED"
 	EventTBRequestAccepted           EventType = "TB_REQUEST_ACCEPTED"
 	EventTBRequestRejected           EventType = "TB_REQUEST_REJECTED"
+	EventTBRequestExpired            EventType = "TB_REQUEST_EXPIRED"
+	EventTBForced                    EventType = "TB_FORCED"
 	EventTBPreparationStarted        EventType = "TB_PREPARATION_STARTED"
 	EventTBStarted                   EventType = "TB_STARTED"
 	EventTBResultConfirmed           EventType = "TB_RESULT_CONFIRMED"
@@ -689,6 +711,7 @@ type Event struct {
 	Duration      time.Duration `json:"duration,omitempty"`
 	Reason        string        `json:"reason,omitempty"`
 	RequestID     string        `json:"requestId,omitempty"`
+	Basis         TBBasis       `json:"tbBasis,omitempty"`
 	PlayerIDs     []int64       `json:"playerIds,omitempty"`
 }
 

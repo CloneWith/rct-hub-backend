@@ -439,14 +439,14 @@ func integrationLifecycleFixtures(t *testing.T, now time.Time) []lifecycleFixtur
 	}, now.Add(10*time.Second))
 	tbBase := integrationFirstPick(t, now)
 	tbBase.Turn = 13
-	tbRequested := integrationExecute(t, tbBase, matchengine.StrategistActor(tbBase.ActiveTeam), matchengine.RequestTB{
-		RequestID: "tb-recovery", Basis: matchengine.TBBasisTurnThirteen,
+	tbRequested := integrationExecute(t, tbBase, matchengine.CaptainActor(tbBase.ActiveTeam), matchengine.RequestTB{
+		RequestID: "tb-recovery", Basis: matchengine.TBBasisCaptainAgreement,
 	}, now.Add(5*time.Second))
 	respondingTeam := matchengine.TeamRed
 	if tbBase.ActiveTeam == matchengine.TeamRed {
 		respondingTeam = matchengine.TeamBlue
 	}
-	tbPreparation := integrationExecute(t, tbRequested, matchengine.StrategistActor(respondingTeam), matchengine.RespondTBRequest{
+	tbPreparation := integrationExecute(t, tbRequested, matchengine.CaptainActor(respondingTeam), matchengine.RespondTBRequest{
 		RequestID: "tb-recovery", Accept: true,
 	}, now.Add(6*time.Second))
 	tbPlaying := integrationExecute(t, tbPreparation, matchengine.RefereeActor(), matchengine.StartTB{}, now.Add(7*time.Second))

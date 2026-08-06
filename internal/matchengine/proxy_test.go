@@ -60,6 +60,8 @@ func TestRefereeProxyShiroAndRobberyUseNormalRulePaths(t *testing.T) {
 	seedPiece(&state.Board, "A1", "blue-1", ModNM, OutcomeWon, team(TeamBlue))
 	seedPiece(&state.Board, "B1", "blue-2", ModNM, OutcomeWon, team(TeamBlue))
 	seedPiece(&state.Board, "C1", "blue-3", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&state.Board, "D2", "blue-anchor-1", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&state.Board, "D3", "blue-anchor-2", ModNM, OutcomeWon, team(TeamBlue))
 	seedPiece(&state.Board, "D4", "red-target", ModNM, OutcomeWon, team(TeamRed))
 	transition = mustExecute(t, state, RefereeActor(), RefereeRobPiece{
 		ActingTeam: TeamBlue, TargetPieceID: "red-target", SacrificeSets: [][]string{{"blue-1", "blue-2", "blue-3"}}, Reason: "blue disconnected",
@@ -73,12 +75,12 @@ func TestRefereeProxyTBRequestAndResponsePreserveNegotiationRoles(t *testing.T) 
 	state := stateAtTurn13(t)
 	deadline := state.Timer.StartedAt.Add(state.Timer.Duration)
 	transition := mustExecute(t, state, RefereeActor(), RefereeRequestTB{
-		ActingTeam: TeamRed, RequestID: "proxy-tb", Basis: TBBasisTurnThirteen, Reason: "red disconnected",
+		ActingTeam: TeamRed, RequestID: "proxy-tb", Basis: TBBasisCaptainAgreement, Reason: "red captain disconnected",
 	}, deadline)
 	assertEventTypes(t, transition.Events, EventTBRequested, EventRefereeProxyActionRecorded)
 
 	transition = mustExecute(t, transition.State, RefereeActor(), RefereeRespondTBRequest{
-		ActingTeam: TeamBlue, RequestID: "proxy-tb", Accept: true, Reason: "blue disconnected",
+		ActingTeam: TeamBlue, RequestID: "proxy-tb", Accept: true, Reason: "blue captain disconnected",
 	}, deadline.Add(time.Minute))
 	assertEventTypes(t, transition.Events,
 		EventTBRequestAccepted, EventTBPreparationStarted, EventTimerStarted, EventRefereeProxyActionRecorded)

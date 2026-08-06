@@ -58,6 +58,25 @@ func TestRefereeGrantsConfiguredPickAdditionalTime(t *testing.T) {
 	}
 }
 
+func TestRefereeGrantsConfiguredResultConfirmationAdditionalTime(t *testing.T) {
+	t.Parallel()
+
+	pick := stateAtFirstPick(t)
+	waiting := mustExecute(t, pick, StrategistActor(pick.ActiveTeam), PlacePiece{
+		PoolSlotID: "NM5", PieceID: "pending-result", Cell: "A1",
+	}, testStart.Add(5*time.Second)).State
+	deadline := waiting.Timer.StartedAt.Add(waiting.Timers.ResultConfirmation)
+	transition := mustExecute(t, waiting, RefereeActor(), GrantAdditionalTime{Reason: "result review"}, deadline)
+
+	state := transition.State
+	assertStateHeader(t, state, LifecycleRunning, PhaseWaitingForResult, 1, TeamBlue)
+	assertTimer(t, state.Timer, deadline, state.Timers.ResultConfirmationAdditional)
+	if !state.TeamPauseUsed[TeamBlue] || state.TeamPauseUsed[TeamRed] {
+		t.Fatalf("team pause usage = %#v, want BLUE only", state.TeamPauseUsed)
+	}
+	assertEventTypes(t, transition.Events, EventAdditionalTimeGranted, EventTimerStarted)
+}
+
 func TestTeamPauseEntitlementsAreIndependentAndSingleUse(t *testing.T) {
 	t.Parallel()
 
@@ -88,8 +107,7 @@ func TestGrantAdditionalTimeRejectsInvalidRequestsWithoutMutation(t *testing.T) 
 	t.Parallel()
 
 	started := mustExecute(t, newReadyState(t), RefereeActor(), StartMatch{}, testStart).State
-	waiting := started.Clone()
-	waiting.Phase = PhaseWaitingForResult
+	tbPreparation := acceptedTBState(t)
 	paused := mustExecute(t, started, RefereeActor(), PauseTimer{Reason: "technical"}, testStart.Add(time.Second)).State
 	tests := []struct {
 		name  string
@@ -102,7 +120,7 @@ func TestGrantAdditionalTimeRejectsInvalidRequestsWithoutMutation(t *testing.T) 
 		{name: "before expiry", state: started, actor: RefereeActor(), now: testStart.Add(time.Second), cmd: GrantAdditionalTime{Reason: "too early"}, code: CodeActionNotAllowed},
 		{name: "strategist cannot grant", state: started, actor: StrategistActor(TeamRed), now: testStart.Add(BanDuration), cmd: GrantAdditionalTime{Reason: "self grant"}, code: CodeActionNotAllowed},
 		{name: "reason required", state: started, actor: RefereeActor(), now: testStart.Add(BanDuration), cmd: GrantAdditionalTime{}, code: CodeInvalidRequest},
-		{name: "not a team action phase", state: waiting, actor: RefereeActor(), now: testStart.Add(BanDuration), cmd: GrantAdditionalTime{Reason: "result timer"}, code: CodeActionNotAllowed},
+		{name: "TB preparation has no additional time", state: tbPreparation, actor: RefereeActor(), now: tbPreparation.Timer.StartedAt.Add(tbPreparation.Timer.Duration), cmd: GrantAdditionalTime{Reason: "TB timer"}, code: CodeActionNotAllowed},
 		{name: "positive paused timer is not expired", state: paused, actor: RefereeActor(), now: testStart.Add(time.Hour), cmd: GrantAdditionalTime{Reason: "bypass attempt"}, code: CodeActionNotAllowed},
 	}
 	for _, tt := range tests {

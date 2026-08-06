@@ -160,18 +160,14 @@ func (b Board) hasFour(team TeamSide) bool {
 	return len(b.FindAlignments(team, 4)) > 0
 }
 
-// FindAlignments returns connected lines of the requested length. Length two
-// is horizontal/vertical only; length three and four also include diagonals.
-// Only WON pieces owned by team participate.
+// FindAlignments returns horizontal, vertical, or diagonal connected lines of
+// the requested length. Only WON pieces owned by team participate.
 func (b Board) FindAlignments(team TeamSide, length int) []Alignment {
 	if !team.valid() || length < 2 || length > 4 {
 		return nil
 	}
 
 	directions := [][2]int{{1, 0}, {0, 1}, {1, 1}, {1, -1}}
-	if length == 2 {
-		directions = directions[:2]
-	}
 	var alignments []Alignment
 	for row := 0; row < 4; row++ {
 		for column := 0; column < 4; column++ {
@@ -231,14 +227,18 @@ func (b Board) isAlignment(team TeamSide, pieceIDs []string, length int) bool {
 	return false
 }
 
-func (b Board) allOwnWon(team TeamSide, pieceIDs []string) bool {
-	for _, pieceID := range pieceIDs {
-		_, piece, ok := b.pieceByID(pieceID)
-		if !ok || piece.Outcome != OutcomeWon || piece.Owner == nil || *piece.Owner != team {
-			return false
+func (b Board) pieceParticipatesInAlignment(team TeamSide, pieceID string, length int) bool {
+	if pieceID == "" {
+		return false
+	}
+	for _, alignment := range b.FindAlignments(team, length) {
+		for _, candidate := range alignment.BoardPieceIDs {
+			if candidate == pieceID {
+				return true
+			}
 		}
 	}
-	return true
+	return false
 }
 
 func cellPosition(cell Cell) (column int, row int, ok bool) {

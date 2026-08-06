@@ -118,6 +118,29 @@ func TestCommandEndpointCallsRealEngineAndReturnsSnapshot(t *testing.T) {
 	}
 }
 
+func TestMatchLabSupportsCaptainTBNegotiation(t *testing.T) {
+	t.Parallel()
+
+	lab, err := newLab(scenarioTurnThirteen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := commandRequest{
+		Actor: "CAPTAIN_RED", Type: "REQUEST_TB", RequestID: "lab-tb", Basis: matchengine.TBBasisCaptainAgreement,
+	}
+	response := performJSON(t, lab.routes(), http.MethodPost, "/api/command", request)
+	if response.Code != http.StatusOK || lab.state.PendingTBRequest == nil {
+		t.Fatalf("captain TB request status = %d body = %s", response.Code, response.Body.String())
+	}
+
+	response = performJSON(t, lab.routes(), http.MethodPost, "/api/command", commandRequest{
+		Actor: "CAPTAIN_BLUE", Type: "RESPOND_TB_REQUEST", RequestID: "lab-tb", Accept: true,
+	})
+	if response.Code != http.StatusOK || lab.state.Phase != matchengine.PhaseTBPreparation || lab.state.TBEntry == nil {
+		t.Fatalf("captain TB response status = %d body = %s state = %+v", response.Code, response.Body.String(), lab.state)
+	}
+}
+
 func TestCommandEndpointPreservesStableRuleErrorCode(t *testing.T) {
 	t.Parallel()
 

@@ -182,12 +182,16 @@ func parseActor(value string) (matchengine.Actor, error) {
 	switch strings.ToUpper(value) {
 	case "REFEREE":
 		return matchengine.RefereeActor(), nil
-	case "RED":
+	case "RED", "STRATEGIST_RED":
 		return matchengine.StrategistActor(matchengine.TeamRed), nil
-	case "BLUE":
+	case "BLUE", "STRATEGIST_BLUE":
 		return matchengine.StrategistActor(matchengine.TeamBlue), nil
+	case "CAPTAIN_RED":
+		return matchengine.CaptainActor(matchengine.TeamRed), nil
+	case "CAPTAIN_BLUE":
+		return matchengine.CaptainActor(matchengine.TeamBlue), nil
 	default:
-		return matchengine.Actor{}, fmt.Errorf("actor must be REFEREE, RED, or BLUE")
+		return matchengine.Actor{}, fmt.Errorf("actor must be REFEREE, RED, BLUE, CAPTAIN_RED, or CAPTAIN_BLUE")
 	}
 }
 
@@ -370,9 +374,9 @@ func buildScenario(name scenarioName) (matchengine.State, time.Time, []matchengi
 		{poolSlotID: "NM5", pieceID: "piece-1", cell: "A1", winner: matchengine.TeamBlue},
 		{poolSlotID: "NM6", pieceID: "piece-2", cell: "D4", winner: matchengine.TeamRed},
 		{poolSlotID: "NM7", pieceID: "piece-3", cell: "B1", winner: matchengine.TeamBlue},
-		{poolSlotID: "NM8", pieceID: "piece-4", cell: "D3", winner: matchengine.TeamRed},
+		{poolSlotID: "NM8", pieceID: "piece-4", cell: "D2", winner: matchengine.TeamBlue},
 		{poolSlotID: "NM9", pieceID: "piece-5", cell: "C1", winner: matchengine.TeamBlue},
-		{poolSlotID: "NM10", pieceID: "piece-6", cell: "A3", winner: matchengine.TeamRed},
+		{poolSlotID: "NM10", pieceID: "piece-6", cell: "D3", winner: matchengine.TeamBlue},
 	}
 	if err := replayScenarioPlacements(&state, apply, placements); err != nil {
 		return state, now, events, err
@@ -385,7 +389,7 @@ func buildScenario(name scenarioName) (matchengine.State, time.Time, []matchengi
 		{poolSlotID: "NM11", pieceID: "piece-7", cell: "A2", winner: matchengine.TeamBlue},
 		{poolSlotID: "NM12", pieceID: "piece-8", cell: "B2", winner: matchengine.TeamBlue},
 		{poolSlotID: "NM13", pieceID: "piece-9", cell: "C2", winner: matchengine.TeamRed},
-		{poolSlotID: "NM14", pieceID: "piece-10", cell: "D2", winner: matchengine.TeamRed},
+		{poolSlotID: "NM14", pieceID: "piece-10", cell: "A3", winner: matchengine.TeamRed},
 		{poolSlotID: "NM15", pieceID: "piece-11", cell: "B3", winner: matchengine.TeamBlue},
 		{poolSlotID: "NM16", pieceID: "piece-12", cell: "C3", winner: matchengine.TeamRed},
 	}

@@ -18,7 +18,6 @@ type Analysis struct {
 	LegalPlacements       []PlacementOption `json:"legalPlacements"`
 	WonCounts             map[TeamSide]int  `json:"wonCounts"`
 	Stalemate             bool              `json:"stalemate"`
-	NoFourWithoutRobbery  bool              `json:"noFourWithoutRobbery"`
 }
 
 // Analyze computes availability from state without mutating it.
@@ -77,81 +76,5 @@ func Analyze(state State) Analysis {
 	}
 
 	analysis.Stalemate = len(analysis.SelectablePoolSlotIDs) == 0 || len(analysis.LegalPlacements) == 0
-	analysis.NoFourWithoutRobbery = !canEitherTeamStillFormFour(state, analysis)
 	return analysis
-}
-
-func canEitherTeamStillFormFour(state State, analysis Analysis) bool {
-	for _, team := range []TeamSide{TeamRed, TeamBlue} {
-		if canTeamStillFormFour(state, analysis, team) {
-			return true
-		}
-	}
-	return false
-}
-
-func canTeamStillFormFour(state State, analysis Analysis, team TeamSide) bool {
-	directions := [][2]int{{1, 0}, {0, 1}, {1, 1}, {1, -1}}
-	for row := 0; row < 4; row++ {
-		for column := 0; column < 4; column++ {
-			for _, direction := range directions {
-				var required []Cell
-				possible := true
-				for offset := 0; offset < 4; offset++ {
-					candidateColumn := column + direction[0]*offset
-					candidateRow := row + direction[1]*offset
-					if candidateColumn < 0 || candidateColumn >= 4 || candidateRow < 0 || candidateRow >= 4 {
-						possible = false
-						break
-					}
-					cell := positionCell(candidateColumn, candidateRow)
-					piece, occupied := state.Board.pieces[cell]
-					if !occupied {
-						required = append(required, cell)
-						continue
-					}
-					if piece.Outcome != OutcomeWon || piece.Owner == nil || *piece.Owner != team {
-						possible = false
-						break
-					}
-				}
-				if possible && distinctNormalSlotsCanFill(required, state, analysis) {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-func distinctNormalSlotsCanFill(cells []Cell, state State, analysis Analysis) bool {
-	var assign func(int, map[string]bool) bool
-	assign = func(index int, visited map[string]bool) bool {
-		if index == len(cells) {
-			return true
-		}
-		cell := cells[index]
-		for _, slotID := range analysis.SelectablePoolSlotIDs {
-			slot := state.PoolSlots[slotID]
-			if slot.Mod == ModShiro || visited[slotID] || !containsAnalysisCell(analysis.LegalCellsByPoolSlot[slotID], cell) {
-				continue
-			}
-			visited[slotID] = true
-			if assign(index+1, visited) {
-				return true
-			}
-			delete(visited, slotID)
-		}
-		return false
-	}
-	return assign(0, make(map[string]bool))
-}
-
-func containsAnalysisCell(cells []Cell, wanted Cell) bool {
-	for _, cell := range cells {
-		if cell == wanted {
-			return true
-		}
-	}
-	return false
 }
