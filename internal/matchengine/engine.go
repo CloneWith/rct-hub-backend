@@ -287,9 +287,6 @@ func robPiece(state *State, actor Actor, command RobPiece, now time.Time) ([]Eve
 		return nil, err
 	}
 	team := state.ActiveTeam
-	if state.RobberyUsed[team] {
-		return nil, ruleError(CodeRobberyNotAvailable, "team already used its robbery")
-	}
 
 	_, target, ok := state.Board.pieceByID(command.TargetPieceID)
 	if !ok {
@@ -314,14 +311,12 @@ func robPiece(state *State, actor Actor, command RobPiece, now time.Time) ([]Eve
 		return nil, ruleError(CodeRobberyRequirementsNotMet, "opponent robbery requires one three-alignment or two distinct two-alignments")
 	}
 
-	nextBoard := state.Board.Clone()
-	nextBoard.markDead(sacrificeIDs)
-	nextBoard.setOwner(target.ID, team)
 	requiredAlignmentLength := 3
 	if targetIsShiro {
 		requiredAlignmentLength = 2
 	}
-	if !nextBoard.pieceParticipatesInAlignment(team, target.ID, requiredAlignmentLength) {
+	nextBoard, valid := boardAfterRobbery(state.Board, team, target.ID, sacrificeIDs, requiredAlignmentLength)
+	if !valid {
 		return nil, ruleError(CodeRobberyRequirementsNotMet, "robbed target does not participate in the required resulting alignment")
 	}
 	state.Board = nextBoard
@@ -377,6 +372,55 @@ func validNormalRobberySacrifice(board Board, team TeamSide, sets [][]string) bo
 	}
 	if len(sets) == 2 {
 		return board.isAlignment(team, sets[0], 2) && board.isAlignment(team, sets[1], 2)
+	}
+	return false
+}
+
+func boardAfterRobbery(board Board, team TeamSide, targetID string, sacrificeIDs []string, alignmentLength int) (Board, bool) {
+	next := board.Clone()
+	next.markDead(sacrificeIDs)
+	if !next.setOwner(targetID, team) || !next.pieceParticipatesInAlignment(team, targetID, alignmentLength) {
+		return Board{}, false
+	}
+	return next, true
+}
+
+// teamHasLegalRobbery exhaustively checks the small 4x4 board using the same
+// sacrifice and resulting-alignment rules as RobPiece.
+func teamHasLegalRobbery(board Board, team TeamSide) bool {
+	twoAlignments := board.FindAlignments(team, 2)
+	threeAlignments := board.FindAlignments(team, 3)
+	for _, target := range board.pieces {
+		targetIsShiro := target.Mod == ModShiro && target.Outcome == OutcomeWhite && target.Owner == nil
+		targetIsOpponent := target.Outcome == OutcomeWon && target.Owner != nil && *target.Owner == team.opponent()
+		switch {
+		case targetIsShiro:
+			for _, sacrifice := range twoAlignments {
+				if _, valid := boardAfterRobbery(board, team, target.ID, sacrifice.BoardPieceIDs, 2); valid {
+					return true
+				}
+			}
+		case targetIsOpponent:
+			for _, sacrifice := range threeAlignments {
+				if _, valid := boardAfterRobbery(board, team, target.ID, sacrifice.BoardPieceIDs, 3); valid {
+					return true
+				}
+			}
+			for first := 0; first < len(twoAlignments); first++ {
+				for second := first + 1; second < len(twoAlignments); second++ {
+					sacrificeIDs, overlap := flattenSacrificeSets([][]string{
+						twoAlignments[first].BoardPieceIDs,
+						twoAlignments[second].BoardPieceIDs,
+					})
+					if overlap {
+						continue
+					}
+					if _, valid := boardAfterRobbery(board, team, target.ID, sacrificeIDs, 3); valid {
+						return true
+					}
+				}
+			}
+		}
 	}
 	return false
 }
@@ -913,19 +957,27 @@ func enterPickOrTerminal(state *State, now time.Time) []Event {
 }
 
 func shouldForceTB(state State) bool {
-	return state.Lifecycle == LifecycleRunning && state.Phase == PhasePick && state.Turn >= 15 &&
-		state.RobberyUsed[TeamRed] && state.RobberyUsed[TeamBlue]
+	return state.Lifecycle == LifecycleRunning && state.Phase == PhasePick && forcedTBRequirementsMet(state)
+}
+
+func forcedTBRequirementsMet(state State) bool {
+	if state.Turn < 15 || state.Board.hasFour(TeamRed) || state.Board.hasFour(TeamBlue) {
+		return false
+	}
+	redSatisfied := state.RobberyUsed[TeamRed] || !teamHasLegalRobbery(state.Board, TeamRed)
+	blueSatisfied := state.RobberyUsed[TeamBlue] || !teamHasLegalRobbery(state.Board, TeamBlue)
+	return redSatisfied && blueSatisfied
 }
 
 func startForcedTBPreparation(state *State, now time.Time) []Event {
 	state.Phase = PhaseTBPreparation
 	state.ActiveTeam = ""
 	state.PendingTBRequest = nil
-	state.TBEntry = &TBEntryState{Basis: TBBasisForcedAfterRobberies}
+	state.TBEntry = &TBEntryState{Basis: TBBasisForcedAfterRobberyChecks}
 	state.Timer = Timer{StartedAt: now, Duration: state.Timers.TBPreparation}
 	return []Event{
-		{Type: EventTBForced, Basis: TBBasisForcedAfterRobberies},
-		{Type: EventTBPreparationStarted, Basis: TBBasisForcedAfterRobberies},
+		{Type: EventTBForced, Basis: TBBasisForcedAfterRobberyChecks},
+		{Type: EventTBPreparationStarted, Basis: TBBasisForcedAfterRobberyChecks},
 		{Type: EventTimerStarted},
 	}
 }

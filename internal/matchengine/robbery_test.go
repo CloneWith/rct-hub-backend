@@ -127,7 +127,8 @@ func TestAlignmentDirectionsUseWonPiecesOnly(t *testing.T) {
 	}{
 		{name: "two horizontal", cells: []Cell{"A1", "B1"}, length: 2, want: 1},
 		{name: "two vertical", cells: []Cell{"A1", "A2"}, length: 2, want: 1},
-		{name: "two diagonal is invalid", cells: []Cell{"A1", "B2"}, length: 2, want: 0},
+		{name: "two descending diagonal", cells: []Cell{"A1", "B2"}, length: 2, want: 1},
+		{name: "two ascending diagonal", cells: []Cell{"A2", "B1"}, length: 2, want: 1},
 		{name: "three horizontal", cells: []Cell{"A1", "B1", "C1"}, length: 3, want: 1},
 		{name: "three vertical", cells: []Cell{"A1", "A2", "A3"}, length: 3, want: 1},
 		{name: "three descending diagonal", cells: []Cell{"A1", "B2", "C3"}, length: 3, want: 1},
@@ -224,6 +225,7 @@ func TestRobShiroWithOneTwoAlignmentAndRequiredTargetParticipation(t *testing.T)
 	state := robberyState(t)
 	seedPiece(&state.Board, "A1", "blue-1", ModNM, OutcomeWon, team(TeamBlue))
 	seedPiece(&state.Board, "B1", "blue-2", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&state.Board, "C1", "blue-3", ModNM, OutcomeWon, team(TeamBlue))
 	seedPiece(&state.Board, "B2", "shiro-piece", ModShiro, OutcomeWhite, nil)
 	seedPiece(&state.Board, "B3", "blue-anchor", ModNM, OutcomeWon, team(TeamBlue))
 
@@ -327,7 +329,7 @@ func TestRobberyRejectsInvalidSacrificesAndTargetsWithoutMutation(t *testing.T) 
 	}
 }
 
-func TestEachTeamCanRobOnlyOnce(t *testing.T) {
+func TestTeamCanRobMoreThanOnce(t *testing.T) {
 	t.Parallel()
 
 	state := robberyState(t)
@@ -336,18 +338,93 @@ func TestEachTeamCanRobOnlyOnce(t *testing.T) {
 	seedPiece(&state.Board, "C1", "blue-3", ModNM, OutcomeWon, team(TeamBlue))
 	seedPiece(&state.Board, "D2", "blue-anchor-1", ModNM, OutcomeWon, team(TeamBlue))
 	seedPiece(&state.Board, "D3", "blue-anchor-2", ModNM, OutcomeWon, team(TeamBlue))
-	seedPiece(&state.Board, "D4", "red-target", ModNM, OutcomeWon, team(TeamRed))
+	seedPiece(&state.Board, "D4", "red-target-1", ModNM, OutcomeWon, team(TeamRed))
+	seedPiece(&state.Board, "A2", "blue-anchor-3", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&state.Board, "B2", "blue-anchor-4", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&state.Board, "C2", "red-target-2", ModNM, OutcomeWon, team(TeamRed))
 	state = mustExecute(t, state, StrategistActor(TeamBlue), RobPiece{
-		TargetPieceID: "red-target", SacrificeSets: [][]string{{"blue-1", "blue-2", "blue-3"}},
+		TargetPieceID: "red-target-1", SacrificeSets: [][]string{{"blue-1", "blue-2", "blue-3"}},
 	}, testStart.Add(5*time.Second)).State
 
-	before := state.Clone()
+	beforeRejectedReuse := state.Clone()
 	_, err := Execute(state, StrategistActor(TeamBlue), RobPiece{
-		TargetPieceID: "anything", SacrificeSets: [][]string{{"anything-1", "anything-2"}},
+		TargetPieceID: "red-target-2",
+		SacrificeSets: [][]string{{"blue-1", "blue-2", "blue-3"}},
 	}, testStart.Add(6*time.Second))
-	assertErrorCode(t, err, CodeRobberyNotAvailable)
-	if !reflect.DeepEqual(state, before) {
-		t.Fatal("second robbery mutated input")
+	assertErrorCode(t, err, CodeRobberyRequirementsNotMet)
+	if !reflect.DeepEqual(state, beforeRejectedReuse) {
+		t.Fatal("reusing DEAD sacrifices mutated the state")
+	}
+
+	transition := mustExecute(t, state, StrategistActor(TeamBlue), RobPiece{
+		TargetPieceID: "red-target-2",
+		SacrificeSets: [][]string{{"blue-anchor-1", "blue-anchor-2", "red-target-1"}},
+	}, testStart.Add(7*time.Second))
+	if transition.State.Phase != PhasePick || !transition.State.RobberyUsed[TeamBlue] {
+		t.Fatalf("second robbery state = phase %q history %#v", transition.State.Phase, transition.State.RobberyUsed)
+	}
+	assertEventTypes(t, transition.Events, EventPiecesSacrificed, EventPieceRobbed)
+}
+
+func TestRobShiroAcceptsDiagonalTwoAlignmentFromThree(t *testing.T) {
+	t.Parallel()
+
+	state := robberyState(t)
+	seedPiece(&state.Board, "A1", "blue-1", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&state.Board, "B2", "blue-2", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&state.Board, "C3", "blue-3", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&state.Board, "A4", "shiro-piece", ModShiro, OutcomeWhite, nil)
+	seedPiece(&state.Board, "B3", "blue-anchor", ModNM, OutcomeWon, team(TeamBlue))
+
+	transition := mustExecute(t, state, StrategistActor(TeamBlue), RobPiece{
+		TargetPieceID: "shiro-piece",
+		SacrificeSets: [][]string{{"blue-1", "blue-2"}},
+	}, testStart.Add(5*time.Second))
+	shiro, _ := transition.State.Board.PieceAt("A4")
+	if shiro.Owner == nil || *shiro.Owner != TeamBlue {
+		t.Fatalf("diagonal Shiro target owner = %v, want BLUE", shiro.Owner)
+	}
+}
+
+func TestForcedTBRequirementsUseRobberyHistoryOrCurrentAvailability(t *testing.T) {
+	t.Parallel()
+
+	noRobberyAvailable := stateAtTurn(t, 15)
+	if !forcedTBRequirementsMet(noRobberyAvailable) {
+		t.Fatal("both teams with no legal robbery should satisfy the forced-TB robbery checks")
+	}
+
+	blueCanRob := noRobberyAvailable.Clone()
+	blueCanRob.RobberyUsed[TeamRed] = true
+	seedBlueOrdinaryRobbery(&blueCanRob.Board)
+	if forcedTBRequirementsMet(blueCanRob) {
+		t.Fatal("an unrobbed team with a legal robbery should keep the match in Pick")
+	}
+
+	blueCanRob.RobberyUsed[TeamBlue] = true
+	if !forcedTBRequirementsMet(blueCanRob) {
+		t.Fatal("robbery history should satisfy the team check even when another robbery remains legal")
+	}
+
+	blueCanRobShiro := noRobberyAvailable.Clone()
+	blueCanRobShiro.RobberyUsed[TeamRed] = true
+	seedPiece(&blueCanRobShiro.Board, "A1", "diagonal-1", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&blueCanRobShiro.Board, "B2", "diagonal-2", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&blueCanRobShiro.Board, "C3", "diagonal-3", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(&blueCanRobShiro.Board, "A4", "shiro-target", ModShiro, OutcomeWhite, nil)
+	seedPiece(&blueCanRobShiro.Board, "B3", "shiro-anchor", ModNM, OutcomeWon, team(TeamBlue))
+	if forcedTBRequirementsMet(blueCanRobShiro) {
+		t.Fatal("a diagonal two-alignment from a three should keep Shiro robbery available")
+	}
+
+	winningBoard := stateAtTurn(t, 15)
+	winningBoard.RobberyUsed[TeamRed] = true
+	winningBoard.RobberyUsed[TeamBlue] = true
+	for index, cell := range []Cell{"A1", "B1", "C1", "D1"} {
+		seedPiece(&winningBoard.Board, cell, "red-four-"+string(rune('1'+index)), ModNM, OutcomeWon, team(TeamRed))
+	}
+	if forcedTBRequirementsMet(winningBoard) {
+		t.Fatal("a board with a four-alignment cannot enter forced TB")
 	}
 }
 
@@ -372,7 +449,7 @@ func TestSecondTeamRobberyAtTurnFifteenStartsForcedTB(t *testing.T) {
 	if state.Phase != PhaseTBPreparation || state.ActiveTeam != "" || state.Turn != 15 {
 		t.Fatalf("forced TB after second robbery = phase %q active %q turn %d", state.Phase, state.ActiveTeam, state.Turn)
 	}
-	if state.TBEntry == nil || state.TBEntry.Basis != TBBasisForcedAfterRobberies {
+	if state.TBEntry == nil || state.TBEntry.Basis != TBBasisForcedAfterRobberyChecks {
 		t.Fatalf("forced TB evidence = %+v", state.TBEntry)
 	}
 	assertEventTypes(t, transition.Events,
@@ -382,7 +459,9 @@ func TestSecondTeamRobberyAtTurnFifteenStartsForcedTB(t *testing.T) {
 func TestRobberyCanCreateFourAndFinishMatch(t *testing.T) {
 	t.Parallel()
 
-	state := robberyState(t)
+	state := stateAtTurn(t, 15)
+	state.RobberyUsed[TeamRed] = true
+	state.RobberyUsed[TeamBlue] = true
 	seedPiece(&state.Board, "A1", "blue-row-1", ModNM, OutcomeWon, team(TeamBlue))
 	seedPiece(&state.Board, "B1", "blue-row-2", ModNM, OutcomeWon, team(TeamBlue))
 	seedPiece(&state.Board, "C1", "blue-row-3", ModNM, OutcomeWon, team(TeamBlue))
@@ -432,7 +511,7 @@ func TestRobberyStateRoundTripPreservesDeadCellsAndUsage(t *testing.T) {
 		TargetPieceID: "anything",
 		SacrificeSets: [][]string{{"anything-1", "anything-2"}},
 	}, testStart.Add(6*time.Second))
-	assertErrorCode(t, err, CodeRobberyNotAvailable)
+	assertErrorCode(t, err, CodeRobberyRequirementsNotMet)
 
 	_, err = Execute(restored, StrategistActor(TeamBlue), PlacePiece{
 		PoolSlotID: "NM5", PieceID: "new-piece", Cell: "A1",
@@ -447,6 +526,15 @@ func robberyState(t *testing.T) State {
 		t.Fatalf("robbery fixture active team = %q, want BLUE", state.ActiveTeam)
 	}
 	return state
+}
+
+func seedBlueOrdinaryRobbery(board *Board) {
+	seedPiece(board, "A1", "blue-sacrifice-1", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(board, "B1", "blue-sacrifice-2", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(board, "C1", "blue-sacrifice-3", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(board, "D2", "blue-result-anchor-1", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(board, "D3", "blue-result-anchor-2", ModNM, OutcomeWon, team(TeamBlue))
+	seedPiece(board, "D4", "red-robbery-target", ModNM, OutcomeWon, team(TeamRed))
 }
 
 func seedPiece(board *Board, cell Cell, id string, mod Mod, outcome Outcome, owner *TeamSide) {

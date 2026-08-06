@@ -438,8 +438,8 @@ func validateTBEntryEvidence(state State) error {
 	phaseRequiresEntry := state.Phase == PhaseTBPreparation || state.Phase == PhaseTBPlaying
 	if entry == nil {
 		if (state.Lifecycle == LifecycleRunning || state.Lifecycle == LifecycleSuspended) &&
-			state.Turn >= 15 && state.RobberyUsed[TeamRed] && state.RobberyUsed[TeamBlue] {
-			return fmt.Errorf("turn 15 state with both robberies used is missing forced TB evidence")
+			state.Phase == PhasePick && forcedTBRequirementsMet(state) {
+			return fmt.Errorf("turn 15 state satisfying the robbery checks is missing forced TB evidence")
 		}
 		if phaseRequiresEntry {
 			return fmt.Errorf("TB phase is missing entry evidence")
@@ -459,9 +459,8 @@ func validateTBEntryEvidence(state State) error {
 		if entry.RequestID == "" || !entry.RequestedBy.valid() || state.Turn < 11 || state.Turn > 14 {
 			return fmt.Errorf("captain-agreement TB evidence is incomplete")
 		}
-	case TBBasisForcedAfterRobberies:
-		if entry.RequestID != "" || entry.RequestedBy != "" || state.Turn < 15 ||
-			!state.RobberyUsed[TeamRed] || !state.RobberyUsed[TeamBlue] {
+	case TBBasisForcedAfterRobberyChecks:
+		if entry.RequestID != "" || entry.RequestedBy != "" || !forcedTBRequirementsMet(state) {
 			return fmt.Errorf("forced TB evidence is inconsistent with robbery history")
 		}
 	default:

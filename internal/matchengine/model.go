@@ -217,8 +217,8 @@ func (configuration TimerConfiguration) valid() bool {
 type TBBasis string
 
 const (
-	TBBasisCaptainAgreement     TBBasis = "CAPTAIN_AGREEMENT"
-	TBBasisForcedAfterRobberies TBBasis = "FORCED_AFTER_BOTH_ROBBERIES"
+	TBBasisCaptainAgreement         TBBasis = "CAPTAIN_AGREEMENT"
+	TBBasisForcedAfterRobberyChecks TBBasis = "FORCED_AFTER_ROBBERY_CHECKS"
 )
 
 type TBRequestState struct {
@@ -271,16 +271,18 @@ type SuspensionState struct {
 
 // State is the pure, serializable Match aggregate used by the rule engine.
 type State struct {
-	Version       uint64              `json:"version"`
-	Lifecycle     Lifecycle           `json:"lifecycle"`
-	Phase         Phase               `json:"phase"`
-	FirstBan      TeamSide            `json:"firstBan"`
-	FirstPick     TeamSide            `json:"firstPick"`
-	Turn          int                 `json:"turn"`
-	ActiveTeam    TeamSide            `json:"activeTeam,omitempty"`
-	PoolSlots     map[string]PoolSlot `json:"poolSlots"`
-	Board         Board               `json:"board"`
-	Timer         Timer               `json:"timer"`
+	Version    uint64              `json:"version"`
+	Lifecycle  Lifecycle           `json:"lifecycle"`
+	Phase      Phase               `json:"phase"`
+	FirstBan   TeamSide            `json:"firstBan"`
+	FirstPick  TeamSide            `json:"firstPick"`
+	Turn       int                 `json:"turn"`
+	ActiveTeam TeamSide            `json:"activeTeam,omitempty"`
+	PoolSlots  map[string]PoolSlot `json:"poolSlots"`
+	Board      Board               `json:"board"`
+	Timer      Timer               `json:"timer"`
+	// RobberyUsed records whether a team has robbed at least once. It is TB
+	// evidence, not a limit on later robberies.
 	RobberyUsed   map[TeamSide]bool   `json:"robberyUsed"`
 	TeamPauseUsed map[TeamSide]bool   `json:"teamPauseUsed"`
 	Rosters       map[TeamSide]Roster `json:"rosters"`

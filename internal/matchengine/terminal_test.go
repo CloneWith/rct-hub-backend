@@ -99,7 +99,7 @@ func TestTBRequestAndResponseRejectInvalidCommandsWithoutMutation(t *testing.T) 
 		{name: "strategist cannot request", state: turn11, actor: StrategistActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: CodeActionNotAllowed},
 		{name: "referee cannot request directly", state: turn11, actor: RefereeActor(), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: CodeActionNotAllowed},
 		{name: "request id required", state: turn11, actor: CaptainActor(TeamRed), cmd: RequestTB{Basis: TBBasisCaptainAgreement}, code: CodeInvalidRequest},
-		{name: "forced basis cannot be requested", state: turn11, actor: CaptainActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisForcedAfterRobberies}, code: CodeTBNotAvailable},
+		{name: "forced basis cannot be requested", state: turn11, actor: CaptainActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisForcedAfterRobberyChecks}, code: CodeTBNotAvailable},
 		{name: "expired pick timer does not block captain agreement", state: expired, actor: CaptainActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: ""},
 		{name: "paused match timer", state: paused, actor: CaptainActor(TeamRed), cmd: RequestTB{RequestID: "request", Basis: TBBasisCaptainAgreement}, code: CodeTimerPaused},
 	}
@@ -174,7 +174,7 @@ func TestTurnFifteenStartsForcedTBWhenBothTeamsAlreadyRobbed(t *testing.T) {
 	if state.Phase != PhaseTBPreparation || state.Turn != 15 || state.ActiveTeam != "" {
 		t.Fatalf("forced TB state = phase %q turn %d active %q", state.Phase, state.Turn, state.ActiveTeam)
 	}
-	if state.TBEntry == nil || state.TBEntry.Basis != TBBasisForcedAfterRobberies || state.TBEntry.RequestID != "" {
+	if state.TBEntry == nil || state.TBEntry.Basis != TBBasisForcedAfterRobberyChecks || state.TBEntry.RequestID != "" {
 		t.Fatalf("forced TB evidence = %+v", state.TBEntry)
 	}
 	assertTimer(t, state.Timer, testStart.Add(30*time.Second), TBPreparationDuration)
@@ -182,7 +182,7 @@ func TestTurnFifteenStartsForcedTBWhenBothTeamsAlreadyRobbed(t *testing.T) {
 		EventShiroPlaced, EventTurnAdvanced, EventTBForced, EventTBPreparationStarted, EventTimerStarted)
 }
 
-func TestTurnFifteenDoesNotForceTBBeforeBothTeamsRob(t *testing.T) {
+func TestTurnFifteenTreatsUnavailableRobberyAsSatisfied(t *testing.T) {
 	t.Parallel()
 
 	state := stateAtTurn(t, 14)
@@ -194,19 +194,37 @@ func TestTurnFifteenDoesNotForceTBBeforeBothTeamsRob(t *testing.T) {
 		PieceID: "turn-14-shiro", Cell: "A1",
 	}, testStart.Add(30*time.Second))
 
-	assertStateHeader(t, transition.State, LifecycleRunning, PhasePick, 15, TeamBlue)
-	if transition.State.TBEntry != nil {
-		t.Fatalf("TB started before both robberies: %+v", transition.State.TBEntry)
+	if transition.State.Phase != PhaseTBPreparation || transition.State.TBEntry == nil ||
+		transition.State.TBEntry.Basis != TBBasisForcedAfterRobberyChecks {
+		t.Fatalf("unavailable BLUE robbery did not start forced TB: %+v", transition.State.TBEntry)
 	}
 	if transition.State.PendingTBRequest != nil {
 		t.Fatalf("turn-14 TB request survived outside the negotiation window: %+v", transition.State.PendingTBRequest)
 	}
 	assertEventTypes(t, transition.Events,
-		EventShiroPlaced, EventTurnAdvanced, EventTBRequestExpired, EventTimerStarted)
+		EventShiroPlaced, EventTurnAdvanced, EventTBRequestExpired,
+		EventTBForced, EventTBPreparationStarted, EventTimerStarted)
 	expired := transition.Events[2]
 	if expired.RequestID != "expires-at-turn-15" || expired.Team != TeamRed || expired.Basis != TBBasisCaptainAgreement {
 		t.Fatalf("expired TB request event evidence = %+v", expired)
 	}
+}
+
+func TestTurnFifteenWaitsWhenUnrobbedTeamStillHasLegalRobbery(t *testing.T) {
+	t.Parallel()
+
+	state := stateAtTurn(t, 14)
+	state.RobberyUsed[TeamRed] = true
+	seedBlueOrdinaryRobbery(&state.Board)
+	transition := mustExecute(t, state, StrategistActor(state.ActiveTeam), PlaceShiro{
+		PieceID: "turn-14-shiro", Cell: "A4",
+	}, testStart.Add(30*time.Second))
+
+	assertStateHeader(t, transition.State, LifecycleRunning, PhasePick, 15, TeamBlue)
+	if transition.State.TBEntry != nil {
+		t.Fatalf("forced TB started while BLUE still had a legal robbery: %+v", transition.State.TBEntry)
+	}
+	assertEventTypes(t, transition.Events, EventShiroPlaced, EventTurnAdvanced, EventTimerStarted)
 }
 
 func TestRefereeStartsTBAndConfirmsResult(t *testing.T) {

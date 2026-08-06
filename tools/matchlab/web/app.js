@@ -134,8 +134,8 @@ function renderAnalysis(analysis, state) {
     <div class="metric">TB entry<strong class="code-value">${state.tbEntry ? `${state.tbEntry.basis}` : "none"}</strong></div>
     <div class="metric">Empty cells<strong>${analysis.emptyCells.length}</strong></div>
     <div class="metric">Pending TB<strong>${pending}</strong></div>
-    <div class="metric">Red robbery<strong>${state.robberyUsed?.RED ? "USED" : "READY"}</strong></div>
-    <div class="metric">Blue robbery<strong>${state.robberyUsed?.BLUE ? "USED" : "READY"}</strong></div>`;
+    <div class="metric">Red has robbed<strong>${state.robberyUsed?.RED ? "YES" : "NO"}</strong></div>
+    <div class="metric">Blue has robbed<strong>${state.robberyUsed?.BLUE ? "YES" : "NO"}</strong></div>`;
 }
 
 function renderEvents(events) {

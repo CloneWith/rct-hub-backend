@@ -160,18 +160,14 @@ func (b Board) hasFour(team TeamSide) bool {
 	return len(b.FindAlignments(team, 4)) > 0
 }
 
-// FindAlignments returns connected lines of the requested length. Length two
-// is horizontal/vertical only; length three and four also include diagonals.
-// Only WON pieces owned by team participate.
+// FindAlignments returns horizontal, vertical, or diagonal connected lines of
+// the requested length. Only WON pieces owned by team participate.
 func (b Board) FindAlignments(team TeamSide, length int) []Alignment {
 	if !team.valid() || length < 2 || length > 4 {
 		return nil
 	}
 
 	directions := [][2]int{{1, 0}, {0, 1}, {1, 1}, {1, -1}}
-	if length == 2 {
-		directions = directions[:2]
-	}
 	var alignments []Alignment
 	for row := 0; row < 4; row++ {
 		for column := 0; column < 4; column++ {

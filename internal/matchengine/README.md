@@ -132,7 +132,7 @@ Collection fields serialize as JSON arrays or objects, never `null`.
 | `BAN` | ABBA PoolSlot bans. |
 | `PICK` | ABAB placement, Shiro, robbery, or negotiated TB request. |
 | `WAITING_FOR_RESULT` | One BoardPiece awaits referee result confirmation. |
-| `TB_PREPARATION` | Captains agreed to TB, or turn 15 forced TB after both robberies; referee prepares play. |
+| `TB_PREPARATION` | Captains agreed to TB, or the turn-15 robbery checks forced TB; referee prepares play. |
 | `TB_PLAYING` | TB is in progress and awaits referee result confirmation. |
 
 `Turn` uses `-3` through `0` during Ban, then starts at `1` for Pick.
@@ -153,6 +153,9 @@ BoardPiece outcomes are:
 For FM, `BoardPiece.ForceMod` is derived from the board zone. Both DT regions
 produce NM Force Mod.
 
+Two-, three-, and four-alignments may be horizontal, vertical, or diagonal.
+Only owned `WON` pieces participate.
+
 ## Commands
 
 | Command | Required actor | Main valid context |
@@ -161,7 +164,7 @@ produce NM Force Mod.
 | `BanPoolSlot` | Active strategist | `RUNNING/BAN`, live timer. |
 | `PlacePiece` | Active strategist | `RUNNING/PICK`, live timer. |
 | `PlaceShiro` | Active strategist | `RUNNING/PICK`, Shiro available. |
-| `RobPiece` | Active strategist | `RUNNING/PICK`, robbery unused, non-overlapping sacrifices valid, and the robbed target participates in the resulting required alignment. |
+| `RobPiece` | Active strategist | `RUNNING/PICK`, a complete valid sacrifice plan, and the robbed target participates in the resulting required alignment. Robbery has no per-team count limit. |
 | `ConfirmBeatmapResult` | Referee | `WAITING_FOR_RESULT`, matching pending piece. |
 | `GrantAdditionalTime` | Referee | Expired Ban, Pick, or result-confirmation timer; once per active team per match. |
 | `CalibrateTimer` | Referee | Active phase with a timer. |
@@ -200,8 +203,9 @@ server time to `Execute`.
   expires and consumes the active team's single pause opportunity.
 
 TB negotiation is available on turns 11 through 14 and requires both team
-captains to agree. On turn 15, once both teams have used their one robbery, the
-engine enters TB preparation immediately before another Pick can occur.
+captains to agree. From turn 15, the engine enters TB preparation before
+another Pick when each team either has robbed at least once or has no complete
+legal robbery plan, provided neither side already has a four-alignment.
 
 Go `time.Duration` values serialize as integer nanoseconds. Public DTOs should
 convert them to an explicitly documented transport unit.
@@ -240,7 +244,7 @@ Use `CodeOf(err)` instead of matching error messages.
 | `TIMER_EXPIRED` | Strategist action reached its deadline. |
 | `TIMER_PAUSED` | Strategist action is blocked by operational pause. |
 | `TEAM_PAUSE_ALREADY_USED` | Active team already consumed its one opportunity. |
-| `ROBBERY_NOT_AVAILABLE` | Team already robbed or robbery is unavailable. |
+| `ROBBERY_NOT_AVAILABLE` | Reserved availability error; current invalid robbery plans use `ROBBERY_REQUIREMENTS_NOT_MET`. |
 | `ROBBERY_REQUIREMENTS_NOT_MET` | Target or sacrifice evidence is invalid. |
 | `ALIGNMENT_OVERLAP` | A sacrifice piece appears in more than one alignment. |
 | `TB_NOT_AVAILABLE` | TB basis/request state is invalid. |
