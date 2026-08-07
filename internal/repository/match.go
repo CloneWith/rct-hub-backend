@@ -96,7 +96,7 @@ func (r *matchRepo) List(ctx context.Context, params paginate.Params, status *do
 	opts := options.Find().
 		SetSkip(params.Skip()).
 		SetLimit(params.PerPage).
-		SetSort(bson.M{"created_at": -1})
+		SetSort(bson.D{{Key: "created_at", Value: -1}})
 	cur, err := r.coll.Find(ctx, filter, opts)
 	if err != nil {
 		return paginate.Result[domain.Match]{}, err

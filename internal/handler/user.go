@@ -50,15 +50,16 @@ func (h *UserHandler) SetBanned(c *gin.Context) {
 		return
 	}
 
+	// false won't pass on ShouldBindJSON(), so using a pointer here
 	var req struct {
-		Banned bool `json:"banned" binding:"required"`
+		Banned *bool `json:"banned" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "invalid request body")
 		return
 	}
 
-	user, err := h.svc.SetBanned(c.Request.Context(), id, req.Banned)
+	user, err := h.svc.SetBanned(c.Request.Context(), id, *req.Banned)
 	if err != nil {
 		_ = c.Error(err)
 		return

@@ -120,7 +120,7 @@ func (r *userRepo) ByOsuID(ctx context.Context, osuID int64) (*domain.User, erro
 
 func (r *userRepo) List(ctx context.Context, params paginate.Params) (paginate.Result[domain.User], error) {
 	params.Normalize()
-	filter := bson.M{"is_banned": false}
+	filter := bson.M{}
 	total, err := r.coll.CountDocuments(ctx, filter)
 	if err != nil {
 		return paginate.Result[domain.User]{}, err
@@ -128,7 +128,7 @@ func (r *userRepo) List(ctx context.Context, params paginate.Params) (paginate.R
 	opts := options.Find().
 		SetSkip(params.Skip()).
 		SetLimit(params.PerPage).
-		SetSort(bson.M{"created_at": -1})
+		SetSort(bson.D{{Key: "created_at", Value: -1}})
 	cur, err := r.coll.Find(ctx, filter, opts)
 	if err != nil {
 		return paginate.Result[domain.User]{}, err

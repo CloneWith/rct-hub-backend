@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/fatih/color"
 	"go.uber.org/zap"
 
 	"rctHubBackend/internal/config"
@@ -17,6 +20,8 @@ import (
 )
 
 func main() {
+	color.Blue("=== RCT backend server ===")
+
 	cfg, err := config.Load()
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
@@ -28,14 +33,17 @@ func main() {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to setup logger: %v\n", err)
 		os.Exit(1)
 	}
+	log.Info("logger set up")
 	defer func() { _ = log.Sync() }()
 
+	log.Info("connecting to database...")
 	db, err := database.New(cfg)
 	if err != nil {
 		log.Error("failed to connect to database", zap.Error(err))
 		os.Exit(1)
 	}
 
+	log.Info("checking database schema...")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := db.EnsureIndexes(ctx); err != nil {
@@ -53,7 +61,8 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		if err := srv.Start(); err != nil {
+		// ErrServerClosed is an expected error.
+		if err := srv.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error("server error", zap.Error(err))
 		}
 	}()
