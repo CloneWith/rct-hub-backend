@@ -169,18 +169,25 @@ func TestMongoIntegrationSnapshotStoreCASAndCompatibility(t *testing.T) {
 		t.Fatalf("incompatible Load error = %v", err)
 	}
 
-	runtimeDB := &database.DB{MongoDB: db}
+	runtimeDB := &database.DB{Mongo: db.Client(), MongoDB: db}
 	if err := runtimeDB.VerifySchema(ctx); !errors.Is(err, persistence.ErrSnapshotValidatorMissing) {
 		t.Fatalf("VerifySchema before initdb error = %v, want missing validator", err)
 	}
 	if err := store.InstallValidator(ctx); err != nil {
 		t.Fatalf("InstallValidator: %v", err)
 	}
+	commandStore := persistence.NewCommandStore(db.Client(), db)
+	if err := commandStore.InstallValidators(ctx); err != nil {
+		t.Fatalf("Install command validators: %v", err)
+	}
 	if err := runtimeDB.VerifySchema(ctx); err != nil {
 		t.Fatalf("VerifySchema after initdb: %v", err)
 	}
 	if err := store.InstallValidator(ctx); err != nil {
 		t.Fatalf("idempotent InstallValidator: %v", err)
+	}
+	if err := commandStore.InstallValidators(ctx); err != nil {
+		t.Fatalf("idempotent command validators: %v", err)
 	}
 	if err := runtimeDB.VerifySchema(ctx); err != nil {
 		t.Fatalf("VerifySchema after repeated initdb: %v", err)

@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"rctHubBackend/internal/domain"
+	"rctHubBackend/internal/matchengine"
 	"rctHubBackend/internal/repository"
 	"rctHubBackend/pkg/errs"
 	"rctHubBackend/pkg/paginate"
@@ -16,8 +17,9 @@ import (
 
 // fakeRoomRepo is an in-memory room repository for tests.
 type fakeRoomRepo struct {
-	rooms map[bson.ObjectID]*domain.Room
-	codes map[string]*domain.Room
+	rooms              map[bson.ObjectID]*domain.Room
+	codes              map[string]*domain.Room
+	beforeUpdateFields func(*domain.Room)
 }
 
 func newFakeRoomRepo() *fakeRoomRepo {
@@ -39,6 +41,48 @@ func (r *fakeRoomRepo) Update(ctx context.Context, room *domain.Room) error {
 	}
 	r.rooms[room.ID] = room
 	r.codes[room.Code] = room
+	return nil
+}
+
+func (r *fakeRoomRepo) UpdateFields(_ context.Context, id bson.ObjectID, fields bson.M, requireSetupOpen bool) error {
+	room, ok := r.rooms[id]
+	if !ok {
+		return errs.ErrNotFound
+	}
+	if r.beforeUpdateFields != nil {
+		r.beforeUpdateFields(room)
+	}
+	if requireSetupOpen && room.MatchID != nil {
+		return errs.ErrConflict
+	}
+	for key, value := range fields {
+		switch key {
+		case "settings.red_strategist_user_id":
+			room.Settings.RedStrategistUserID, _ = value.(*int64)
+		case "settings.blue_strategist_user_id":
+			room.Settings.BlueStrategistUserID, _ = value.(*int64)
+		case "settings.streamer_user_id":
+			room.Settings.StreamerUserID, _ = value.(*int64)
+		case "settings.mappool":
+			room.Settings.Mappool = value.(domain.Mappool)
+		case "settings.first_pick":
+			room.Settings.FirstPick, _ = value.(*domain.TeamSide)
+		case "settings.first_ban":
+			room.Settings.FirstBan, _ = value.(*domain.TeamSide)
+		case "settings.red_leader":
+			room.Settings.RedLeader, _ = value.(*int64)
+		case "settings.blue_leader":
+			room.Settings.BlueLeader, _ = value.(*int64)
+		case "settings.red_players":
+			room.Settings.RedPlayers = value.([]int64)
+		case "settings.blue_players":
+			room.Settings.BluePlayers = value.([]int64)
+		case "settings.mp_link":
+			room.Settings.MPLink, _ = value.(*string)
+		case "settings.stream_link":
+			room.Settings.StreamLink, _ = value.(*string)
+		}
+	}
 	return nil
 }
 
@@ -169,7 +213,9 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	ctx := context.Background()
 	rooms := newFakeRoomRepo()
 	matches := newFakeMatchRepo()
-	svc := NewRoomService(rooms, matches)
+	users := newFakeUserRepo()
+	_ = users.Create(ctx, &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RolePlayer}})
+	svc := NewRoomService(rooms, matches, users, nil)
 
 	room, err := svc.CreateRoom(ctx, 1, domain.RoomTypeCasual, "Test Room")
 	if err != nil {
@@ -182,14 +228,14 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	// Configure minimum required settings.
 	redUID := int64(10)
 	blueUID := int64(20)
-	if _, err := svc.SetStrategists(ctx, room.ID, &redUID, &blueUID); err != nil {
+	if _, err := svc.SetStrategists(ctx, 1, room.ID, &redUID, &blueUID); err != nil {
 		t.Fatalf("set strategists: %v", err)
 	}
-	if _, err := svc.SetBPOrder(ctx, room.ID, domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue}); err != nil {
+	if _, err := svc.SetBPOrder(ctx, 1, room.ID, domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue}); err != nil {
 		t.Fatalf("set bp order: %v", err)
 	}
 
-	match, err := svc.StartMatch(ctx, room.ID)
+	match, err := svc.StartMatch(ctx, 1, room.ID)
 	if err != nil {
 		t.Fatalf("start match: %v", err)
 	}
@@ -204,7 +250,7 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	}
 }
 
-func TestFormalRoomCannotUseLegacyStartPath(t *testing.T) {
+func TestFormalRoomUsesAuthoritativeBootstrap(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -214,13 +260,163 @@ func TestFormalRoomCannotUseLegacyStartPath(t *testing.T) {
 	if err := rooms.Create(ctx, &room); err != nil {
 		t.Fatal(err)
 	}
-	svc := NewRoomService(rooms, matches)
-	if _, err := svc.StartMatch(ctx, room.ID); !errors.Is(err, errs.ErrConflict) {
-		t.Fatalf("formal legacy StartMatch error = %v, want conflict", err)
+	users := newFakeUserRepo()
+	_ = users.Create(ctx, &domain.User{ID: bson.NewObjectID(), OnlineID: room.OwnerID, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}})
+	bootstrap := &fakeFormalBootstrap{room: rooms.rooms[room.ID]}
+	svc := NewRoomService(rooms, matches, users, bootstrap)
+	match, err := svc.StartMatch(ctx, room.OwnerID, room.ID)
+	if err != nil {
+		t.Fatalf("formal StartMatch: %v", err)
 	}
-	if len(matches.matches) != 0 || room.MatchID != nil {
-		t.Fatalf("formal legacy StartMatch mutated state: matches=%d matchID=%v", len(matches.matches), room.MatchID)
+	if bootstrap.calls != 1 || match.Status != domain.MatchStatusPending || bootstrap.state.Lifecycle != matchengine.LifecycleReady || bootstrap.state.Version != 0 {
+		t.Fatalf("bootstrap calls=%d match=%+v state=%+v", bootstrap.calls, match, bootstrap.state)
 	}
+	red, blue := int64(102), int64(202)
+	if _, err := svc.SetStrategists(ctx, room.OwnerID, room.ID, &red, &blue); !errors.Is(err, errs.ErrConflict) {
+		t.Fatalf("post-bootstrap assignment edit error = %v, want conflict", err)
+	}
+}
+
+func TestFormalStartIsIdempotentAfterBootstrap(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	matches := newFakeMatchRepo()
+	room := formalRoomFixture()
+	if err := rooms.Create(ctx, &room); err != nil {
+		t.Fatal(err)
+	}
+	users := newFakeUserRepo()
+	_ = users.Create(ctx, &domain.User{ID: bson.NewObjectID(), OnlineID: room.OwnerID, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}})
+	bootstrap := &fakeFormalBootstrap{room: rooms.rooms[room.ID]}
+	svc := NewRoomService(rooms, matches, users, bootstrap)
+	first, err := svc.StartMatch(ctx, room.OwnerID, room.ID)
+	if err != nil {
+		t.Fatalf("first formal StartMatch: %v", err)
+	}
+	if err := matches.Create(ctx, first); err != nil {
+		t.Fatalf("seed legacy match for retry: %v", err)
+	}
+	second, err := svc.StartMatch(ctx, room.OwnerID, room.ID)
+	if err != nil {
+		t.Fatalf("repeated formal StartMatch: %v", err)
+	}
+	if first.ID != second.ID || bootstrap.calls != 1 {
+		t.Fatalf("first=%s second=%s bootstrap calls=%d, want same match and one bootstrap", first.ID, second.ID, bootstrap.calls)
+	}
+}
+
+func TestFormalStartRecoversWhenBootstrapResponseIsLost(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	matches := newFakeMatchRepo()
+	room := formalRoomFixture()
+	if err := rooms.Create(ctx, &room); err != nil {
+		t.Fatal(err)
+	}
+	existing := &domain.Match{ID: bson.NewObjectID(), RoomID: room.ID, RoomType: domain.RoomTypeMatch, Status: domain.MatchStatusPending}
+	if err := matches.Create(ctx, existing); err != nil {
+		t.Fatal(err)
+	}
+	users := newFakeUserRepo()
+	_ = users.Create(ctx, &domain.User{ID: bson.NewObjectID(), OnlineID: room.OwnerID, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}})
+	bootstrap := &fakeFormalBootstrap{
+		room:            rooms.rooms[room.ID],
+		createErr:       errs.ErrFormalMatchAlreadyStarted,
+		existingMatchID: existing.ID,
+	}
+	svc := NewRoomService(rooms, matches, users, bootstrap)
+	recovered, err := svc.StartMatch(ctx, room.OwnerID, room.ID)
+	if err != nil {
+		t.Fatalf("formal StartMatch recovery: %v", err)
+	}
+	if recovered.ID != existing.ID || bootstrap.calls != 1 {
+		t.Fatalf("recovered=%s bootstrap calls=%d, want existing match and one attempt", recovered.ID, bootstrap.calls)
+	}
+}
+
+func TestRoomConfigurationUsesCurrentAccountAndOwnership(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	owner := &domain.User{ID: bson.NewObjectID(), OnlineID: 100, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RolePlayer}}
+	other := &domain.User{ID: bson.NewObjectID(), OnlineID: 200, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RolePlayer}}
+	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 300, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
+	for _, user := range []*domain.User{owner, other, admin} {
+		_ = users.Create(ctx, user)
+	}
+	casual := &domain.Room{ID: bson.NewObjectID(), Code: "CASUAL", Type: domain.RoomTypeCasual, OwnerID: owner.OnlineID, Settings: domain.RoomSettings{}}
+	formal := &domain.Room{ID: bson.NewObjectID(), Code: "FORMAL-AUTH", Type: domain.RoomTypeMatch, OwnerID: owner.OnlineID, Settings: domain.RoomSettings{}}
+	_ = rooms.Create(ctx, casual)
+	_ = rooms.Create(ctx, formal)
+	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil)
+
+	if _, err := svc.SetMPLink(ctx, other.OnlineID, casual.ID, "https://example.test/mp"); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("non-owner error = %v", err)
+	}
+	if _, err := svc.SetMPLink(ctx, owner.OnlineID, casual.ID, "https://example.test/mp"); err != nil {
+		t.Fatalf("casual owner: %v", err)
+	}
+	if _, err := svc.SetMPLink(ctx, owner.OnlineID, formal.ID, "https://example.test/formal"); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("formal owner without referee role error = %v", err)
+	}
+	owner.Roles = []domain.UserRole{domain.RoleReferee}
+	if _, err := svc.SetMPLink(ctx, owner.OnlineID, formal.ID, "https://example.test/formal"); err != nil {
+		t.Fatalf("assigned referee: %v", err)
+	}
+	if _, err := svc.SetMPLink(ctx, admin.OnlineID, formal.ID, "https://example.test/admin"); err != nil {
+		t.Fatalf("admin: %v", err)
+	}
+	owner.IsBanned = true
+	if _, err := svc.SetMPLink(ctx, owner.OnlineID, formal.ID, "https://example.test/banned"); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("banned owner error = %v", err)
+	}
+}
+
+func TestRoomSetupWriteCannotRaceFormalBootstrap(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	referee := &domain.User{ID: bson.NewObjectID(), OnlineID: 999, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
+	_ = users.Create(ctx, referee)
+	room := formalRoomFixture()
+	_ = rooms.Create(ctx, &room)
+	startedMatchID := bson.NewObjectID()
+	rooms.beforeUpdateFields = func(stored *domain.Room) { stored.MatchID = &startedMatchID }
+	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil)
+	red, blue := int64(102), int64(202)
+	if _, err := svc.SetStrategists(ctx, referee.OnlineID, room.ID, &red, &blue); !errors.Is(err, errs.ErrConflict) {
+		t.Fatalf("racing setup write error = %v, want conflict", err)
+	}
+	if room.MatchID == nil || *room.MatchID != startedMatchID || *room.Settings.RedStrategistUserID == red {
+		t.Fatalf("racing setup write changed bootstrapped room: %+v", room)
+	}
+}
+
+type fakeFormalBootstrap struct {
+	room            *domain.Room
+	state           matchengine.State
+	calls           int
+	createErr       error
+	existingMatchID bson.ObjectID
+}
+
+func (f *fakeFormalBootstrap) Create(_ context.Context, _ bson.ObjectID, match domain.Match, state matchengine.State, _ time.Time) error {
+	f.calls++
+	f.state = state.Clone()
+	if f.room != nil {
+		matchID := match.ID
+		if f.existingMatchID != bson.NilObjectID {
+			matchID = f.existingMatchID
+		}
+		f.room.MatchID = &matchID
+	}
+	return f.createErr
 }
 
 func TestMatchServiceBanAndPick(t *testing.T) {

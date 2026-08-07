@@ -12,6 +12,9 @@ var (
 	ErrCacheSync     = errors.New("cache synchronization failed after write")
 	ErrDuplicateKey  = errors.New("duplicate key")
 	ErrConflict      = errors.New("resource state conflict")
+	// ErrFormalMatchAlreadyStarted tells a caller that another request won the
+	// formal-room bootstrap race and the existing match can be returned.
+	ErrFormalMatchAlreadyStarted = errors.New("formal room already has a match")
 )
 
 // AppError pairs a domain error with an optional public message.

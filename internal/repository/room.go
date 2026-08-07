@@ -18,6 +18,7 @@ import (
 type RoomRepository interface {
 	Create(ctx context.Context, room *domain.Room) error
 	Update(ctx context.Context, room *domain.Room) error
+	UpdateFields(ctx context.Context, id bson.ObjectID, fields bson.M, requireSetupOpen bool) error
 	ByID(ctx context.Context, id bson.ObjectID) (*domain.Room, error)
 	ByCode(ctx context.Context, code string) (*domain.Room, error)
 	List(ctx context.Context, params paginate.Params, roomType *domain.RoomType) (paginate.Result[domain.Room], error)
@@ -56,6 +57,31 @@ func (r *roomRepo) Update(ctx context.Context, room *domain.Room) error {
 		return errs.ErrNotFound
 	}
 	return nil
+}
+
+func (r *roomRepo) UpdateFields(ctx context.Context, id bson.ObjectID, fields bson.M, requireSetupOpen bool) error {
+	filter := bson.M{"_id": id}
+	if requireSetupOpen {
+		filter["match_id"] = nil
+	}
+	set := bson.M{"updated_at": time.Now().UTC()}
+	for key, value := range fields {
+		set[key] = value
+	}
+	result, err := r.coll.UpdateOne(ctx, filter, bson.M{"$set": set})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount > 0 {
+		return nil
+	}
+	if _, err := r.ByID(ctx, id); err != nil {
+		return err
+	}
+	if requireSetupOpen {
+		return errs.ErrConflict
+	}
+	return errs.ErrNotFound
 }
 
 func (r *roomRepo) ByID(ctx context.Context, id bson.ObjectID) (*domain.Room, error) {

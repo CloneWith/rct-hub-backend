@@ -17,6 +17,7 @@ import (
 	"rctHubBackend/internal/fetcher"
 	"rctHubBackend/internal/graphql"
 	"rctHubBackend/internal/handler"
+	"rctHubBackend/internal/matchcommand"
 	"rctHubBackend/internal/middleware"
 	"rctHubBackend/internal/oauth"
 	"rctHubBackend/internal/repository"
@@ -131,7 +132,14 @@ func (s *Server) registerRoutes() {
 	// GraphQL endpoint — all reads, client views, and in-game commands
 	// GET  /graphql → GraphiQL Playground
 	// POST /graphql → GraphQL Query/Mutation
-	gqlResolver := graphql.NewResolver(s.deps.Services)
+	commands := matchcommand.NewOrchestrator(
+		s.deps.Repos.MatchCommands,
+		s.deps.Repos.Users,
+		s.deps.Repos.Matches,
+		s.deps.Repos.Rooms,
+		nil,
+	)
+	gqlResolver := graphql.NewResolver(s.deps.Services, commands)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
 	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.Services))
@@ -153,6 +161,7 @@ func (s *Server) registerRoutes() {
 			authorized.POST("/rooms", rooms.Create)
 			authorized.PATCH("/rooms/:id/strategists", rooms.SetStrategists)
 			authorized.PATCH("/rooms/:id/streamer", rooms.SetStreamer)
+			authorized.PATCH("/rooms/:id/mappool", rooms.SetMappool)
 			authorized.PATCH("/rooms/:id/bp-order", rooms.SetBPOrder)
 			authorized.PATCH("/rooms/:id/players", rooms.SetPlayers)
 			authorized.PATCH("/rooms/:id/mp-link", rooms.SetMPLink)

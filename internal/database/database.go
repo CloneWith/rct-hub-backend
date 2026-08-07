@@ -125,12 +125,17 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 	if err := snapshotStore.EnsureIndexes(ctx); err != nil {
 		return err
 	}
+	commandStore := persistence.NewCommandStore(db.Mongo, db.MongoDB)
+	if err := commandStore.EnsureIndexes(ctx); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-// VerifySchema checks every database-level contract required by this binary.
-// Match snapshots are currently the only collection with a runtime validator.
 func (db *DB) VerifySchema(ctx context.Context) error {
-	return persistence.NewSnapshotStore(db.MongoDB).VerifyValidator(ctx)
+	if err := persistence.NewSnapshotStore(db.MongoDB).VerifyValidator(ctx); err != nil {
+		return err
+	}
+	return persistence.NewCommandStore(db.Mongo, db.MongoDB).VerifyValidators(ctx)
 }

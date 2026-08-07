@@ -17,7 +17,7 @@ type Services struct {
 // Redis cache entries when local-only fields are modified.
 func NewServices(repos *repository.Repositories, invalidator CacheInvalidator) *Services {
 	return &Services{
-		Rooms:         NewRoomService(repos.Rooms, repos.Matches),
+		Rooms:         NewRoomService(repos.Rooms, repos.Matches, repos.Users, repos.FormalMatches),
 		Matchs:        NewMatchService(repos.Matches, repos.Rooms, repos.Moves, repos.Results),
 		Moves:         NewMoveService(repos.Moves),
 		Users:         NewUserService(repos.Users, invalidator),

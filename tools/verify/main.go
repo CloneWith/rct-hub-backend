@@ -26,6 +26,9 @@ func main() {
 	if err := checkMatchEngineDependencies(); err != nil {
 		fail("matchengine-purity", err)
 	}
+	if err := checkMatchCommandBoundaries(); err != nil {
+		fail("match-command-boundaries", err)
+	}
 
 	checks := []check{
 		{name: "vet", cmd: "go", args: []string{"vet", "./..."}},
@@ -45,6 +48,37 @@ func main() {
 	}
 
 	fmt.Println("verification passed")
+}
+
+func checkMatchCommandBoundaries() error {
+	fmt.Println("==> match-command-boundaries")
+	files, err := goFiles(".")
+	if err != nil {
+		return err
+	}
+	for _, path := range files {
+		normalized := filepath.ToSlash(path)
+		if strings.HasSuffix(normalized, "_test.go") || normalized == "tools/verify/main.go" {
+			continue
+		}
+		source, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		text := string(source)
+		if strings.Contains(text, "matchengine.Execute(") && normalized != "internal/matchcommand/orchestrator.go" && normalized != "tools/matchlab/lab.go" {
+			return fmt.Errorf("%s calls MatchEngine directly; formal writes must enter through the orchestrator", normalized)
+		}
+		if !strings.Contains(text, `"rctHubBackend/internal/matchcommand"`) {
+			continue
+		}
+		allowed := strings.HasPrefix(normalized, "internal/graphql/") ||
+			strings.HasPrefix(normalized, "internal/persistence/") || normalized == "internal/server/server.go"
+		if !allowed {
+			return fmt.Errorf("%s imports matchcommand outside the GraphQL adapter, persistence store, or composition root", normalized)
+		}
+	}
+	return nil
 }
 
 func checkMatchEngineDependencies() error {

@@ -489,173 +489,173 @@ type StartMatch struct{}
 func (StartMatch) isCommand() {}
 
 type BanPoolSlot struct {
-	PoolSlotID string
+	PoolSlotID string `json:"poolSlotId"`
 }
 
 func (BanPoolSlot) isCommand() {}
 
 type RefereeBanPoolSlot struct {
-	ActingTeam TeamSide
-	PoolSlotID string
-	Reason     string
+	ActingTeam TeamSide `json:"actingTeam"`
+	PoolSlotID string   `json:"poolSlotId"`
+	Reason     string   `json:"reason"`
 }
 
 func (RefereeBanPoolSlot) isCommand() {}
 
 type PlacePiece struct {
-	PoolSlotID string
-	PieceID    string
-	Cell       Cell
+	PoolSlotID string `json:"poolSlotId"`
+	PieceID    string `json:"pieceId"`
+	Cell       Cell   `json:"cell"`
 }
 
 func (PlacePiece) isCommand() {}
 
 type RefereePlacePiece struct {
-	ActingTeam TeamSide
-	PoolSlotID string
-	PieceID    string
-	Cell       Cell
-	Reason     string
+	ActingTeam TeamSide `json:"actingTeam"`
+	PoolSlotID string   `json:"poolSlotId"`
+	PieceID    string   `json:"pieceId"`
+	Cell       Cell     `json:"cell"`
+	Reason     string   `json:"reason"`
 }
 
 func (RefereePlacePiece) isCommand() {}
 
 type PlaceShiro struct {
-	PieceID string
-	Cell    Cell
+	PieceID string `json:"pieceId"`
+	Cell    Cell   `json:"cell"`
 }
 
 func (PlaceShiro) isCommand() {}
 
 type RefereePlaceShiro struct {
-	ActingTeam TeamSide
-	PieceID    string
-	Cell       Cell
-	Reason     string
+	ActingTeam TeamSide `json:"actingTeam"`
+	PieceID    string   `json:"pieceId"`
+	Cell       Cell     `json:"cell"`
+	Reason     string   `json:"reason"`
 }
 
 func (RefereePlaceShiro) isCommand() {}
 
 type RobPiece struct {
-	TargetPieceID string
-	SacrificeSets [][]string
+	TargetPieceID string     `json:"targetPieceId"`
+	SacrificeSets [][]string `json:"sacrificeSets"`
 }
 
 func (RobPiece) isCommand() {}
 
 type RefereeRobPiece struct {
-	ActingTeam    TeamSide
-	TargetPieceID string
-	SacrificeSets [][]string
-	Reason        string
+	ActingTeam    TeamSide   `json:"actingTeam"`
+	TargetPieceID string     `json:"targetPieceId"`
+	SacrificeSets [][]string `json:"sacrificeSets"`
+	Reason        string     `json:"reason"`
 }
 
 func (RefereeRobPiece) isCommand() {}
 
 type GrantAdditionalTime struct {
-	Reason string
+	Reason string `json:"reason"`
 }
 
 func (GrantAdditionalTime) isCommand() {}
 
 type CalibrateTimer struct {
-	Remaining time.Duration
-	Reason    string
+	Remaining time.Duration `json:"remaining"`
+	Reason    string        `json:"reason"`
 }
 
 func (CalibrateTimer) isCommand() {}
 
 type PauseTimer struct {
-	Reason string
+	Reason string `json:"reason"`
 }
 
 func (PauseTimer) isCommand() {}
 
 type ResumeTimer struct {
-	Reason string
+	Reason string `json:"reason"`
 }
 
 func (ResumeTimer) isCommand() {}
 
 type SuspendMatch struct {
-	Reason string
+	Reason string `json:"reason"`
 }
 
 func (SuspendMatch) isCommand() {}
 
 type ResumeMatch struct {
-	Reason string
+	Reason string `json:"reason"`
 }
 
 func (ResumeMatch) isCommand() {}
 
 type SkipCurrentAction struct {
-	Reason string
+	Reason string `json:"reason"`
 }
 
 func (SkipCurrentAction) isCommand() {}
 
 type AbortMatch struct {
-	Reason string
+	Reason string `json:"reason"`
 }
 
 func (AbortMatch) isCommand() {}
 
 type RequestTB struct {
-	RequestID string
-	Basis     TBBasis
+	RequestID string  `json:"requestId"`
+	Basis     TBBasis `json:"basis"`
 }
 
 func (RequestTB) isCommand() {}
 
 type RefereeRequestTB struct {
-	ActingTeam TeamSide
-	RequestID  string
-	Basis      TBBasis
-	Reason     string
+	ActingTeam TeamSide `json:"actingTeam"`
+	RequestID  string   `json:"requestId"`
+	Basis      TBBasis  `json:"basis"`
+	Reason     string   `json:"reason"`
 }
 
 func (RefereeRequestTB) isCommand() {}
 
 type RespondTBRequest struct {
-	RequestID string
-	Accept    bool
+	RequestID string `json:"requestId"`
+	Accept    bool   `json:"accept"`
 }
 
 func (RespondTBRequest) isCommand() {}
 
 type RefereeRespondTBRequest struct {
-	ActingTeam TeamSide
-	RequestID  string
-	Accept     bool
-	Reason     string
+	ActingTeam TeamSide `json:"actingTeam"`
+	RequestID  string   `json:"requestId"`
+	Accept     bool     `json:"accept"`
+	Reason     string   `json:"reason"`
 }
 
 func (RefereeRespondTBRequest) isCommand() {}
 
 type StartTB struct {
-	Reason string
+	Reason string `json:"reason"`
 }
 
 func (StartTB) isCommand() {}
 
 type ConfirmTBResult struct {
-	WinningTeam TeamSide
+	WinningTeam TeamSide `json:"winningTeam"`
 }
 
 func (ConfirmTBResult) isCommand() {}
 
 type RecordSurrender struct {
-	SurrenderingTeam    TeamSide
-	ConfirmingPlayerIDs []int64
-	Reason              string
+	SurrenderingTeam    TeamSide `json:"surrenderingTeam"`
+	ConfirmingPlayerIDs []int64  `json:"confirmingPlayerIds"`
+	Reason              string   `json:"reason"`
 }
 
 func (RecordSurrender) isCommand() {}
 
 type ConfirmBeatmapResult struct {
-	BoardPieceID string
-	WinningTeam  TeamSide
+	BoardPieceID string   `json:"boardPieceId"`
+	WinningTeam  TeamSide `json:"winningTeam"`
 }
 
 func (ConfirmBeatmapResult) isCommand() {}
