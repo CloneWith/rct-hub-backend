@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/fatih/color"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/zap"
@@ -19,9 +20,12 @@ import (
 )
 
 func main() {
+	color.Blue("=== RCT Database Initialisation ===")
 	var (
-		drop = flag.Bool("drop", false, "drop existing collections before recreating")
-		seed = flag.Bool("seed", false, "insert sample seed data")
+		drop      = flag.Bool("drop", false, "drop existing collections before recreating")
+		seed      = flag.Bool("seed", false, "insert sample seed data")
+		adminID   = flag.Int64("admin-id", 0, "osu! user ID of the admin to create (enables admin creation when > 0)")
+		adminName = flag.String("admin-name", "", "username for the admin user (defaults to \"admin\")")
 	)
 	flag.Parse()
 
@@ -50,6 +54,7 @@ func main() {
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	log.Info("seeding data")
 	defer cancel()
 
 	collections := []string{
@@ -95,6 +100,20 @@ func main() {
 		log.Info("seeded sample data")
 	}
 
+	if *adminID > 0 {
+		name := *adminName
+		if name == "" {
+			name = "admin"
+		}
+		if err := createAdminUser(ctx, db.MongoDB, log, *adminID, name); err != nil {
+			log.Error("failed to create admin user", zap.Error(err))
+			os.Exit(1)
+		}
+	} else {
+		color.Yellow("Not going to create an admin user.")
+		color.Yellow("You may add one manually before accessing the admin panel.")
+	}
+
 	log.Info("database initialization complete", zap.String("database", cfg.MongoDB.Name))
 }
 
@@ -108,7 +127,7 @@ func ensureSchemaValidation(ctx context.Context, db *mongo.Database) error {
 				"username": bson.M{"bsonType": "string"},
 				"verify_status": bson.M{
 					"bsonType": "string",
-					"items":    bson.M{"enum": []string{"verified", "pending", "unverified"}},
+					"enum":     []string{"verified", "pending", "unverified"},
 				},
 				"roles": bson.M{
 					"bsonType": "array",
@@ -153,6 +172,48 @@ func ensureSchemaValidation(ctx context.Context, db *mongo.Database) error {
 	return nil
 }
 
+// createAdminUser inserts a user document with the admin role.
+// If a user with the same osu! ID already exists, it logs and skips.
+func createAdminUser(ctx context.Context, db *mongo.Database, log *zap.Logger, osuID int64, username string) error {
+	now := time.Now().UTC()
+	user := domain.User{
+		ID:           bson.NewObjectID(),
+		OnlineID:     osuID,
+		Username:     username,
+		AvatarURL:    fmt.Sprintf("https://a.ppy.sh/%d", osuID),
+		CountryCode:  "__",
+		Roles:        []domain.UserRole{domain.RoleAdmin},
+		VerifyStatus: domain.Verified,
+		IsBanned:     false,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+
+	log.Info("creating admin user",
+		zap.Int64("id", osuID),
+		zap.String("username", username),
+	)
+
+	if _, err := db.Collection("users").InsertOne(ctx, user); err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			log.Info("admin user already exists, skipping",
+				zap.Int64("id", osuID),
+				zap.String("username", username),
+			)
+			return nil
+		}
+		return fmt.Errorf("create admin user: %w", err)
+	}
+
+	color.Green("Admin user created (osu! ID: %d, username: %s)", osuID, username)
+	log.Info("admin user created",
+		zap.Int64("id", osuID),
+		zap.String("username", username),
+		zap.String("user_id", user.ID.Hex()),
+	)
+	return nil
+}
+
 func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 	now := time.Now().UTC()
 
@@ -162,7 +223,7 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		OnlineID:     1,
 		Username:     "admin_seed",
 		AvatarURL:    "https://a.ppy.sh/1",
-		CountryCode:  "CN",
+		CountryCode:  "__",
 		Roles:        []domain.UserRole{domain.RoleAdmin},
 		VerifyStatus: domain.Verified,
 		IsBanned:     false,
@@ -192,11 +253,18 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		StarRating:        4.5,
 		BPM:               180,
 		TotalLength:       120,
-		CircleSize:        4,
 		DrainRate:         5,
+		CircleSize:        4,
 		ApproachRate:      9,
 		OverallDifficulty: 8,
 		CoverURL:          "https://assets.ppy.sh/beatmaps/500000/covers/cover.jpg",
+		ModString:         "NM",
+		ModIndex:          1,
+		SelectorID:        1,
+		CreditUserIDs:     []int64{1},
+		Skill:             "Stamina",
+		Comment:           "Seed beatmap for testing",
+		IsOriginal:        false,
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}); err != nil {
@@ -217,12 +285,14 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		OwnerID: 1,
 		Settings: domain.RoomSettings{
 			Mappool:              domain.NewMappool(),
-			RedStrategistUserID:  int64Ptr(1),
-			BlueStrategistUserID: int64Ptr(2),
-			FirstPick:            teamSidePtr(domain.TeamSideRed),
-			FirstBan:             teamSidePtr(domain.TeamSideBlue),
+			RedStrategistUserID:  new(int64(1)),
+			BlueStrategistUserID: new(int64(2)),
+			FirstPick:            new(domain.TeamSideRed),
+			FirstBan:             new(domain.TeamSideBlue),
 			RedPlayers:           []int64{1, 2},
 			BluePlayers:          []int64{3, 4},
+			RedLeader:            new(int64(1)),
+			BlueLeader:           new(int64(3)),
 		},
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -242,18 +312,26 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		Name:     "Seed Match",
 		RoomType: domain.RoomTypeCasual,
 		TeamRed: domain.Team{
-			ID:      bson.NewObjectID(),
-			Side:    domain.TeamSideRed,
-			Name:    "Red",
-			Color:   "#ef4444",
-			Players: []int64{1, 2},
+			ID:           bson.NewObjectID(),
+			Side:         domain.TeamSideRed,
+			Name:         "Red",
+			Description:  "Seed Red Team",
+			Seed:         "1",
+			Color:        "#ef4444",
+			LeaderID:     1,
+			StrategistID: 1,
+			Players:      []int64{1, 2},
 		},
 		TeamBlue: domain.Team{
-			ID:      bson.NewObjectID(),
-			Side:    domain.TeamSideBlue,
-			Name:    "Blue",
-			Color:   "#3b82f6",
-			Players: []int64{3, 4},
+			ID:           bson.NewObjectID(),
+			Side:         domain.TeamSideBlue,
+			Name:         "Blue",
+			Description:  "Seed Blue Team",
+			Seed:         "2",
+			Color:        "#3b82f6",
+			LeaderID:     3,
+			StrategistID: 2,
+			Players:      []int64{3, 4},
 		},
 		Mappool:   domain.NewMappool(),
 		Board:     domain.NewBoard(),
@@ -287,12 +365,4 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 	}
 
 	return nil
-}
-
-func int64Ptr(n int64) *int64 {
-	return &n
-}
-
-func teamSidePtr(s domain.TeamSide) *domain.TeamSide {
-	return &s
 }

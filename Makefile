@@ -1,4 +1,4 @@
-.PHONY: verify dev test test-integration lint build run docker-up docker-down initdb initdb-seed initdb-drop generate
+.PHONY: verify dev test test-integration lint build run docker-up docker-down initdb initdb-seed initdb-drop initdb-admin generate
 
 # Load environment variables from .env if it exists
 ifneq (,$(wildcard .env))
@@ -46,6 +46,11 @@ initdb-seed:
 
 initdb-drop:
 	go run ./cmd/initdb -drop -seed
+
+# 初始化数据库并创建管理员用户
+# 用法: make initdb-admin ADMIN_ID=12345 ADMIN_NAME=myadmin
+initdb-admin:
+	go run ./cmd/initdb -admin-id=$(ADMIN_ID) -admin-name=$(ADMIN_NAME)
 
 # GraphQL 代码生成 (gqlgen)
 generate:
