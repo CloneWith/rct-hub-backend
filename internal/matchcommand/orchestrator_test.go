@@ -424,6 +424,7 @@ func newCommandFixture(t *testing.T) *commandFixture {
 		matchMapReader{matchID: match},
 		roomMapReader{roomID: room},
 		func() time.Time { return commandTestNow },
+		nil,
 	)
 	return fixture
 }
