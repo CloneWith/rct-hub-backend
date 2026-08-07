@@ -17,6 +17,7 @@ import (
 	"rctHubBackend/internal/fetcher"
 	"rctHubBackend/internal/graphql"
 	"rctHubBackend/internal/handler"
+	"rctHubBackend/internal/logger"
 	"rctHubBackend/internal/matchcommand"
 	"rctHubBackend/internal/middleware"
 	"rctHubBackend/internal/oauth"
@@ -48,16 +49,18 @@ type Deps struct {
 }
 
 // New creates a new Server with routes configured.
-func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
+func New(cfg *config.Config, db *database.DB, logs *logger.Provider) *Server {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	mainLog := logs.Main()
+
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
-	router.Use(ginzap.RecoveryWithZap(logger, true))
+	router.Use(ginzap.Ginzap(mainLog, time.RFC3339, true))
+	router.Use(ginzap.RecoveryWithZap(mainLog, true))
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.CORS.AllowedOrigins,
@@ -82,12 +85,14 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 
 	// osu! API fetcher — three-tier lookup (Redis → MongoDB → osu! API v2).
 	// Created before services so it can be injected as a CacheInvalidator.
+	// Uses the "fetcher" category logger (silenced if listed in LOG_SUPPRESS).
+	fetcherLog := logs.Get(string(logger.CatFetcher))
 	apiClient := fetcher.NewAPIClient(fetcher.APIClientConfig{
 		ClientID:     cfg.Osu.ClientID,
 		ClientSecret: cfg.Osu.ClientSecret,
 		APIBase:      cfg.Osu.APIBase,
-	}, db.Redis, logger)
-	osuFetcher := fetcher.New(apiClient, repos.Users, repos.Beatmaps, db.Redis, logger, fetcher.Config{
+	}, db.Redis, fetcherLog)
+	osuFetcher := fetcher.New(apiClient, repos.Users, repos.Beatmaps, db.Redis, fetcherLog, fetcher.Config{
 		UserCacheTTL:    cfg.Osu.FetcherUserCacheTTL,
 		BeatmapCacheTTL: cfg.Osu.FetcherBeatmapCacheTTL,
 	})
@@ -110,7 +115,7 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 	s := &Server{
 		router: router,
 		deps:   deps,
-		logger: logger,
+		logger: mainLog,
 		httpServer: &http.Server{
 			Addr:    fmt.Sprintf(":%s", cfg.Port),
 			Handler: router,

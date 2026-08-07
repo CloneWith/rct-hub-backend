@@ -41,6 +41,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer func() { _ = log.Sync() }()
+	defer func() { _ = logger.Close() }()
 
 	db, err := database.New(cfg)
 	if err != nil {
