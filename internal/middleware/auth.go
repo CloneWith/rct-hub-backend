@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/pkg/jwtutil"
@@ -18,10 +19,14 @@ const (
 )
 
 // Auth verifies the JWT in the Authorization header.
-func Auth(signer *jwtutil.Signer) gin.HandlerFunc {
+func Auth(signer *jwtutil.Signer, log *zap.Logger) gin.HandlerFunc {
+	if log == nil {
+		log = zap.NewNop()
+	}
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if header == "" {
+			log.Debug("auth: missing authorization header", zap.String("path", c.Request.URL.Path))
 			response.Unauthorized(c, "missing authorization header")
 			c.Abort()
 			return
@@ -29,6 +34,7 @@ func Auth(signer *jwtutil.Signer) gin.HandlerFunc {
 
 		parts := strings.SplitN(header, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			log.Debug("auth: invalid authorization header format", zap.String("path", c.Request.URL.Path))
 			response.Unauthorized(c, "invalid authorization header")
 			c.Abort()
 			return
@@ -36,6 +42,10 @@ func Auth(signer *jwtutil.Signer) gin.HandlerFunc {
 
 		claims, err := signer.Parse(parts[1])
 		if err != nil {
+			log.Warn("auth: invalid or expired JWT",
+				zap.String("path", c.Request.URL.Path),
+				zap.Error(err),
+			)
 			response.Error(c, http.StatusUnauthorized, "invalid or expired token")
 			c.Abort()
 			return
@@ -43,6 +53,11 @@ func Auth(signer *jwtutil.Signer) gin.HandlerFunc {
 
 		c.Set(ContextKeyClaims, claims)
 		c.Set(ContextKeyUserID, claims.UserID)
+		log.Debug("auth: token validated",
+			zap.Int64("osu_id", claims.OsuID),
+			zap.String("username", claims.Username),
+			zap.String("path", c.Request.URL.Path),
+		)
 		c.Next()
 	}
 }
