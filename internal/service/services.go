@@ -10,6 +10,7 @@ type Services struct {
 	Users         *UserService
 	Beatmaps      *BeatmapService
 	Announcements *AnnouncementService
+	FormalMatches *FormalMatchReadService
 }
 
 // NewServices creates a service container from repositories.
@@ -23,5 +24,6 @@ func NewServices(repos *repository.Repositories, invalidator CacheInvalidator) *
 		Users:         NewUserService(repos.Users, invalidator),
 		Beatmaps:      NewBeatmapService(repos.Beatmaps, invalidator),
 		Announcements: NewAnnouncementService(repos.Announcements),
+		FormalMatches: NewFormalMatchReadService(repos.Matches, repos.MatchSnapshots),
 	}
 }

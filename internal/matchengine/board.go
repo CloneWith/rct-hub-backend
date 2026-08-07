@@ -99,6 +99,16 @@ func (b Board) PieceAt(cell Cell) (BoardPiece, bool) {
 	return clonePiece(piece), true
 }
 
+// Pieces returns defensive copies keyed by their canonical board cells.
+// Read models can inspect the board without depending on its JSON encoding.
+func (b Board) Pieces() map[Cell]BoardPiece {
+	pieces := make(map[Cell]BoardPiece, len(b.pieces))
+	for cell, piece := range b.pieces {
+		pieces[cell] = clonePiece(piece)
+	}
+	return pieces
+}
+
 func (b Board) empty(cell Cell) bool {
 	if _, _, ok := cellPosition(cell); !ok {
 		return false

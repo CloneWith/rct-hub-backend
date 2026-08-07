@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/fatih/color"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/zap"
@@ -20,7 +19,7 @@ import (
 )
 
 func main() {
-	color.Blue("=== RCT Database Initialisation ===")
+	fmt.Println("=== RCT Database Initialisation ===")
 	var (
 		drop      = flag.Bool("drop", false, "drop existing collections before recreating")
 		seed      = flag.Bool("seed", false, "insert sample seed data")
@@ -113,8 +112,8 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		color.Yellow("Not going to create an admin user.")
-		color.Yellow("You may add one manually before accessing the admin panel.")
+		fmt.Println("Not going to create an admin user.")
+		fmt.Println("You may add one manually before accessing the admin panel.")
 	}
 
 	log.Info("database initialization complete", zap.String("database", cfg.MongoDB.Name))
@@ -211,7 +210,7 @@ func createAdminUser(ctx context.Context, db *mongo.Database, log *zap.Logger, o
 		return fmt.Errorf("create admin user: %w", err)
 	}
 
-	color.Green("Admin user created (osu! ID: %d, username: %s)", osuID, username)
+	fmt.Printf("Admin user created (osu! ID: %d, username: %s)\n", osuID, username)
 	log.Info("admin user created",
 		zap.Int64("id", osuID),
 		zap.String("username", username),

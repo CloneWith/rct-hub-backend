@@ -1,8 +1,10 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -14,10 +16,23 @@ import (
 type AuthHandler struct {
 	authService service.AuthService
 	frontEndURI string
+	cookie      AuthCookieConfig
 }
 
-func NewAuthHandler(authService service.AuthService, frontEndURI string) *AuthHandler {
-	return &AuthHandler{authService: authService, frontEndURI: frontEndURI}
+type AuthCookieConfig struct {
+	Name     string
+	Domain   string
+	Secure   bool
+	SameSite http.SameSite
+	TTL      time.Duration
+}
+
+func NewAuthHandler(authService service.AuthService, frontEndURI string, configs ...AuthCookieConfig) *AuthHandler {
+	cookie := AuthCookieConfig{Name: "rcthub_session", SameSite: http.SameSiteLaxMode, TTL: 7 * 24 * time.Hour}
+	if len(configs) > 0 {
+		cookie = configs[0]
+	}
+	return &AuthHandler{authService: authService, frontEndURI: strings.TrimRight(frontEndURI, "/"), cookie: cookie}
 }
 
 // OsuLogin redirects the browser to the osu! OAuth authorization page.
@@ -31,7 +46,8 @@ func (h *AuthHandler) OsuLogin(c *gin.Context) {
 }
 
 // OsuCallback handles the OAuth callback, creates/updates the local user,
-// issues a JWT, and redirects back to the frontend with the token.
+// issues a JWT-backed HttpOnly session cookie, and redirects without putting
+// the credential in browser history, logs, or referrer headers.
 func (h *AuthHandler) OsuCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
@@ -46,8 +62,23 @@ func (h *AuthHandler) OsuCallback(c *gin.Context) {
 		return
 	}
 
-	// Redirect to the frontend with the JWT in the URL fragment.
-	// The frontend is responsible for storing the token securely.
-	redirectLink := fmt.Sprintf("%s/auth/callback?token=%s", h.frontEndURI, token)
-	c.Redirect(http.StatusTemporaryRedirect, redirectLink)
+	h.setSessionCookie(c, token, int(h.cookie.TTL.Seconds()))
+	redirect, err := url.Parse(h.frontEndURI + "/auth/callback")
+	if err != nil {
+		response.InternalError(c, "invalid frontend redirect")
+		return
+	}
+	c.Redirect(http.StatusSeeOther, redirect.String())
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	h.setSessionCookie(c, "", -1)
+	c.Status(http.StatusNoContent)
+}
+
+func (h *AuthHandler) setSessionCookie(c *gin.Context, value string, maxAge int) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name: h.cookie.Name, Value: value, Path: "/", Domain: h.cookie.Domain,
+		MaxAge: maxAge, HttpOnly: true, Secure: h.cookie.Secure, SameSite: h.cookie.SameSite,
+	})
 }

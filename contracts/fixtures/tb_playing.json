@@ -1,0 +1,710 @@
+{
+  "data": {
+    "matchByCode": {
+      "code": "FIXTURE_TB_PLAYING",
+      "id": "507f1f77bcf86cd799430007",
+      "name": "TB PLAYING",
+      "overlayView": {
+        "activeTeam": null,
+        "lifecycle": "RUNNING",
+        "phase": "TB_PLAYING",
+        "timer": {
+          "durationMilliseconds": 0,
+          "paused": false,
+          "remainingAtPauseMilliseconds": null,
+          "startedAt": null
+        },
+        "wonCounts": {
+          "blue": 4,
+          "red": 6
+        }
+      },
+      "pool": [
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "DT-1",
+            "modString": "DT",
+            "onlineID": "100000",
+            "title": "Fixture DT-1"
+          },
+          "beatmapID": "100000",
+          "poolSlotID": "DT-1"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "FM-1",
+            "modString": "FM",
+            "onlineID": "100001",
+            "title": "Fixture FM-1"
+          },
+          "beatmapID": "100001",
+          "poolSlotID": "FM-1"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "HD-1",
+            "modString": "HD",
+            "onlineID": "100002",
+            "title": "Fixture HD-1"
+          },
+          "beatmapID": "100002",
+          "poolSlotID": "HD-1"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "HR-1",
+            "modString": "HR",
+            "onlineID": "100003",
+            "title": "Fixture HR-1"
+          },
+          "beatmapID": "100003",
+          "poolSlotID": "HR-1"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-1",
+            "modString": "NM",
+            "onlineID": "100004",
+            "title": "Fixture NM-1"
+          },
+          "beatmapID": "100004",
+          "poolSlotID": "NM-1"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-10",
+            "modString": "NM",
+            "onlineID": "100005",
+            "title": "Fixture NM-10"
+          },
+          "beatmapID": "100005",
+          "poolSlotID": "NM-10"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-11",
+            "modString": "NM",
+            "onlineID": "100006",
+            "title": "Fixture NM-11"
+          },
+          "beatmapID": "100006",
+          "poolSlotID": "NM-11"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-12",
+            "modString": "NM",
+            "onlineID": "100007",
+            "title": "Fixture NM-12"
+          },
+          "beatmapID": "100007",
+          "poolSlotID": "NM-12"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-13",
+            "modString": "NM",
+            "onlineID": "100008",
+            "title": "Fixture NM-13"
+          },
+          "beatmapID": "100008",
+          "poolSlotID": "NM-13"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-14",
+            "modString": "NM",
+            "onlineID": "100009",
+            "title": "Fixture NM-14"
+          },
+          "beatmapID": "100009",
+          "poolSlotID": "NM-14"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-15",
+            "modString": "NM",
+            "onlineID": "100010",
+            "title": "Fixture NM-15"
+          },
+          "beatmapID": "100010",
+          "poolSlotID": "NM-15"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-16",
+            "modString": "NM",
+            "onlineID": "100011",
+            "title": "Fixture NM-16"
+          },
+          "beatmapID": "100011",
+          "poolSlotID": "NM-16"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-17",
+            "modString": "NM",
+            "onlineID": "100012",
+            "title": "Fixture NM-17"
+          },
+          "beatmapID": "100012",
+          "poolSlotID": "NM-17"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-18",
+            "modString": "NM",
+            "onlineID": "100013",
+            "title": "Fixture NM-18"
+          },
+          "beatmapID": "100013",
+          "poolSlotID": "NM-18"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-19",
+            "modString": "NM",
+            "onlineID": "100014",
+            "title": "Fixture NM-19"
+          },
+          "beatmapID": "100014",
+          "poolSlotID": "NM-19"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-2",
+            "modString": "NM",
+            "onlineID": "100015",
+            "title": "Fixture NM-2"
+          },
+          "beatmapID": "100015",
+          "poolSlotID": "NM-2"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-20",
+            "modString": "NM",
+            "onlineID": "100016",
+            "title": "Fixture NM-20"
+          },
+          "beatmapID": "100016",
+          "poolSlotID": "NM-20"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-3",
+            "modString": "NM",
+            "onlineID": "100017",
+            "title": "Fixture NM-3"
+          },
+          "beatmapID": "100017",
+          "poolSlotID": "NM-3"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-4",
+            "modString": "NM",
+            "onlineID": "100018",
+            "title": "Fixture NM-4"
+          },
+          "beatmapID": "100018",
+          "poolSlotID": "NM-4"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-5",
+            "modString": "NM",
+            "onlineID": "100019",
+            "title": "Fixture NM-5"
+          },
+          "beatmapID": "100019",
+          "poolSlotID": "NM-5"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-6",
+            "modString": "NM",
+            "onlineID": "100020",
+            "title": "Fixture NM-6"
+          },
+          "beatmapID": "100020",
+          "poolSlotID": "NM-6"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-7",
+            "modString": "NM",
+            "onlineID": "100021",
+            "title": "Fixture NM-7"
+          },
+          "beatmapID": "100021",
+          "poolSlotID": "NM-7"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-8",
+            "modString": "NM",
+            "onlineID": "100022",
+            "title": "Fixture NM-8"
+          },
+          "beatmapID": "100022",
+          "poolSlotID": "NM-8"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "NM-9",
+            "modString": "NM",
+            "onlineID": "100023",
+            "title": "Fixture NM-9"
+          },
+          "beatmapID": "100023",
+          "poolSlotID": "NM-9"
+        },
+        {
+          "beatmap": null,
+          "beatmapID": null,
+          "poolSlotID": "SHIRO-1"
+        },
+        {
+          "beatmap": {
+            "artist": "RCTS1",
+            "difficultyName": "TB-1",
+            "modString": "TB",
+            "onlineID": "100025",
+            "title": "Fixture TB-1"
+          },
+          "beatmapID": "100025",
+          "poolSlotID": "TB-1"
+        }
+      ],
+      "roomID": "607f1f77bcf86cd799430007",
+      "snapshot": {
+        "activeTeam": null,
+        "board": {
+          "cells": [
+            {
+              "cell": "A1",
+              "col": 0,
+              "piece": {
+                "forceMod": null,
+                "id": "piece-01",
+                "mod": "NM",
+                "outcome": "WON",
+                "owner": "RED",
+                "selectedBy": "BLUE",
+                "sourcePoolSlotID": "NM-5"
+              },
+              "row": 0,
+              "zone": "DT"
+            },
+            {
+              "cell": "B1",
+              "col": 1,
+              "piece": {
+                "forceMod": null,
+                "id": "piece-02",
+                "mod": "NM",
+                "outcome": "WON",
+                "owner": "RED",
+                "selectedBy": "RED",
+                "sourcePoolSlotID": "NM-6"
+              },
+              "row": 0,
+              "zone": "DT"
+            },
+            {
+              "cell": "C1",
+              "col": 2,
+              "piece": {
+                "forceMod": null,
+                "id": "piece-03",
+                "mod": "NM",
+                "outcome": "WON",
+                "owner": "BLUE",
+                "selectedBy": "BLUE",
+                "sourcePoolSlotID": "NM-7"
+              },
+              "row": 0,
+              "zone": "HD"
+            },
+            {
+              "cell": "D1",
+              "col": 3,
+              "piece": {
+                "forceMod": null,
+                "id": "piece-04",
+                "mod": "NM",
+                "outcome": "WON",
+                "owner": "BLUE",
+                "selectedBy": "RED",
+                "sourcePoolSlotID": "NM-8"
+              },
+              "row": 0,
+              "zone": "HD"
+            },
+            {
+              "cell": "A2",
+              "col": 0,
+              "piece": {
+                "forceMod": null,
+                "id": "piece-05",
+                "mod": "NM",
+                "outcome": "WON",
+                "owner": "BLUE",
+                "selectedBy": "BLUE",
+                "sourcePoolSlotID": "NM-9"
+              },
+              "row": 1,
+              "zone": "DT"
+            },
+            {
+              "cell": "B2",
+              "col": 1,
+              "piece": {
+                "forceMod": null,
+                "id": "piece-06",
+                "mod": "NM",
+                "outcome": "WON",
+                "owner": "BLUE",
+                "selectedBy": "RED",
+                "sourcePoolSlotID": "NM-10"
+              },
+              "row": 1,
+              "zone": "DT"
+            },
+            {
+              "cell": "C2",
+              "col": 2,
+              "piece": {
+                "forceMod": null,
+                "id": "piece-07",
+                "mod": "NM",
+                "outcome": "WON",
+                "owner": "RED",
+                "selectedBy": "BLUE",
+                "sourcePoolSlotID": "NM-11"
+              },
+              "row": 1,
+              "zone": "HD"
+            },
+            {
+              "cell": "D2",
+              "col": 3,
+              "piece": {
+                "forceMod": null,
+                "id": "piece-08",
+                "mod": "NM",
+                "outcome": "WON",
+                "owner": "RED",
+                "selectedBy": "RED",
+                "sourcePoolSlotID": "NM-12"
+              },
+              "row": 1,
+              "zone": "HD"
+            },
+            {
+              "cell": "A3",
+              "col": 0,
+              "piece": {
+                "forceMod": null,
+                "id": "piece-09",
+                "mod": "NM",
+                "outcome": "WON",
+                "owner": "RED",
+                "selectedBy": "BLUE",
+                "sourcePoolSlotID": "NM-13"
+              },
+              "row": 2,
+              "zone": "HR"
+            },
+            {
+              "cell": "B3",
+              "col": 1,
+              "piece": {
+                "forceMod": null,
+                "id": "piece-10",
+                "mod": "NM",
+                "outcome": "WON",
+                "owner": "RED",
+                "selectedBy": "RED",
+                "sourcePoolSlotID": "NM-14"
+              },
+              "row": 2,
+              "zone": "HR"
+            },
+            {
+              "cell": "C3",
+              "col": 2,
+              "piece": null,
+              "row": 2,
+              "zone": "DT"
+            },
+            {
+              "cell": "D3",
+              "col": 3,
+              "piece": null,
+              "row": 2,
+              "zone": "DT"
+            },
+            {
+              "cell": "A4",
+              "col": 0,
+              "piece": null,
+              "row": 3,
+              "zone": "HR"
+            },
+            {
+              "cell": "B4",
+              "col": 1,
+              "piece": null,
+              "row": 3,
+              "zone": "HR"
+            },
+            {
+              "cell": "C4",
+              "col": 2,
+              "piece": null,
+              "row": 3,
+              "zone": "DT"
+            },
+            {
+              "cell": "D4",
+              "col": 3,
+              "piece": null,
+              "row": 3,
+              "zone": "DT"
+            }
+          ]
+        },
+        "firstBan": "RED",
+        "firstPick": "BLUE",
+        "lifecycle": "RUNNING",
+        "pendingPieceID": null,
+        "pendingTBRequest": null,
+        "phase": "TB_PLAYING",
+        "poolSlots": [
+          {
+            "id": "DT-1",
+            "mod": "DT",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "FM-1",
+            "mod": "FM",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "HD-1",
+            "mod": "HD",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "HR-1",
+            "mod": "HR",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "NM-1",
+            "mod": "NM",
+            "state": "BANNED"
+          },
+          {
+            "id": "NM-10",
+            "mod": "NM",
+            "state": "SELECTED"
+          },
+          {
+            "id": "NM-11",
+            "mod": "NM",
+            "state": "SELECTED"
+          },
+          {
+            "id": "NM-12",
+            "mod": "NM",
+            "state": "SELECTED"
+          },
+          {
+            "id": "NM-13",
+            "mod": "NM",
+            "state": "SELECTED"
+          },
+          {
+            "id": "NM-14",
+            "mod": "NM",
+            "state": "SELECTED"
+          },
+          {
+            "id": "NM-15",
+            "mod": "NM",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "NM-16",
+            "mod": "NM",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "NM-17",
+            "mod": "NM",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "NM-18",
+            "mod": "NM",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "NM-19",
+            "mod": "NM",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "NM-2",
+            "mod": "NM",
+            "state": "BANNED"
+          },
+          {
+            "id": "NM-20",
+            "mod": "NM",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "NM-3",
+            "mod": "NM",
+            "state": "BANNED"
+          },
+          {
+            "id": "NM-4",
+            "mod": "NM",
+            "state": "BANNED"
+          },
+          {
+            "id": "NM-5",
+            "mod": "NM",
+            "state": "SELECTED"
+          },
+          {
+            "id": "NM-6",
+            "mod": "NM",
+            "state": "SELECTED"
+          },
+          {
+            "id": "NM-7",
+            "mod": "NM",
+            "state": "SELECTED"
+          },
+          {
+            "id": "NM-8",
+            "mod": "NM",
+            "state": "SELECTED"
+          },
+          {
+            "id": "NM-9",
+            "mod": "NM",
+            "state": "SELECTED"
+          },
+          {
+            "id": "SHIRO-1",
+            "mod": "SHIRO",
+            "state": "AVAILABLE"
+          },
+          {
+            "id": "TB-1",
+            "mod": "TB",
+            "state": "AVAILABLE"
+          }
+        ],
+        "result": null,
+        "robberyUsed": {
+          "blue": false,
+          "red": false
+        },
+        "rosters": {
+          "blue": {
+            "leaderID": "2001",
+            "playerIDs": [
+              "2001",
+              "2002",
+              "2003",
+              "2004",
+              "2005",
+              "2006",
+              "2007",
+              "2008"
+            ]
+          },
+          "red": {
+            "leaderID": "1001",
+            "playerIDs": [
+              "1001",
+              "1002",
+              "1003",
+              "1004",
+              "1005",
+              "1006",
+              "1007",
+              "1008"
+            ]
+          }
+        },
+        "stalemate": null,
+        "tbEntry": {
+          "basis": "CAPTAIN_AGREEMENT",
+          "requestID": "fixture-tb",
+          "requestedBy": "RED"
+        },
+        "teamPauseUsed": {
+          "blue": false,
+          "red": false
+        },
+        "timer": {
+          "durationMilliseconds": 0,
+          "paused": false,
+          "remainingAtPauseMilliseconds": null,
+          "startedAt": null
+        },
+        "turn": 11,
+        "version": "28",
+        "winner": null,
+        "wonCounts": {
+          "blue": 4,
+          "red": 6
+        }
+      },
+      "spectatorView": {
+        "activeTeam": null,
+        "currentPhase": "TB_PLAYING",
+        "lifecycle": "RUNNING",
+        "turnNumber": 11,
+        "wonCounts": {
+          "blue": 4,
+          "red": 6
+        }
+      }
+    }
+  }
+}

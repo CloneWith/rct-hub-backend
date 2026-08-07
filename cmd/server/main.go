@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fatih/color"
 	"go.uber.org/zap"
 
 	"rctHubBackend/internal/config"
@@ -20,7 +19,7 @@ import (
 )
 
 func main() {
-	color.Blue("=== RCT backend server ===")
+	fmt.Println("=== RCT backend server ===")
 
 	cfg, err := config.Load()
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"rctHubBackend/internal/matchengine"
 	"strconv"
 	"time"
 )
@@ -16,7 +17,7 @@ type Announcement struct {
 	Visible     bool       `json:"visible"`
 	Title       string     `json:"title"`
 	Content     string     `json:"content"`
-	AuthorID    int        `json:"authorID"`
+	AuthorID    string     `json:"authorID"`
 	Author      *User      `json:"author,omitempty"`
 	PublishedAt *time.Time `json:"publishedAt,omitempty"`
 	CreatedAt   time.Time  `json:"createdAt"`
@@ -32,22 +33,15 @@ type AnnouncementPage struct {
 }
 
 type AuditEntry struct {
-	ActionID         string    `json:"actionId"`
-	MatchID          string    `json:"matchId"`
-	Sequence         int       `json:"sequence"`
-	ActorID          int       `json:"actorId"`
-	ActorRole        UserRole  `json:"actorRole"`
-	CommandType      string    `json:"commandType"`
-	PreviousVersion  int       `json:"previousVersion"`
-	ResultingVersion int       `json:"resultingVersion"`
-	Timestamp        time.Time `json:"timestamp"`
-	IsAdminOverride  bool      `json:"isAdminOverride"`
-	Reason           *string   `json:"reason,omitempty"`
-}
-
-type BPOrder struct {
-	FirstPick TeamSide `json:"firstPick"`
-	FirstBan  TeamSide `json:"firstBan"`
+	ActionID         string             `json:"actionId"`
+	MatchID          string             `json:"matchId"`
+	Sequence         string             `json:"sequence"`
+	Actor            *MatchCommandActor `json:"actor"`
+	CommandType      string             `json:"commandType"`
+	PreviousVersion  string             `json:"previousVersion"`
+	ResultingVersion string             `json:"resultingVersion"`
+	Timestamp        time.Time          `json:"timestamp"`
+	Reason           *string            `json:"reason,omitempty"`
 }
 
 type BanPoolSlotInput struct {
@@ -57,13 +51,13 @@ type BanPoolSlotInput struct {
 
 type Beatmap struct {
 	ID                string    `json:"id"`
-	OnlineID          int       `json:"onlineID"`
-	BeatmapsetID      int       `json:"beatmapsetID"`
+	OnlineID          string    `json:"onlineID"`
+	BeatmapsetID      string    `json:"beatmapsetID"`
 	Title             string    `json:"title"`
 	Artist            string    `json:"artist"`
 	DifficultyName    string    `json:"difficultyName"`
 	Status            string    `json:"status"`
-	AuthorID          int       `json:"authorID"`
+	AuthorID          string    `json:"authorID"`
 	Author            *User     `json:"author,omitempty"`
 	RulesetID         int       `json:"rulesetID"`
 	StarRating        float64   `json:"starRating"`
@@ -76,9 +70,9 @@ type Beatmap struct {
 	CoverURL          string    `json:"coverURL"`
 	ModString         string    `json:"modString"`
 	ModIndex          int       `json:"modIndex"`
-	SelectorID        *int      `json:"selectorID,omitempty"`
+	SelectorID        *string   `json:"selectorID,omitempty"`
 	Selector          *User     `json:"selector,omitempty"`
-	CreditUserIDs     []int     `json:"creditUserIDs"`
+	CreditUserIDs     []string  `json:"creditUserIDs"`
 	Credits           []*User   `json:"credits"`
 	Skill             *string   `json:"skill,omitempty"`
 	Comment           *string   `json:"comment,omitempty"`
@@ -95,58 +89,20 @@ type BeatmapPage struct {
 	TotalPages int        `json:"totalPages"`
 }
 
-type Board struct {
-	Rows  int            `json:"rows"`
-	Cols  int            `json:"cols"`
-	Cells [][]*BoardCell `json:"cells"`
-}
-
-type BoardCell struct {
-	Position *Position `json:"position"`
-	Zone     BoardZone `json:"zone"`
-	State    string    `json:"state"`
-	PieceID  *string   `json:"pieceID,omitempty"`
-	TeamID   *string   `json:"teamID,omitempty"`
-}
-
-type BoardRenderData struct {
-	Cells            [][]*CellRender `json:"cells"`
-	LastChangedCells []*Position     `json:"lastChangedCells"`
-}
-
-type BoardSummary struct {
-	Cells [][]*CellSummary `json:"cells"`
-}
-
 type CalibrateTimerInput struct {
 	Meta                  *CommandMeta `json:"meta"`
 	RemainingMilliseconds int          `json:"remainingMilliseconds"`
 	Reason                string       `json:"reason"`
 }
 
-type CellRender struct {
-	Position *Position    `json:"position"`
-	Zone     BoardZone    `json:"zone"`
-	Piece    *PieceRender `json:"piece,omitempty"`
-}
-
-type CellSummary struct {
-	Position *Position     `json:"position"`
-	Piece    *PieceSummary `json:"piece,omitempty"`
-}
-
-type ClientConnection struct {
-	UserID      int        `json:"userID"`
-	Username    string     `json:"username"`
-	Role        UserRole   `json:"role"`
-	TeamSide    *TeamSide  `json:"teamSide,omitempty"`
-	IsConnected bool       `json:"isConnected"`
-	LastSeenAt  *time.Time `json:"lastSeenAt,omitempty"`
+type CaptainView struct {
+	MyTeam   TeamSide            `json:"myTeam"`
+	Analysis *MatchActorAnalysis `json:"analysis"`
 }
 
 type CommandMeta struct {
 	MatchID         string `json:"matchId"`
-	ExpectedVersion int    `json:"expectedVersion"`
+	ExpectedVersion string `json:"expectedVersion"`
 	CommandID       string `json:"commandId"`
 }
 
@@ -161,10 +117,63 @@ type ConfirmTbResultInput struct {
 	WinningTeam TeamSide     `json:"winningTeam"`
 }
 
-type DomainEventSnapshot struct {
-	Type      string         `json:"type"`
-	Payload   map[string]any `json:"payload"`
-	Timestamp time.Time      `json:"timestamp"`
+type FormalBoard struct {
+	Cells []*FormalBoardCell `json:"cells"`
+}
+
+type FormalBoardCell struct {
+	Cell  string            `json:"cell"`
+	Row   int               `json:"row"`
+	Col   int               `json:"col"`
+	Zone  FormalBoardZone   `json:"zone"`
+	Piece *FormalBoardPiece `json:"piece,omitempty"`
+}
+
+type FormalBoardPiece struct {
+	ID               string            `json:"id"`
+	SourcePoolSlotID string            `json:"sourcePoolSlotID"`
+	Mod              PieceMod          `json:"mod"`
+	ForceMod         *ForceMod         `json:"forceMod,omitempty"`
+	SelectedBy       TeamSide          `json:"selectedBy"`
+	Owner            *TeamSide         `json:"owner,omitempty"`
+	Outcome          BoardPieceOutcome `json:"outcome"`
+}
+
+type FormalMatchResult struct {
+	Winner              TeamSide          `json:"winner"`
+	Reason              MatchResultReason `json:"reason"`
+	SurrenderingTeam    *TeamSide         `json:"surrenderingTeam,omitempty"`
+	ConfirmingPlayerIDs []string          `json:"confirmingPlayerIDs"`
+	WonCounts           *TeamCounts       `json:"wonCounts"`
+}
+
+type FormalPoolSlot struct {
+	ID    string        `json:"id"`
+	Mod   PieceMod      `json:"mod"`
+	State PoolSlotState `json:"state"`
+}
+
+type FormalRoster struct {
+	LeaderID  string   `json:"leaderID"`
+	PlayerIDs []string `json:"playerIDs"`
+}
+
+type FormalRosters struct {
+	Red  *FormalRoster `json:"red"`
+	Blue *FormalRoster `json:"blue"`
+}
+
+type FormalTimer struct {
+	StartedAt                    *time.Time `json:"startedAt,omitempty"`
+	DurationMilliseconds         int        `json:"durationMilliseconds"`
+	Paused                       bool       `json:"paused"`
+	RemainingAtPauseMilliseconds *int       `json:"remainingAtPauseMilliseconds,omitempty"`
+}
+
+type LegalPlacement struct {
+	PoolSlotID string    `json:"poolSlotID"`
+	Cell       string    `json:"cell"`
+	ForceMod   *ForceMod `json:"forceMod,omitempty"`
 }
 
 type Mappool struct {
@@ -172,59 +181,87 @@ type Mappool struct {
 }
 
 type Match struct {
-	ID             string          `json:"id"`
-	Code           string          `json:"code"`
-	Name           string          `json:"name"`
-	RoomType       RoomType        `json:"roomType"`
-	RoomID         string          `json:"roomID"`
-	Status         MatchStatus     `json:"status"`
-	Phase          *MatchPhase     `json:"phase,omitempty"`
-	ActiveTeam     *TeamSide       `json:"activeTeam,omitempty"`
-	Board          *Board          `json:"board,omitempty"`
-	Pool           *Mappool        `json:"pool,omitempty"`
-	Teams          *MatchTeams     `json:"teams"`
-	BpOrder        *BPOrder        `json:"bpOrder,omitempty"`
-	TurnState      *TurnState      `json:"turnState,omitempty"`
-	Timer          *TimerState     `json:"timer,omitempty"`
-	Result         *MatchResult    `json:"result,omitempty"`
-	Moves          []*Move         `json:"moves"`
-	RecentMove     *Move           `json:"recentMove,omitempty"`
-	Room           *Room           `json:"room,omitempty"`
-	StrategistView *StrategistView `json:"strategistView"`
-	SpectatorView  *SpectatorView  `json:"spectatorView"`
-	OverlayView    *OverlayView    `json:"overlayView"`
-	RefereeView    *RefereeView    `json:"refereeView"`
-	CreatedAt      time.Time       `json:"createdAt"`
-	StartedAt      *time.Time      `json:"startedAt,omitempty"`
-	FinishedAt     *time.Time      `json:"finishedAt,omitempty"`
-	UpdatedAt      time.Time       `json:"updatedAt"`
+	ID             string                   `json:"id"`
+	Code           string                   `json:"code"`
+	Name           string                   `json:"name"`
+	RoomType       RoomType                 `json:"roomType"`
+	RoomID         string                   `json:"roomID"`
+	Room           *Room                    `json:"room,omitempty"`
+	Pool           []*MatchPoolSlotMetadata `json:"pool"`
+	StrategistView *StrategistView          `json:"strategistView,omitempty"`
+	CaptainView    *CaptainView             `json:"captainView,omitempty"`
+	SpectatorView  *SpectatorView           `json:"spectatorView"`
+	OverlayView    *OverlayView             `json:"overlayView"`
+	RefereeView    *RefereeView             `json:"refereeView,omitempty"`
+	CreatedAt      time.Time                `json:"createdAt"`
+	Snapshot       *MatchSnapshot           `json:"snapshot"`
+	// Authoritative state captured with this GraphQL object; never exposed directly.
+	State matchengine.State `json:"-"`
+}
+
+type MatchActorAnalysis struct {
+	AllowedActions     []MatchAction     `json:"allowedActions"`
+	BanPoolSlotIDs     []string          `json:"banPoolSlotIDs"`
+	LegalPlacements    []*LegalPlacement `json:"legalPlacements"`
+	ShiroCells         []string          `json:"shiroCells"`
+	RobberyPlans       []*RobberyPlan    `json:"robberyPlans"`
+	PendingTBRequestID *string           `json:"pendingTBRequestID,omitempty"`
+	CanAcceptTBRequest bool              `json:"canAcceptTBRequest"`
+	CanRejectTBRequest bool              `json:"canRejectTBRequest"`
+	TbRequestTeams     []TeamSide        `json:"tbRequestTeams"`
+	TbResponseTeams    []TeamSide        `json:"tbResponseTeams"`
+}
+
+type MatchCommandActor struct {
+	OsuID           string               `json:"osuID"`
+	Capability      MatchActorCapability `json:"capability"`
+	Team            *TeamSide            `json:"team,omitempty"`
+	AdminOverride   bool                 `json:"adminOverride"`
+	RefereeOverride bool                 `json:"refereeOverride"`
 }
 
 type MatchCommandEvent struct {
-	EventID          string         `json:"eventId"`
-	Sequence         int            `json:"sequence"`
-	ResultingVersion int            `json:"resultingVersion"`
-	Type             string         `json:"type"`
-	OccurredAt       time.Time      `json:"occurredAt"`
-	Payload          map[string]any `json:"payload"`
+	EventID          string             `json:"eventId"`
+	SchemaVersion    int                `json:"schemaVersion"`
+	AggregateID      string             `json:"aggregateId"`
+	AggregateType    string             `json:"aggregateType"`
+	Sequence         string             `json:"sequence"`
+	ResultingVersion string             `json:"resultingVersion"`
+	Type             MatchEventType     `json:"type"`
+	OccurredAt       time.Time          `json:"occurredAt"`
+	Actor            *MatchCommandActor `json:"actor"`
+	Fact             *MatchEventFact    `json:"fact"`
 }
 
 type MatchCommandResult struct {
-	Success          bool                 `json:"success"`
-	CommandID        string               `json:"commandId"`
-	Disposition      *string              `json:"disposition,omitempty"`
-	PreviousVersion  *int                 `json:"previousVersion,omitempty"`
-	ResultingVersion *int                 `json:"resultingVersion,omitempty"`
-	CurrentVersion   *int                 `json:"currentVersion,omitempty"`
-	State            map[string]any       `json:"state,omitempty"`
-	Events           []*MatchCommandEvent `json:"events"`
-	Error            *MatchError          `json:"error,omitempty"`
+	Success          bool                     `json:"success"`
+	CommandID        string                   `json:"commandId"`
+	Disposition      *MatchCommandDisposition `json:"disposition,omitempty"`
+	PreviousVersion  *string                  `json:"previousVersion,omitempty"`
+	ResultingVersion *string                  `json:"resultingVersion,omitempty"`
+	CurrentVersion   *string                  `json:"currentVersion,omitempty"`
+	Snapshot         *MatchSnapshot           `json:"snapshot,omitempty"`
+	Events           []*MatchCommandEvent     `json:"events"`
+	Error            *MatchError              `json:"error,omitempty"`
 }
 
 type MatchError struct {
-	Code           string `json:"code"`
-	Message        string `json:"message"`
-	CurrentVersion *int   `json:"currentVersion,omitempty"`
+	Code           MatchErrorCode `json:"code"`
+	Message        string         `json:"message"`
+	CurrentVersion *string        `json:"currentVersion,omitempty"`
+}
+
+type MatchEventFact struct {
+	Team                 *TeamSide `json:"team,omitempty"`
+	PoolSlotID           *string   `json:"poolSlotID,omitempty"`
+	BoardPieceID         *string   `json:"boardPieceID,omitempty"`
+	BoardPieceIDs        []string  `json:"boardPieceIDs"`
+	Cell                 *string   `json:"cell,omitempty"`
+	DurationMilliseconds *int      `json:"durationMilliseconds,omitempty"`
+	Reason               *string   `json:"reason,omitempty"`
+	RequestID            *string   `json:"requestID,omitempty"`
+	TbBasis              *TBBasis  `json:"tbBasis,omitempty"`
+	PlayerIDs            []string  `json:"playerIDs"`
 }
 
 type MatchPage struct {
@@ -235,72 +272,51 @@ type MatchPage struct {
 	TotalPages int      `json:"totalPages"`
 }
 
-type MatchResult struct {
-	ID         string              `json:"id"`
-	MatchID    string              `json:"matchID"`
-	RoomID     string              `json:"roomID"`
-	Winner     *TeamSide           `json:"winner,omitempty"`
-	WinReason  WinReason           `json:"winReason"`
-	Scores     []*TeamScore        `json:"scores"`
-	WonPieces  map[string]any      `json:"wonPieces,omitempty"`
-	Alignments []*WinningAlignment `json:"alignments"`
-	Summary    *string             `json:"summary,omitempty"`
-	CreatedAt  time.Time           `json:"createdAt"`
-	UpdatedAt  time.Time           `json:"updatedAt"`
+type MatchPoolSlotMetadata struct {
+	PoolSlotID string   `json:"poolSlotID"`
+	BeatmapID  *string  `json:"beatmapID,omitempty"`
+	Beatmap    *Beatmap `json:"beatmap,omitempty"`
 }
 
-type MatchTeams struct {
-	Red  *Team `json:"red"`
-	Blue *Team `json:"blue"`
-}
-
-type Move struct {
-	ID         string       `json:"id"`
-	MatchID    string       `json:"matchID"`
-	RoomID     string       `json:"roomID"`
-	Type       MoveType     `json:"type"`
-	TeamSide   *TeamSide    `json:"teamSide,omitempty"`
-	OperatorID int          `json:"operatorID"`
-	Operator   *User        `json:"operator,omitempty"`
-	Slot       *PoolSlot    `json:"slot,omitempty"`
-	From       *Position    `json:"from,omitempty"`
-	To         *Position    `json:"to,omitempty"`
-	ForceMod   *string      `json:"forceMod,omitempty"`
-	RedScore   *PlayerScore `json:"redScore,omitempty"`
-	BlueScore  *PlayerScore `json:"blueScore,omitempty"`
-	Comment    string       `json:"comment"`
-	CreatedAt  time.Time    `json:"createdAt"`
+type MatchSnapshot struct {
+	Version          string             `json:"version"`
+	Lifecycle        MatchLifecycle     `json:"lifecycle"`
+	Phase            FormalMatchPhase   `json:"phase"`
+	FirstBan         TeamSide           `json:"firstBan"`
+	FirstPick        TeamSide           `json:"firstPick"`
+	Turn             int                `json:"turn"`
+	ActiveTeam       *TeamSide          `json:"activeTeam,omitempty"`
+	PoolSlots        []*FormalPoolSlot  `json:"poolSlots"`
+	Board            *FormalBoard       `json:"board"`
+	WonCounts        *TeamCounts        `json:"wonCounts"`
+	Timer            *FormalTimer       `json:"timer"`
+	RobberyUsed      *TeamFlags         `json:"robberyUsed"`
+	TeamPauseUsed    *TeamFlags         `json:"teamPauseUsed"`
+	Rosters          *FormalRosters     `json:"rosters"`
+	PendingPieceID   *string            `json:"pendingPieceID,omitempty"`
+	PendingTBRequest *PendingTBRequest  `json:"pendingTBRequest,omitempty"`
+	TbEntry          *TBEntry           `json:"tbEntry,omitempty"`
+	Winner           *TeamSide          `json:"winner,omitempty"`
+	Result           *FormalMatchResult `json:"result,omitempty"`
+	Stalemate        *StalemateEvidence `json:"stalemate,omitempty"`
 }
 
 type Mutation struct {
 }
 
 type OverlayView struct {
-	Board     *BoardRenderData     `json:"board"`
-	Scores    *TeamScores          `json:"scores"`
-	Timer     *TimerDisplay        `json:"timer"`
-	LastEvent *DomainEventSnapshot `json:"lastEvent,omitempty"`
+	Board      *FormalBoard     `json:"board"`
+	WonCounts  *TeamCounts      `json:"wonCounts"`
+	Timer      *FormalTimer     `json:"timer"`
+	Lifecycle  MatchLifecycle   `json:"lifecycle"`
+	Phase      FormalMatchPhase `json:"phase"`
+	ActiveTeam *TeamSide        `json:"activeTeam,omitempty"`
 }
 
-type Piece struct {
-	BeatmapID *int       `json:"beatmapID,omitempty"`
-	State     PieceState `json:"state"`
-	TeamID    *string    `json:"teamID,omitempty"`
-	ForceMod  *string    `json:"forceMod,omitempty"`
-	Position  *Position  `json:"position,omitempty"`
-}
-
-type PieceRender struct {
-	Mod          PieceMod   `json:"mod"`
-	State        PieceState `json:"state"`
-	Owner        *TeamSide  `json:"owner,omitempty"`
-	BeatmapCover *string    `json:"beatmapCover,omitempty"`
-}
-
-type PieceSummary struct {
-	Mod   PieceMod   `json:"mod"`
-	State PieceState `json:"state"`
-	Owner *TeamSide  `json:"owner,omitempty"`
+type PendingTBRequest struct {
+	ID          string   `json:"id"`
+	RequestedBy TeamSide `json:"requestedBy"`
+	Basis       TBBasis  `json:"basis"`
 }
 
 type PlacePieceInput struct {
@@ -314,17 +330,10 @@ type PlaceShiroInput struct {
 	Position *PositionInput `json:"position"`
 }
 
-type PlayerScore struct {
-	UserID   int     `json:"userID"`
-	Score    int     `json:"score"`
-	Accuracy float64 `json:"accuracy"`
-	Combo    int     `json:"combo"`
-}
-
 type PoolSlot struct {
 	Mod       PieceMod   `json:"mod"`
 	Index     int        `json:"index"`
-	BeatmapID *int       `json:"beatmapID,omitempty"`
+	BeatmapID *string    `json:"beatmapID,omitempty"`
 	Beatmap   *Beatmap   `json:"beatmap,omitempty"`
 	State     PieceState `json:"state"`
 	TeamID    *string    `json:"teamID,omitempty"`
@@ -358,7 +367,7 @@ type ReasonCommandInput struct {
 type RecordSurrenderInput struct {
 	Meta                *CommandMeta `json:"meta"`
 	SurrenderingTeam    TeamSide     `json:"surrenderingTeam"`
-	ConfirmingPlayerIds []int        `json:"confirmingPlayerIds"`
+	ConfirmingPlayerIds []string     `json:"confirmingPlayerIds"`
 	Reason              string       `json:"reason"`
 }
 
@@ -408,13 +417,12 @@ type RefereeRobPieceInput struct {
 }
 
 type RefereeView struct {
-	Board            *Board              `json:"board"`
-	Pool             *Mappool            `json:"pool"`
-	Teams            *MatchTeams         `json:"teams"`
-	TurnState        *TurnState          `json:"turnState"`
-	Timer            *TimerState         `json:"timer"`
+	MatchID          string              `json:"matchID"`
+	Snapshot         *MatchSnapshot      `json:"snapshot"`
+	Analysis         *MatchActorAnalysis `json:"analysis"`
+	SuspensionReason *string             `json:"suspensionReason,omitempty"`
+	AbortReason      *string             `json:"abortReason,omitempty"`
 	AuditLog         []*AuditEntry       `json:"auditLog"`
-	ConnectionStatus []*ClientConnection `json:"connectionStatus"`
 }
 
 type RequestTbInput struct {
@@ -434,12 +442,17 @@ type RobPieceInput struct {
 	SacrificeSets [][]string   `json:"sacrificeSets"`
 }
 
+type RobberyPlan struct {
+	TargetPieceID string     `json:"targetPieceID"`
+	SacrificeSets [][]string `json:"sacrificeSets"`
+}
+
 type Room struct {
 	ID        string        `json:"id"`
 	Code      string        `json:"code"`
 	Name      string        `json:"name"`
 	Type      RoomType      `json:"type"`
-	OwnerID   int           `json:"ownerID"`
+	OwnerID   string        `json:"ownerID"`
 	Owner     *User         `json:"owner,omitempty"`
 	Settings  *RoomSettings `json:"settings"`
 	MatchID   *string       `json:"matchID,omitempty"`
@@ -457,105 +470,61 @@ type RoomPage struct {
 }
 
 type RoomSettings struct {
-	RedStrategistUserID  *int      `json:"redStrategistUserID,omitempty"`
+	RedStrategistUserID  *string   `json:"redStrategistUserID,omitempty"`
 	RedStrategist        *User     `json:"redStrategist,omitempty"`
-	BlueStrategistUserID *int      `json:"blueStrategistUserID,omitempty"`
+	BlueStrategistUserID *string   `json:"blueStrategistUserID,omitempty"`
 	BlueStrategist       *User     `json:"blueStrategist,omitempty"`
-	StreamerUserID       *int      `json:"streamerUserID,omitempty"`
+	StreamerUserID       *string   `json:"streamerUserID,omitempty"`
 	Streamer             *User     `json:"streamer,omitempty"`
 	Mappool              *Mappool  `json:"mappool"`
 	FirstPick            *TeamSide `json:"firstPick,omitempty"`
 	FirstBan             *TeamSide `json:"firstBan,omitempty"`
-	RedPlayers           []int     `json:"redPlayers"`
-	BluePlayers          []int     `json:"bluePlayers"`
-	RedLeader            *int      `json:"redLeader,omitempty"`
-	BlueLeader           *int      `json:"blueLeader,omitempty"`
+	RedPlayers           []string  `json:"redPlayers"`
+	BluePlayers          []string  `json:"bluePlayers"`
+	RedLeader            *string   `json:"redLeader,omitempty"`
+	BlueLeader           *string   `json:"blueLeader,omitempty"`
 	MpLink               *string   `json:"mpLink,omitempty"`
 	StreamLink           *string   `json:"streamLink,omitempty"`
 }
 
 type SpectatorView struct {
-	Board        *BoardSummary `json:"board"`
-	Scores       *TeamScores   `json:"scores"`
-	CurrentPhase MatchPhase    `json:"currentPhase"`
-	ActiveTeam   *TeamSide     `json:"activeTeam,omitempty"`
-	TurnNumber   *int          `json:"turnNumber,omitempty"`
-	RecentMoves  []*Move       `json:"recentMoves"`
+	Board        *FormalBoard     `json:"board"`
+	WonCounts    *TeamCounts      `json:"wonCounts"`
+	CurrentPhase FormalMatchPhase `json:"currentPhase"`
+	ActiveTeam   *TeamSide        `json:"activeTeam,omitempty"`
+	TurnNumber   int              `json:"turnNumber"`
+	Lifecycle    MatchLifecycle   `json:"lifecycle"`
+}
+
+type StalemateEvidence struct {
+	WonCounts *TeamCounts `json:"wonCounts"`
 }
 
 type StrategistView struct {
-	IsMyTurn             bool       `json:"isMyTurn"`
-	MyTeam               *TeamSide  `json:"myTeam,omitempty"`
-	AllowedActions       []string   `json:"allowedActions"`
-	DisallowedActions    []string   `json:"disallowedActions"`
-	SelectablePoolSlots  []string   `json:"selectablePoolSlots"`
-	SelectableBoardCells []string   `json:"selectableBoardCells"`
-	Timer                *TimerInfo `json:"timer"`
-	RobberyInProgress    bool       `json:"robberyInProgress"`
+	IsMyTurn bool                `json:"isMyTurn"`
+	MyTeam   TeamSide            `json:"myTeam"`
+	Analysis *MatchActorAnalysis `json:"analysis"`
 }
 
-type Team struct {
-	ID           string   `json:"id"`
-	Side         TeamSide `json:"side"`
-	Name         string   `json:"name"`
-	Description  string   `json:"description"`
-	Seed         string   `json:"seed"`
-	Color        string   `json:"color"`
-	LeaderID     *int     `json:"leaderID,omitempty"`
-	Leader       *User    `json:"leader,omitempty"`
-	StrategistID *int     `json:"strategistID,omitempty"`
-	Strategist   *User    `json:"strategist,omitempty"`
-	Players      []int    `json:"players"`
-	PlayerUsers  []*User  `json:"playerUsers"`
+type TBEntry struct {
+	Basis       TBBasis   `json:"basis"`
+	RequestID   *string   `json:"requestID,omitempty"`
+	RequestedBy *TeamSide `json:"requestedBy,omitempty"`
 }
 
-type TeamScore struct {
-	TeamSide TeamSide `json:"teamSide"`
-	Score    int      `json:"score"`
-}
-
-type TeamScores struct {
+type TeamCounts struct {
 	Red  int `json:"red"`
 	Blue int `json:"blue"`
 }
 
-type TimerDisplay struct {
-	RemainingSeconds int  `json:"remainingSeconds"`
-	IsPaused         bool `json:"isPaused"`
-	IsWarning        bool `json:"isWarning"`
-}
-
-type TimerInfo struct {
-	StartedAt        time.Time `json:"startedAt"`
-	DurationSeconds  int       `json:"durationSeconds"`
-	RemainingSeconds int       `json:"remainingSeconds"`
-	IsPaused         bool      `json:"isPaused"`
-}
-
-type TimerState struct {
-	StartedAt        *time.Time `json:"startedAt,omitempty"`
-	TimeLimit        int        `json:"timeLimit"`
-	BonusTime        int        `json:"bonusTime"`
-	BonusUsed        bool       `json:"bonusUsed"`
-	IsPaused         bool       `json:"isPaused"`
-	PausedAt         *time.Time `json:"pausedAt,omitempty"`
-	RemainingAtPause *int       `json:"remainingAtPause,omitempty"`
-}
-
-type TurnState struct {
-	Phase      MatchPhase `json:"phase"`
-	Counter    int        `json:"counter"`
-	ActiveTeam *TeamSide  `json:"activeTeam,omitempty"`
-	Action     *string    `json:"action,omitempty"`
-	StartedAt  *time.Time `json:"startedAt,omitempty"`
-	TimeLimit  *int       `json:"timeLimit,omitempty"`
-	BonusTime  *int       `json:"bonusTime,omitempty"`
-	BonusUsed  bool       `json:"bonusUsed"`
+type TeamFlags struct {
+	Red  bool `json:"red"`
+	Blue bool `json:"blue"`
 }
 
 type User struct {
 	ID           string       `json:"id"`
-	OnlineID     int          `json:"onlineID"`
+	OnlineID     string       `json:"onlineID"`
 	Username     string       `json:"username"`
 	AvatarURL    string       `json:"avatarURL"`
 	CountryCode  string       `json:"countryCode"`
@@ -576,58 +545,52 @@ type UserPage struct {
 	TotalPages int     `json:"totalPages"`
 }
 
-type WinningAlignment struct {
-	Length    int         `json:"length"`
-	Positions []*Position `json:"positions"`
-	TeamID    string      `json:"teamID"`
-}
-
-type BoardZone string
+type BoardPieceOutcome string
 
 const (
-	BoardZoneNm BoardZone = "NM"
-	BoardZoneHd BoardZone = "HD"
-	BoardZoneHr BoardZone = "HR"
-	BoardZoneDt BoardZone = "DT"
+	BoardPieceOutcomeWaitingResult BoardPieceOutcome = "WAITING_RESULT"
+	BoardPieceOutcomeWon           BoardPieceOutcome = "WON"
+	BoardPieceOutcomeWhite         BoardPieceOutcome = "WHITE"
+	BoardPieceOutcomeDead          BoardPieceOutcome = "DEAD"
 )
 
-var AllBoardZone = []BoardZone{
-	BoardZoneNm,
-	BoardZoneHd,
-	BoardZoneHr,
-	BoardZoneDt,
+var AllBoardPieceOutcome = []BoardPieceOutcome{
+	BoardPieceOutcomeWaitingResult,
+	BoardPieceOutcomeWon,
+	BoardPieceOutcomeWhite,
+	BoardPieceOutcomeDead,
 }
 
-func (e BoardZone) IsValid() bool {
+func (e BoardPieceOutcome) IsValid() bool {
 	switch e {
-	case BoardZoneNm, BoardZoneHd, BoardZoneHr, BoardZoneDt:
+	case BoardPieceOutcomeWaitingResult, BoardPieceOutcomeWon, BoardPieceOutcomeWhite, BoardPieceOutcomeDead:
 		return true
 	}
 	return false
 }
 
-func (e BoardZone) String() string {
+func (e BoardPieceOutcome) String() string {
 	return string(e)
 }
 
-func (e *BoardZone) UnmarshalGQL(v any) error {
+func (e *BoardPieceOutcome) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
 	}
 
-	*e = BoardZone(str)
+	*e = BoardPieceOutcome(str)
 	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid BoardZone", str)
+		return fmt.Errorf("%s is not a valid BoardPieceOutcome", str)
 	}
 	return nil
 }
 
-func (e BoardZone) MarshalGQL(w io.Writer) {
+func (e BoardPieceOutcome) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
-func (e *BoardZone) UnmarshalJSON(b []byte) error {
+func (e *BoardPieceOutcome) UnmarshalJSON(b []byte) error {
 	s, err := strconv.Unquote(string(b))
 	if err != nil {
 		return err
@@ -635,64 +598,56 @@ func (e *BoardZone) UnmarshalJSON(b []byte) error {
 	return e.UnmarshalGQL(s)
 }
 
-func (e BoardZone) MarshalJSON() ([]byte, error) {
+func (e BoardPieceOutcome) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
 }
 
-type MatchPhase string
+type ForceMod string
 
 const (
-	MatchPhaseSetup MatchPhase = "SETUP"
-	MatchPhaseRoll  MatchPhase = "ROLL"
-	MatchPhaseBan   MatchPhase = "BAN"
-	MatchPhasePick  MatchPhase = "PICK"
-	MatchPhaseWin   MatchPhase = "WIN"
-	MatchPhaseTb    MatchPhase = "TB"
-	MatchPhaseEnded MatchPhase = "ENDED"
+	ForceModNm ForceMod = "NM"
+	ForceModHd ForceMod = "HD"
+	ForceModHr ForceMod = "HR"
 )
 
-var AllMatchPhase = []MatchPhase{
-	MatchPhaseSetup,
-	MatchPhaseRoll,
-	MatchPhaseBan,
-	MatchPhasePick,
-	MatchPhaseWin,
-	MatchPhaseTb,
-	MatchPhaseEnded,
+var AllForceMod = []ForceMod{
+	ForceModNm,
+	ForceModHd,
+	ForceModHr,
 }
 
-func (e MatchPhase) IsValid() bool {
+func (e ForceMod) IsValid() bool {
 	switch e {
-	case MatchPhaseSetup, MatchPhaseRoll, MatchPhaseBan, MatchPhasePick, MatchPhaseWin, MatchPhaseTb, MatchPhaseEnded:
+	case ForceModNm, ForceModHd, ForceModHr:
 		return true
 	}
 	return false
 }
 
-func (e MatchPhase) String() string {
+func (e ForceMod) String() string {
 	return string(e)
 }
 
-func (e *MatchPhase) UnmarshalGQL(v any) error {
+func (e *ForceMod) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
 	}
 
-	*e = MatchPhase(str)
+	*e = ForceMod(str)
 	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid MatchPhase", str)
+		return fmt.Errorf("%s is not a valid ForceMod", str)
 	}
 	return nil
 }
 
-func (e MatchPhase) MarshalGQL(w io.Writer) {
+func (e ForceMod) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
-func (e *MatchPhase) UnmarshalJSON(b []byte) error {
+func (e *ForceMod) UnmarshalJSON(b []byte) error {
 	s, err := strconv.Unquote(string(b))
 	if err != nil {
 		return err
@@ -700,58 +655,56 @@ func (e *MatchPhase) UnmarshalJSON(b []byte) error {
 	return e.UnmarshalGQL(s)
 }
 
-func (e MatchPhase) MarshalJSON() ([]byte, error) {
+func (e ForceMod) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
 }
 
-type MatchStatus string
+type FormalBoardZone string
 
 const (
-	MatchStatusPending  MatchStatus = "PENDING"
-	MatchStatusActive   MatchStatus = "ACTIVE"
-	MatchStatusFinished MatchStatus = "FINISHED"
-	MatchStatusCanceled MatchStatus = "CANCELED"
+	FormalBoardZoneDt FormalBoardZone = "DT"
+	FormalBoardZoneHd FormalBoardZone = "HD"
+	FormalBoardZoneHr FormalBoardZone = "HR"
 )
 
-var AllMatchStatus = []MatchStatus{
-	MatchStatusPending,
-	MatchStatusActive,
-	MatchStatusFinished,
-	MatchStatusCanceled,
+var AllFormalBoardZone = []FormalBoardZone{
+	FormalBoardZoneDt,
+	FormalBoardZoneHd,
+	FormalBoardZoneHr,
 }
 
-func (e MatchStatus) IsValid() bool {
+func (e FormalBoardZone) IsValid() bool {
 	switch e {
-	case MatchStatusPending, MatchStatusActive, MatchStatusFinished, MatchStatusCanceled:
+	case FormalBoardZoneDt, FormalBoardZoneHd, FormalBoardZoneHr:
 		return true
 	}
 	return false
 }
 
-func (e MatchStatus) String() string {
+func (e FormalBoardZone) String() string {
 	return string(e)
 }
 
-func (e *MatchStatus) UnmarshalGQL(v any) error {
+func (e *FormalBoardZone) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
 	}
 
-	*e = MatchStatus(str)
+	*e = FormalBoardZone(str)
 	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid MatchStatus", str)
+		return fmt.Errorf("%s is not a valid FormalBoardZone", str)
 	}
 	return nil
 }
 
-func (e MatchStatus) MarshalGQL(w io.Writer) {
+func (e FormalBoardZone) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
-func (e *MatchStatus) UnmarshalJSON(b []byte) error {
+func (e *FormalBoardZone) UnmarshalJSON(b []byte) error {
 	s, err := strconv.Unquote(string(b))
 	if err != nil {
 		return err
@@ -759,74 +712,62 @@ func (e *MatchStatus) UnmarshalJSON(b []byte) error {
 	return e.UnmarshalGQL(s)
 }
 
-func (e MatchStatus) MarshalJSON() ([]byte, error) {
+func (e FormalBoardZone) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
 }
 
-type MoveType string
+type FormalMatchPhase string
 
 const (
-	MoveTypePick      MoveType = "PICK"
-	MoveTypeUnpick    MoveType = "UNPICK"
-	MoveTypeBan       MoveType = "BAN"
-	MoveTypeUnban     MoveType = "UNBAN"
-	MoveTypeClaim     MoveType = "CLAIM"
-	MoveTypeWin       MoveType = "WIN"
-	MoveTypeUnwin     MoveType = "UNWIN"
-	MoveTypeRob       MoveType = "ROB"
-	MoveTypeUnrob     MoveType = "UNROB"
-	MoveTypeDead      MoveType = "DEAD"
-	MoveTypeUndead    MoveType = "UNDEAD"
-	MoveTypeSurrender MoveType = "SURRENDER"
+	FormalMatchPhaseNone             FormalMatchPhase = "NONE"
+	FormalMatchPhaseBan              FormalMatchPhase = "BAN"
+	FormalMatchPhasePick             FormalMatchPhase = "PICK"
+	FormalMatchPhaseWaitingForResult FormalMatchPhase = "WAITING_FOR_RESULT"
+	FormalMatchPhaseTbPreparation    FormalMatchPhase = "TB_PREPARATION"
+	FormalMatchPhaseTbPlaying        FormalMatchPhase = "TB_PLAYING"
 )
 
-var AllMoveType = []MoveType{
-	MoveTypePick,
-	MoveTypeUnpick,
-	MoveTypeBan,
-	MoveTypeUnban,
-	MoveTypeClaim,
-	MoveTypeWin,
-	MoveTypeUnwin,
-	MoveTypeRob,
-	MoveTypeUnrob,
-	MoveTypeDead,
-	MoveTypeUndead,
-	MoveTypeSurrender,
+var AllFormalMatchPhase = []FormalMatchPhase{
+	FormalMatchPhaseNone,
+	FormalMatchPhaseBan,
+	FormalMatchPhasePick,
+	FormalMatchPhaseWaitingForResult,
+	FormalMatchPhaseTbPreparation,
+	FormalMatchPhaseTbPlaying,
 }
 
-func (e MoveType) IsValid() bool {
+func (e FormalMatchPhase) IsValid() bool {
 	switch e {
-	case MoveTypePick, MoveTypeUnpick, MoveTypeBan, MoveTypeUnban, MoveTypeClaim, MoveTypeWin, MoveTypeUnwin, MoveTypeRob, MoveTypeUnrob, MoveTypeDead, MoveTypeUndead, MoveTypeSurrender:
+	case FormalMatchPhaseNone, FormalMatchPhaseBan, FormalMatchPhasePick, FormalMatchPhaseWaitingForResult, FormalMatchPhaseTbPreparation, FormalMatchPhaseTbPlaying:
 		return true
 	}
 	return false
 }
 
-func (e MoveType) String() string {
+func (e FormalMatchPhase) String() string {
 	return string(e)
 }
 
-func (e *MoveType) UnmarshalGQL(v any) error {
+func (e *FormalMatchPhase) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
 	}
 
-	*e = MoveType(str)
+	*e = FormalMatchPhase(str)
 	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid MoveType", str)
+		return fmt.Errorf("%s is not a valid FormalMatchPhase", str)
 	}
 	return nil
 }
 
-func (e MoveType) MarshalGQL(w io.Writer) {
+func (e FormalMatchPhase) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
-func (e *MoveType) UnmarshalJSON(b []byte) error {
+func (e *FormalMatchPhase) UnmarshalJSON(b []byte) error {
 	s, err := strconv.Unquote(string(b))
 	if err != nil {
 		return err
@@ -834,7 +775,556 @@ func (e *MoveType) UnmarshalJSON(b []byte) error {
 	return e.UnmarshalGQL(s)
 }
 
-func (e MoveType) MarshalJSON() ([]byte, error) {
+func (e FormalMatchPhase) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MatchAction string
+
+const (
+	MatchActionStartMatch           MatchAction = "START_MATCH"
+	MatchActionBanPoolSlot          MatchAction = "BAN_POOL_SLOT"
+	MatchActionPlacePiece           MatchAction = "PLACE_PIECE"
+	MatchActionPlaceShiro           MatchAction = "PLACE_SHIRO"
+	MatchActionRobPiece             MatchAction = "ROB_PIECE"
+	MatchActionConfirmBeatmapResult MatchAction = "CONFIRM_BEATMAP_RESULT"
+	MatchActionGrantAdditionalTime  MatchAction = "GRANT_ADDITIONAL_TIME"
+	MatchActionCalibrateTimer       MatchAction = "CALIBRATE_TIMER"
+	MatchActionPauseTimer           MatchAction = "PAUSE_TIMER"
+	MatchActionResumeTimer          MatchAction = "RESUME_TIMER"
+	MatchActionSuspendMatch         MatchAction = "SUSPEND_MATCH"
+	MatchActionResumeMatch          MatchAction = "RESUME_MATCH"
+	MatchActionSkipCurrentAction    MatchAction = "SKIP_CURRENT_ACTION"
+	MatchActionAbortMatch           MatchAction = "ABORT_MATCH"
+	MatchActionRequestTb            MatchAction = "REQUEST_TB"
+	MatchActionRespondTbRequest     MatchAction = "RESPOND_TB_REQUEST"
+	MatchActionStartTb              MatchAction = "START_TB"
+	MatchActionConfirmTbResult      MatchAction = "CONFIRM_TB_RESULT"
+	MatchActionRecordSurrender      MatchAction = "RECORD_SURRENDER"
+)
+
+var AllMatchAction = []MatchAction{
+	MatchActionStartMatch,
+	MatchActionBanPoolSlot,
+	MatchActionPlacePiece,
+	MatchActionPlaceShiro,
+	MatchActionRobPiece,
+	MatchActionConfirmBeatmapResult,
+	MatchActionGrantAdditionalTime,
+	MatchActionCalibrateTimer,
+	MatchActionPauseTimer,
+	MatchActionResumeTimer,
+	MatchActionSuspendMatch,
+	MatchActionResumeMatch,
+	MatchActionSkipCurrentAction,
+	MatchActionAbortMatch,
+	MatchActionRequestTb,
+	MatchActionRespondTbRequest,
+	MatchActionStartTb,
+	MatchActionConfirmTbResult,
+	MatchActionRecordSurrender,
+}
+
+func (e MatchAction) IsValid() bool {
+	switch e {
+	case MatchActionStartMatch, MatchActionBanPoolSlot, MatchActionPlacePiece, MatchActionPlaceShiro, MatchActionRobPiece, MatchActionConfirmBeatmapResult, MatchActionGrantAdditionalTime, MatchActionCalibrateTimer, MatchActionPauseTimer, MatchActionResumeTimer, MatchActionSuspendMatch, MatchActionResumeMatch, MatchActionSkipCurrentAction, MatchActionAbortMatch, MatchActionRequestTb, MatchActionRespondTbRequest, MatchActionStartTb, MatchActionConfirmTbResult, MatchActionRecordSurrender:
+		return true
+	}
+	return false
+}
+
+func (e MatchAction) String() string {
+	return string(e)
+}
+
+func (e *MatchAction) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchAction(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchAction", str)
+	}
+	return nil
+}
+
+func (e MatchAction) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchAction) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchAction) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MatchActorCapability string
+
+const (
+	MatchActorCapabilityStrategist MatchActorCapability = "STRATEGIST"
+	MatchActorCapabilityCaptain    MatchActorCapability = "CAPTAIN"
+	MatchActorCapabilityReferee    MatchActorCapability = "REFEREE"
+)
+
+var AllMatchActorCapability = []MatchActorCapability{
+	MatchActorCapabilityStrategist,
+	MatchActorCapabilityCaptain,
+	MatchActorCapabilityReferee,
+}
+
+func (e MatchActorCapability) IsValid() bool {
+	switch e {
+	case MatchActorCapabilityStrategist, MatchActorCapabilityCaptain, MatchActorCapabilityReferee:
+		return true
+	}
+	return false
+}
+
+func (e MatchActorCapability) String() string {
+	return string(e)
+}
+
+func (e *MatchActorCapability) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchActorCapability(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchActorCapability", str)
+	}
+	return nil
+}
+
+func (e MatchActorCapability) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchActorCapability) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchActorCapability) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MatchCommandDisposition string
+
+const (
+	MatchCommandDispositionApplied  MatchCommandDisposition = "APPLIED"
+	MatchCommandDispositionReplayed MatchCommandDisposition = "REPLAYED"
+)
+
+var AllMatchCommandDisposition = []MatchCommandDisposition{
+	MatchCommandDispositionApplied,
+	MatchCommandDispositionReplayed,
+}
+
+func (e MatchCommandDisposition) IsValid() bool {
+	switch e {
+	case MatchCommandDispositionApplied, MatchCommandDispositionReplayed:
+		return true
+	}
+	return false
+}
+
+func (e MatchCommandDisposition) String() string {
+	return string(e)
+}
+
+func (e *MatchCommandDisposition) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchCommandDisposition(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchCommandDisposition", str)
+	}
+	return nil
+}
+
+func (e MatchCommandDisposition) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchCommandDisposition) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchCommandDisposition) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MatchErrorCode string
+
+const (
+	MatchErrorCodeInvalidRequest            MatchErrorCode = "INVALID_REQUEST"
+	MatchErrorCodeAuthRequired              MatchErrorCode = "AUTH_REQUIRED"
+	MatchErrorCodeUserNotVerified           MatchErrorCode = "USER_NOT_VERIFIED"
+	MatchErrorCodeUserBanned                MatchErrorCode = "USER_BANNED"
+	MatchErrorCodeGlobalRoleRequired        MatchErrorCode = "GLOBAL_ROLE_REQUIRED"
+	MatchErrorCodeRoomRoleRequired          MatchErrorCode = "ROOM_ROLE_REQUIRED"
+	MatchErrorCodeActionNotAllowed          MatchErrorCode = "ACTION_NOT_ALLOWED"
+	MatchErrorCodeResourceNotFound          MatchErrorCode = "RESOURCE_NOT_FOUND"
+	MatchErrorCodeMatchVersionConflict      MatchErrorCode = "MATCH_VERSION_CONFLICT"
+	MatchErrorCodeDuplicateCommandMismatch  MatchErrorCode = "DUPLICATE_COMMAND_MISMATCH"
+	MatchErrorCodeInternalError             MatchErrorCode = "INTERNAL_ERROR"
+	MatchErrorCodeMatchLifecycleConflict    MatchErrorCode = "MATCH_LIFECYCLE_CONFLICT"
+	MatchErrorCodeMatchPhaseConflict        MatchErrorCode = "MATCH_PHASE_CONFLICT"
+	MatchErrorCodeNotActiveTeam             MatchErrorCode = "NOT_ACTIVE_TEAM"
+	MatchErrorCodeInvalidPoolSlot           MatchErrorCode = "INVALID_POOL_SLOT"
+	MatchErrorCodePoolSlotUnavailable       MatchErrorCode = "POOL_SLOT_UNAVAILABLE"
+	MatchErrorCodeInvalidBoardCell          MatchErrorCode = "INVALID_BOARD_CELL"
+	MatchErrorCodeInvalidModZone            MatchErrorCode = "INVALID_MOD_ZONE"
+	MatchErrorCodeResultNotPending          MatchErrorCode = "RESULT_NOT_PENDING"
+	MatchErrorCodeTimerExpired              MatchErrorCode = "TIMER_EXPIRED"
+	MatchErrorCodeTimerPaused               MatchErrorCode = "TIMER_PAUSED"
+	MatchErrorCodeTeamPauseAlreadyUsed      MatchErrorCode = "TEAM_PAUSE_ALREADY_USED"
+	MatchErrorCodeRobberyNotAvailable       MatchErrorCode = "ROBBERY_NOT_AVAILABLE"
+	MatchErrorCodeRobberyRequirementsNotMet MatchErrorCode = "ROBBERY_REQUIREMENTS_NOT_MET"
+	MatchErrorCodeAlignmentOverlap          MatchErrorCode = "ALIGNMENT_OVERLAP"
+	MatchErrorCodeTbNotAvailable            MatchErrorCode = "TB_NOT_AVAILABLE"
+	MatchErrorCodeSurrenderEvidenceInvalid  MatchErrorCode = "SURRENDER_EVIDENCE_INVALID"
+)
+
+var AllMatchErrorCode = []MatchErrorCode{
+	MatchErrorCodeInvalidRequest,
+	MatchErrorCodeAuthRequired,
+	MatchErrorCodeUserNotVerified,
+	MatchErrorCodeUserBanned,
+	MatchErrorCodeGlobalRoleRequired,
+	MatchErrorCodeRoomRoleRequired,
+	MatchErrorCodeActionNotAllowed,
+	MatchErrorCodeResourceNotFound,
+	MatchErrorCodeMatchVersionConflict,
+	MatchErrorCodeDuplicateCommandMismatch,
+	MatchErrorCodeInternalError,
+	MatchErrorCodeMatchLifecycleConflict,
+	MatchErrorCodeMatchPhaseConflict,
+	MatchErrorCodeNotActiveTeam,
+	MatchErrorCodeInvalidPoolSlot,
+	MatchErrorCodePoolSlotUnavailable,
+	MatchErrorCodeInvalidBoardCell,
+	MatchErrorCodeInvalidModZone,
+	MatchErrorCodeResultNotPending,
+	MatchErrorCodeTimerExpired,
+	MatchErrorCodeTimerPaused,
+	MatchErrorCodeTeamPauseAlreadyUsed,
+	MatchErrorCodeRobberyNotAvailable,
+	MatchErrorCodeRobberyRequirementsNotMet,
+	MatchErrorCodeAlignmentOverlap,
+	MatchErrorCodeTbNotAvailable,
+	MatchErrorCodeSurrenderEvidenceInvalid,
+}
+
+func (e MatchErrorCode) IsValid() bool {
+	switch e {
+	case MatchErrorCodeInvalidRequest, MatchErrorCodeAuthRequired, MatchErrorCodeUserNotVerified, MatchErrorCodeUserBanned, MatchErrorCodeGlobalRoleRequired, MatchErrorCodeRoomRoleRequired, MatchErrorCodeActionNotAllowed, MatchErrorCodeResourceNotFound, MatchErrorCodeMatchVersionConflict, MatchErrorCodeDuplicateCommandMismatch, MatchErrorCodeInternalError, MatchErrorCodeMatchLifecycleConflict, MatchErrorCodeMatchPhaseConflict, MatchErrorCodeNotActiveTeam, MatchErrorCodeInvalidPoolSlot, MatchErrorCodePoolSlotUnavailable, MatchErrorCodeInvalidBoardCell, MatchErrorCodeInvalidModZone, MatchErrorCodeResultNotPending, MatchErrorCodeTimerExpired, MatchErrorCodeTimerPaused, MatchErrorCodeTeamPauseAlreadyUsed, MatchErrorCodeRobberyNotAvailable, MatchErrorCodeRobberyRequirementsNotMet, MatchErrorCodeAlignmentOverlap, MatchErrorCodeTbNotAvailable, MatchErrorCodeSurrenderEvidenceInvalid:
+		return true
+	}
+	return false
+}
+
+func (e MatchErrorCode) String() string {
+	return string(e)
+}
+
+func (e *MatchErrorCode) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchErrorCode(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchErrorCode", str)
+	}
+	return nil
+}
+
+func (e MatchErrorCode) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchErrorCode) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchErrorCode) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MatchEventType string
+
+const (
+	MatchEventTypeMatchStarted                MatchEventType = "MATCH_STARTED"
+	MatchEventTypeBanPhaseStarted             MatchEventType = "BAN_PHASE_STARTED"
+	MatchEventTypePoolSlotBanned              MatchEventType = "POOL_SLOT_BANNED"
+	MatchEventTypeTurnAdvanced                MatchEventType = "TURN_ADVANCED"
+	MatchEventTypePickPhaseStarted            MatchEventType = "PICK_PHASE_STARTED"
+	MatchEventTypePiecePlaced                 MatchEventType = "PIECE_PLACED"
+	MatchEventTypeShiroPlaced                 MatchEventType = "SHIRO_PLACED"
+	MatchEventTypeResultConfirmationRequested MatchEventType = "RESULT_CONFIRMATION_REQUESTED"
+	MatchEventTypeBeatmapResultConfirmed      MatchEventType = "BEATMAP_RESULT_CONFIRMED"
+	MatchEventTypePieceWon                    MatchEventType = "PIECE_WON"
+	MatchEventTypePiecesSacrificed            MatchEventType = "PIECES_SACRIFICED"
+	MatchEventTypePieceRobbed                 MatchEventType = "PIECE_ROBBED"
+	MatchEventTypeAdditionalTimeGranted       MatchEventType = "ADDITIONAL_TIME_GRANTED"
+	MatchEventTypeTimerCalibrated             MatchEventType = "TIMER_CALIBRATED"
+	MatchEventTypeTimerPaused                 MatchEventType = "TIMER_PAUSED"
+	MatchEventTypeTimerResumed                MatchEventType = "TIMER_RESUMED"
+	MatchEventTypeMatchSuspended              MatchEventType = "MATCH_SUSPENDED"
+	MatchEventTypeMatchResumed                MatchEventType = "MATCH_RESUMED"
+	MatchEventTypeActionSkipped               MatchEventType = "ACTION_SKIPPED"
+	MatchEventTypeMatchAborted                MatchEventType = "MATCH_ABORTED"
+	MatchEventTypeRefereeProxyActionRecorded  MatchEventType = "REFEREE_PROXY_ACTION_RECORDED"
+	MatchEventTypeTbRequested                 MatchEventType = "TB_REQUESTED"
+	MatchEventTypeTbRequestAccepted           MatchEventType = "TB_REQUEST_ACCEPTED"
+	MatchEventTypeTbRequestRejected           MatchEventType = "TB_REQUEST_REJECTED"
+	MatchEventTypeTbRequestExpired            MatchEventType = "TB_REQUEST_EXPIRED"
+	MatchEventTypeTbForced                    MatchEventType = "TB_FORCED"
+	MatchEventTypeTbPreparationStarted        MatchEventType = "TB_PREPARATION_STARTED"
+	MatchEventTypeTbStarted                   MatchEventType = "TB_STARTED"
+	MatchEventTypeTbResultConfirmed           MatchEventType = "TB_RESULT_CONFIRMED"
+	MatchEventTypeSurrenderRecorded           MatchEventType = "SURRENDER_RECORDED"
+	MatchEventTypeMatchFinished               MatchEventType = "MATCH_FINISHED"
+	MatchEventTypeStalemateDetected           MatchEventType = "STALEMATE_DETECTED"
+	MatchEventTypeAdjudicationRequired        MatchEventType = "ADJUDICATION_REQUIRED"
+	MatchEventTypeTimerStarted                MatchEventType = "TIMER_STARTED"
+	MatchEventTypeTimerStopped                MatchEventType = "TIMER_STOPPED"
+)
+
+var AllMatchEventType = []MatchEventType{
+	MatchEventTypeMatchStarted,
+	MatchEventTypeBanPhaseStarted,
+	MatchEventTypePoolSlotBanned,
+	MatchEventTypeTurnAdvanced,
+	MatchEventTypePickPhaseStarted,
+	MatchEventTypePiecePlaced,
+	MatchEventTypeShiroPlaced,
+	MatchEventTypeResultConfirmationRequested,
+	MatchEventTypeBeatmapResultConfirmed,
+	MatchEventTypePieceWon,
+	MatchEventTypePiecesSacrificed,
+	MatchEventTypePieceRobbed,
+	MatchEventTypeAdditionalTimeGranted,
+	MatchEventTypeTimerCalibrated,
+	MatchEventTypeTimerPaused,
+	MatchEventTypeTimerResumed,
+	MatchEventTypeMatchSuspended,
+	MatchEventTypeMatchResumed,
+	MatchEventTypeActionSkipped,
+	MatchEventTypeMatchAborted,
+	MatchEventTypeRefereeProxyActionRecorded,
+	MatchEventTypeTbRequested,
+	MatchEventTypeTbRequestAccepted,
+	MatchEventTypeTbRequestRejected,
+	MatchEventTypeTbRequestExpired,
+	MatchEventTypeTbForced,
+	MatchEventTypeTbPreparationStarted,
+	MatchEventTypeTbStarted,
+	MatchEventTypeTbResultConfirmed,
+	MatchEventTypeSurrenderRecorded,
+	MatchEventTypeMatchFinished,
+	MatchEventTypeStalemateDetected,
+	MatchEventTypeAdjudicationRequired,
+	MatchEventTypeTimerStarted,
+	MatchEventTypeTimerStopped,
+}
+
+func (e MatchEventType) IsValid() bool {
+	switch e {
+	case MatchEventTypeMatchStarted, MatchEventTypeBanPhaseStarted, MatchEventTypePoolSlotBanned, MatchEventTypeTurnAdvanced, MatchEventTypePickPhaseStarted, MatchEventTypePiecePlaced, MatchEventTypeShiroPlaced, MatchEventTypeResultConfirmationRequested, MatchEventTypeBeatmapResultConfirmed, MatchEventTypePieceWon, MatchEventTypePiecesSacrificed, MatchEventTypePieceRobbed, MatchEventTypeAdditionalTimeGranted, MatchEventTypeTimerCalibrated, MatchEventTypeTimerPaused, MatchEventTypeTimerResumed, MatchEventTypeMatchSuspended, MatchEventTypeMatchResumed, MatchEventTypeActionSkipped, MatchEventTypeMatchAborted, MatchEventTypeRefereeProxyActionRecorded, MatchEventTypeTbRequested, MatchEventTypeTbRequestAccepted, MatchEventTypeTbRequestRejected, MatchEventTypeTbRequestExpired, MatchEventTypeTbForced, MatchEventTypeTbPreparationStarted, MatchEventTypeTbStarted, MatchEventTypeTbResultConfirmed, MatchEventTypeSurrenderRecorded, MatchEventTypeMatchFinished, MatchEventTypeStalemateDetected, MatchEventTypeAdjudicationRequired, MatchEventTypeTimerStarted, MatchEventTypeTimerStopped:
+		return true
+	}
+	return false
+}
+
+func (e MatchEventType) String() string {
+	return string(e)
+}
+
+func (e *MatchEventType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchEventType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchEventType", str)
+	}
+	return nil
+}
+
+func (e MatchEventType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchEventType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchEventType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MatchLifecycle string
+
+const (
+	MatchLifecycleReady                MatchLifecycle = "READY"
+	MatchLifecycleRunning              MatchLifecycle = "RUNNING"
+	MatchLifecycleSuspended            MatchLifecycle = "SUSPENDED"
+	MatchLifecycleAdjudicationRequired MatchLifecycle = "ADJUDICATION_REQUIRED"
+	MatchLifecycleFinished             MatchLifecycle = "FINISHED"
+	MatchLifecycleAborted              MatchLifecycle = "ABORTED"
+)
+
+var AllMatchLifecycle = []MatchLifecycle{
+	MatchLifecycleReady,
+	MatchLifecycleRunning,
+	MatchLifecycleSuspended,
+	MatchLifecycleAdjudicationRequired,
+	MatchLifecycleFinished,
+	MatchLifecycleAborted,
+}
+
+func (e MatchLifecycle) IsValid() bool {
+	switch e {
+	case MatchLifecycleReady, MatchLifecycleRunning, MatchLifecycleSuspended, MatchLifecycleAdjudicationRequired, MatchLifecycleFinished, MatchLifecycleAborted:
+		return true
+	}
+	return false
+}
+
+func (e MatchLifecycle) String() string {
+	return string(e)
+}
+
+func (e *MatchLifecycle) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchLifecycle(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchLifecycle", str)
+	}
+	return nil
+}
+
+func (e MatchLifecycle) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchLifecycle) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchLifecycle) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MatchResultReason string
+
+const (
+	MatchResultReasonFourAlignment     MatchResultReason = "FOUR_ALIGNMENT"
+	MatchResultReasonTb                MatchResultReason = "TB"
+	MatchResultReasonSurrender         MatchResultReason = "SURRENDER"
+	MatchResultReasonStalemateWonCount MatchResultReason = "STALEMATE_WON_COUNT"
+)
+
+var AllMatchResultReason = []MatchResultReason{
+	MatchResultReasonFourAlignment,
+	MatchResultReasonTb,
+	MatchResultReasonSurrender,
+	MatchResultReasonStalemateWonCount,
+}
+
+func (e MatchResultReason) IsValid() bool {
+	switch e {
+	case MatchResultReasonFourAlignment, MatchResultReasonTb, MatchResultReasonSurrender, MatchResultReasonStalemateWonCount:
+		return true
+	}
+	return false
+}
+
+func (e MatchResultReason) String() string {
+	return string(e)
+}
+
+func (e *MatchResultReason) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchResultReason(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchResultReason", str)
+	}
+	return nil
+}
+
+func (e MatchResultReason) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchResultReason) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchResultReason) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
@@ -966,6 +1456,63 @@ func (e PieceState) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+type PoolSlotState string
+
+const (
+	PoolSlotStateAvailable PoolSlotState = "AVAILABLE"
+	PoolSlotStateBanned    PoolSlotState = "BANNED"
+	PoolSlotStateSelected  PoolSlotState = "SELECTED"
+)
+
+var AllPoolSlotState = []PoolSlotState{
+	PoolSlotStateAvailable,
+	PoolSlotStateBanned,
+	PoolSlotStateSelected,
+}
+
+func (e PoolSlotState) IsValid() bool {
+	switch e {
+	case PoolSlotStateAvailable, PoolSlotStateBanned, PoolSlotStateSelected:
+		return true
+	}
+	return false
+}
+
+func (e PoolSlotState) String() string {
+	return string(e)
+}
+
+func (e *PoolSlotState) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PoolSlotState(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PoolSlotState", str)
+	}
+	return nil
+}
+
+func (e PoolSlotState) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PoolSlotState) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PoolSlotState) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
 type RoomType string
 
 const (
@@ -1018,6 +1565,61 @@ func (e *RoomType) UnmarshalJSON(b []byte) error {
 }
 
 func (e RoomType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type TBBasis string
+
+const (
+	TBBasisCaptainAgreement         TBBasis = "CAPTAIN_AGREEMENT"
+	TBBasisForcedAfterRobberyChecks TBBasis = "FORCED_AFTER_ROBBERY_CHECKS"
+)
+
+var AllTBBasis = []TBBasis{
+	TBBasisCaptainAgreement,
+	TBBasisForcedAfterRobberyChecks,
+}
+
+func (e TBBasis) IsValid() bool {
+	switch e {
+	case TBBasisCaptainAgreement, TBBasisForcedAfterRobberyChecks:
+		return true
+	}
+	return false
+}
+
+func (e TBBasis) String() string {
+	return string(e)
+}
+
+func (e *TBBasis) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = TBBasis(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid TBBasis", str)
+	}
+	return nil
+}
+
+func (e TBBasis) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *TBBasis) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e TBBasis) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil
@@ -1191,67 +1793,6 @@ func (e *VerifyStatus) UnmarshalJSON(b []byte) error {
 }
 
 func (e VerifyStatus) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
-}
-
-type WinReason string
-
-const (
-	WinReasonFourInARow WinReason = "FOUR_IN_A_ROW"
-	WinReasonTieBreaker WinReason = "TIE_BREAKER"
-	WinReasonSurrender  WinReason = "SURRENDER"
-	WinReasonDraw       WinReason = "DRAW"
-	WinReasonForfeit    WinReason = "FORFEIT"
-)
-
-var AllWinReason = []WinReason{
-	WinReasonFourInARow,
-	WinReasonTieBreaker,
-	WinReasonSurrender,
-	WinReasonDraw,
-	WinReasonForfeit,
-}
-
-func (e WinReason) IsValid() bool {
-	switch e {
-	case WinReasonFourInARow, WinReasonTieBreaker, WinReasonSurrender, WinReasonDraw, WinReasonForfeit:
-		return true
-	}
-	return false
-}
-
-func (e WinReason) String() string {
-	return string(e)
-}
-
-func (e *WinReason) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = WinReason(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid WinReason", str)
-	}
-	return nil
-}
-
-func (e WinReason) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *WinReason) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e WinReason) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

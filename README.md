@@ -25,7 +25,7 @@ RCT Hub orchestrates osu! tournament matches structured around a 4×4 board. Two
 
 The backend provides:
 
-- **User management** with osu! OAuth 2.0 login and JWT sessions
+- **User management** with osu! OAuth 2.0, HttpOnly browser sessions, and Bearer JWT support for tools
 - **Room & match lifecycle** — from pre-match setup through live play to post-match results
 - **Board operations** — ban, pick, rob, and win pieces on a zone-based 4×4 grid
 - **Client-specific views** — tailored data shapes for strategists, spectators, OBS overlays, and referees
@@ -95,8 +95,6 @@ The system follows a layered design with a three-channel API surface:
 | **GraphQL** | All read operations, client-tailored views (Read Model), in-match board command mutations |
 | **WebSocket** *(planned)* | Real-time board sync, timer ticks, reconnection & version recovery |
 
-> See `docs/adr-001-graphql-introduction.md` for the full architecture decision record.
-
 ## Quick Start
 
 ### 1. Start Dependencies
@@ -162,15 +160,21 @@ All configuration is loaded from environment variables (with `.env` file support
 | `REDIS_DB` | `0` | Redis database number |
 | `JWT_SECRET` | *(required)* | JWT signing secret — must be ≥ 32 bytes |
 | `JWT_EXPIRY_HOURS` | `168` (7 days) | JWT token lifetime |
+| `AUTH_COOKIE_NAME` | `rcthub_session` | Browser session cookie name |
+| `AUTH_COOKIE_DOMAIN` | *(empty)* | Optional shared parent domain for Web/API subdomains |
+| `AUTH_COOKIE_SECURE` | `false` in development, required in production | Send the session cookie only over HTTPS |
+| `AUTH_COOKIE_SAME_SITE` | `lax` | Browser SameSite policy (`lax` or `strict`) |
 | `OSU_CLIENT_ID` | *(empty)* | osu! OAuth client ID |
 | `OSU_CLIENT_SECRET` | *(empty)* | osu! OAuth client secret |
 | `OSU_REDIRECT_URI` | `http://localhost:8080/auth/osu/callback` | OAuth callback URL |
 | `OSU_API_BASE` | `https://osu.ppy.sh` | osu! API base URL |
-| `ALLOWED_ORIGINS` | `*` | Comma-separated CORS allowed origins |
+| `ALLOWED_ORIGINS` | value of `FRONTEND_URI` | Comma-separated exact browser origins; wildcard is rejected |
 
 ## Authentication
 
-The backend uses osu! OAuth 2.0 for login and issues JWT tokens for session management.
+The backend uses osu! OAuth 2.0. Browser login stores the signed session in an
+HttpOnly cookie; the OAuth redirect contains no token. Bearer JWT remains
+available for scripts and non-browser clients.
 
 ### Setup osu! OAuth
 
@@ -183,8 +187,8 @@ The backend uses osu! OAuth 2.0 for login and issues JWT tokens for session mana
 | Endpoint | Description |
 |----------|-------------|
 | `GET /auth/osu` | Redirects to osu! authorization page |
-| `GET /auth/osu/callback` | OAuth callback — on success, redirects to `/auth/callback?token=<jwt>` |
-| `GET /api/v1/auth/me` | Returns current user info (requires `Authorization: Bearer <jwt>`) |
+| `GET /auth/osu/callback` | OAuth callback; sets the session cookie and redirects to `/auth/callback` |
+| `POST /auth/logout` | Clears the browser session cookie |
 
 ### RBAC Middleware
 
@@ -240,31 +244,33 @@ The GraphQL endpoint at `/graphql` handles all read operations, client-specific 
 
 - **GET `/graphql`** — GraphiQL Playground (development)
 - **POST `/graphql`** — Query / Mutation endpoint
-- Authentication is optional: provide `Authorization: Bearer <jwt>` for authenticated queries; public queries work without it.
+- Authentication is optional for public queries. Browsers use the session cookie; tools may send `Authorization: Bearer <jwt>`.
 
 ### Queries (15)
 
 ```
 ping · me
-match(id) · matchByCode(code) · matches(status, page, perPage)
+match(id) · matchByCode(code) · matches(page, perPage)
 room(id) · roomByCode(code) · rooms(type, page, perPage)
 beatmap(id) · beatmapByOsuId(osuId) · beatmaps(page, perPage)
 user(id) · users(page, perPage)
 announcements(page, perPage) · announcement(id)
 ```
 
-Nested resolvers: `Match.moves`, `Match.recentMove`, `Match.room`, `Room.match`, `PoolSlot.beatmap` — with DataLoader batch loading to prevent N+1 queries.
+Formal match lists batch-load authoritative snapshots. `Match.room`,
+`Room.match`, and metadata relations remain regular nested resolvers.
 
 ### Client Views (Read Model)
 
-Each match exposes four tailored views to prevent over-fetching and under-fetching:
+Each match exposes five tailored views to prevent over-fetching and under-fetching:
 
 | View | Auth | Purpose |
 |------|------|---------|
-| `strategistView` | `@requireRole(role: STRATEGIST)` | Allowed/disallowed actions, selectable slots & cells, timer, robbery state |
-| `spectatorView` | Public | Board summary, team scores, current phase, recent moves |
+| `strategistView` | Current verified assigned strategist | Engine-derived actions, legal placements, ban targets, and complete robbery plans |
+| `captainView` | Current verified team leader | TB request/response availability for the captain's team |
+| `spectatorView` | Public | Authoritative board, won counts, lifecycle, phase, and turn |
 | `overlayView` | Public | Minimal render data for OBS overlays |
-| `refereeView` | `@requireRole(role: REFEREE, admin: true)` | Full match data, audit log placeholder, connection status placeholder |
+| `refereeView` | Current assigned referee or administrator | Full snapshot, Engine-derived referee actions, and durable audit log |
 
 ### Authoritative Match Mutations
 
@@ -280,8 +286,10 @@ result; a stale page receives `MATCH_VERSION_CONFLICT` and `currentVersion`.
 | Timer | `grantAdditionalTime`, `calibrateTimer`, `pauseTimer`, `resumeTimer`, `skipCurrentAction` |
 | Tie-break and surrender | `requestTb`, `respondTbRequest`, referee proxy variants, `startTb`, `confirmTbResult`, `recordSurrender` |
 
-Successful results include the new match version and committed events with
-stable event IDs and per-match sequence numbers. The legacy direct-win,
+Successful results include the same typed snapshot returned by match queries,
+plus typed event facts, actor information, stable event IDs, and per-match
+sequence numbers. Versions are decimal strings so GraphQL's 32-bit `Int` limit
+cannot truncate them. The legacy direct-win,
 advance-turn, robbery-stage, unban, and undo mutations are not public because
 they do not represent valid MatchEngine commands.
 
@@ -290,16 +298,17 @@ they do not represent valid MatchEngine commands.
 ```graphql
 query MatchDashboard($id: ID!) {
   match(id: $id) {
-    phase
-    activeTeam
-    board { cells { position zone piece { state owner } } }
-    pool { slots { mod index beatmap { title artist coverUrl } state } }
-    teams { red { name strategistID } blue { name strategistID } }
-    timer { remainingSeconds isPaused }
+    id
+    pool { poolSlotID beatmapID beatmap { title artist } }
+    snapshot {
+      version lifecycle phase activeTeam turn
+      board { cells { cell row col zone piece { id mod outcome owner } } }
+      poolSlots { id mod state }
+      timer { startedAt durationMilliseconds paused remainingAtPauseMilliseconds }
+    }
     spectatorView {
-      scores { red blue }
+      wonCounts { red blue }
       currentPhase
-      recentMoves { type teamSide createdAt }
     }
   }
 }
@@ -316,6 +325,23 @@ make generate
 `resolver.go` holds manually maintained dependencies; gqlgen writes field
 implementations to `schema.resolvers.go`. Keep shared helpers out of the
 generated file.
+
+### Web Contract Fixtures and Mock
+
+`contracts/fixtures/` contains deterministic GraphQL responses generated by
+real MatchEngine command sequences for READY, BAN, PICK, result confirmation,
+suspension, TB, finished, aborted, and adjudication states.
+
+```bash
+make fixtures   # regenerate and verify fixture responses
+make matchmock  # GraphQL Playground at http://127.0.0.1:8091
+```
+
+The mock keeps state in memory and supports the formal mutations, optimistic
+versions, and idempotent command replay. Restart it to reset all scenarios.
+Fixture codes use the `FIXTURE_<SCENARIO>` form, for example `FIXTURE_PICK`.
+It authenticates fixture user `1001`, who can open the RED strategist and
+captain views as well as the referee view.
 
 ## Match Engine
 
@@ -341,14 +367,14 @@ Phases: NONE → BAN → PICK → WAITING_FOR_RESULT → TB_PREPARATION → TB_P
 
 ### Board Layout
 
-The 4×4 board is divided into four mod zones:
+The 4×4 board is divided into four mod quadrants:
 
 ```
      Col 0   Col 1   Col 2   Col 3
-Row 0  HD      HD      DT      DT
-Row 1  HD      HD      DT      DT
-Row 2  HR      HR      NM      NM
-Row 3  HR      HR      NM      NM
+Row 0  DT      DT      HD      HD
+Row 1  DT      DT      HD      HD
+Row 2  HR      HR      DT      DT
+Row 3  HR      HR      DT      DT
 ```
 
 Win condition: align four won pieces in a row (horizontal, vertical, or diagonal).
@@ -380,9 +406,9 @@ pkg/
   paginate/                # Pagination helpers
   response/                # Unified HTTP response envelope
 
-docs/
-  adr-001-graphql-introduction.md   # GraphQL architecture decision record
-  schema-full.graphql               # Full GraphQL schema reference
+contracts/
+  graphql-v1.graphql        # Frozen compatibility baseline
+  fixtures/                 # Engine-generated Web responses
 
 deploy/
   mongodb/                 # MongoDB health check script
@@ -402,6 +428,9 @@ make build         # Compile to ./bin/server
 make test          # Run all tests
 make lint          # go vet + staticcheck
 make generate      # Regenerate GraphQL code (gqlgen)
+make fixtures      # Regenerate deterministic Web fixtures
+make matchmock     # Start the fixture-backed GraphQL mock on :8091
+make graphql-compat # Reject breaking GraphQL v1 changes
 make docker-up     # Start MongoDB + Redis containers
 make docker-down   # Stop containers
 make initdb        # Initialize database (collections + indexes + validators)
@@ -413,15 +442,8 @@ make verify        # Run verification tool
 
 ### Testing
 
-The project maintains comprehensive tests across all layers:
-
-| Package | Tests | Coverage |
-|---------|-------|----------|
-| `domain` | 7 tests | Board logic, piece rules, win detection |
-| `graphql` | 39 tests | Phase 1 (queries) + Phase 2 (views) + Phase 3 (mutations) |
-| `matchengine` | 10 suites | Engine, robbery, scenarios, timers, terminal states |
-| `service` | Multiple | Auth, room, match service logic |
-| `config` | 1 test | Configuration validation |
+The project tests the rule engine, authoritative command path, snapshot
+recovery, GraphQL contract, browser security, and MongoDB transaction path.
 
 ```bash
 make test
@@ -430,10 +452,9 @@ make test
 ## Roadmap
 
 - [ ] **WebSocket Gateway** — Real-time board synchronization, timer push, reconnection & version recovery
-- [ ] **Fetcher Module** — Beatmap metadata and avatar proxy service
-- [ ] **Audit System** — Full action audit log with sequence tracking
-- [ ] **Connection Tracking** — WebSocket client connection status per match
-- [ ] **Remaining Mutations** — Implement `unbanPoolSlot`, `grantWinPermission`, `beginRobbery`, `cancelRobbery`, `undoAction`
+- [ ] **Realtime Delivery** — Publish committed outbox events, reconnect by sequence, and resync snapshots
+- [ ] **Bancho IRC Adapter** — Multiplayer-room commands, acknowledgements, degraded mode, and referee takeover
+- [ ] **osu! Metadata Refresh** — Background refresh policy for beatmaps and users
 - [ ] **Dockerfile & CI** — Production container image and CI/CD pipeline
 
 ## License

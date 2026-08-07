@@ -67,6 +67,147 @@ func TestAnalyzeUsesEmptyCollectionsForFullBoard(t *testing.T) {
 	}
 }
 
+func TestAnalyzeForActorOnlyExposesActiveStrategistChoices(t *testing.T) {
+	t.Parallel()
+
+	state := stateAtFirstPick(t)
+	now := state.Timer.StartedAt.Add(time.Second)
+	blue := AnalyzeForActor(state, StrategistActor(TeamBlue), now)
+	red := AnalyzeForActor(state, StrategistActor(TeamRed), now)
+
+	if len(blue.AllowedActions) == 0 || !containsAction(blue.AllowedActions, ActionPlacePiece) {
+		t.Fatalf("BLUE actions = %v, want PLACE_PIECE", blue.AllowedActions)
+	}
+	if len(blue.LegalPlacements) == 0 {
+		t.Fatal("active strategist has no legal placements")
+	}
+	if len(red.AllowedActions) != 0 || len(red.LegalPlacements) != 0 {
+		t.Fatalf("inactive RED analysis = %+v, want no choices", red)
+	}
+}
+
+func TestAnalyzeForActorHonorsTimerAndCaptainTBWindow(t *testing.T) {
+	t.Parallel()
+
+	state := stateAtFirstPick(t)
+	state.Turn = 11
+	state.ActiveTeam = TeamRed
+	expired := state.Timer.StartedAt.Add(state.Timer.Duration + time.Second)
+	if got := AnalyzeForActor(state, StrategistActor(TeamRed), expired); len(got.AllowedActions) != 0 {
+		t.Fatalf("expired strategist actions = %v", got.AllowedActions)
+	}
+	captain := AnalyzeForActor(state, CaptainActor(TeamBlue), state.Timer.StartedAt.Add(time.Second))
+	if !containsAction(captain.AllowedActions, ActionRequestTB) {
+		t.Fatalf("captain actions = %v, want REQUEST_TB", captain.AllowedActions)
+	}
+
+	state.PendingTBRequest = &TBRequestState{ID: "tb-request", RequestedBy: TeamRed, Basis: TBBasisCaptainAgreement}
+	captain = AnalyzeForActor(state, CaptainActor(TeamBlue), state.Timer.StartedAt.Add(time.Second))
+	if !containsAction(captain.AllowedActions, ActionRespondTBRequest) || captain.PendingTBRequestID != "tb-request" || !captain.CanAcceptTBRequest || !captain.CanRejectTBRequest {
+		t.Fatalf("responding captain analysis = %+v", captain)
+	}
+}
+
+func TestAnalyzeForRefereeMatchesExpiredAndSuspendedTransitions(t *testing.T) {
+	t.Parallel()
+
+	state := stateAtFirstPick(t)
+	expired := state.Timer.StartedAt.Add(state.Timer.Duration + time.Second)
+	analysis := AnalyzeForActor(state, RefereeActor(), expired)
+	if !containsAction(analysis.AllowedActions, ActionGrantAdditionalTime) || !containsAction(analysis.AllowedActions, ActionSkipCurrentAction) {
+		t.Fatalf("expired PICK actions = %v", analysis.AllowedActions)
+	}
+	state.TeamPauseUsed[state.ActiveTeam] = true
+	analysis = AnalyzeForActor(state, RefereeActor(), expired)
+	if containsAction(analysis.AllowedActions, ActionGrantAdditionalTime) {
+		t.Fatalf("used team pause still exposes grant: %v", analysis.AllowedActions)
+	}
+
+	suspended := mustExecute(t, state, RefereeActor(), SuspendMatch{Reason: "network incident"}, state.Timer.StartedAt.Add(time.Second)).State
+	analysis = AnalyzeForActor(suspended, RefereeActor(), expired)
+	if !containsAction(analysis.AllowedActions, ActionSkipCurrentAction) || containsAction(analysis.AllowedActions, ActionPauseTimer) {
+		t.Fatalf("suspended PICK actions = %v", analysis.AllowedActions)
+	}
+}
+
+func TestAnalyzeForRefereeDoesNotAdvertisePausedProxyActions(t *testing.T) {
+	t.Parallel()
+
+	state := stateAtFirstPick(t)
+	paused := mustExecute(t, state, RefereeActor(), PauseTimer{Reason: "technical review"}, state.Timer.StartedAt.Add(time.Second)).State
+	analysis := AnalyzeForActor(paused, RefereeActor(), state.Timer.StartedAt.Add(time.Minute))
+	for _, action := range []Action{ActionPlacePiece, ActionPlaceShiro, ActionRobPiece, ActionRequestTB, ActionRespondTBRequest} {
+		if containsAction(analysis.AllowedActions, action) {
+			t.Fatalf("paused referee actions include %s: %v", action, analysis.AllowedActions)
+		}
+	}
+	if len(analysis.LegalPlacements) != 0 || len(analysis.ShiroCells) != 0 || len(analysis.RobberyPlans) != 0 {
+		t.Fatalf("paused referee choices = %+v, want no team-action targets", analysis)
+	}
+	if !containsAction(analysis.AllowedActions, ActionResumeTimer) {
+		t.Fatalf("paused referee actions = %v, want RESUME_TIMER", analysis.AllowedActions)
+	}
+}
+
+func TestAnalyzeForRefereeDoesNotAdvertiseStartTBDuringPause(t *testing.T) {
+	t.Parallel()
+
+	state := acceptedTBState(t)
+	paused := mustExecute(t, state, RefereeActor(), PauseTimer{Reason: "captain review"}, state.Timer.StartedAt.Add(time.Second)).State
+	analysis := AnalyzeForActor(paused, RefereeActor(), state.Timer.StartedAt.Add(time.Minute))
+	if containsAction(analysis.AllowedActions, ActionStartTB) {
+		t.Fatalf("paused TB preparation actions = %v, must not include START_TB", analysis.AllowedActions)
+	}
+	if !containsAction(analysis.AllowedActions, ActionResumeTimer) {
+		t.Fatalf("paused TB preparation actions = %v, want RESUME_TIMER", analysis.AllowedActions)
+	}
+}
+
+func TestAnalyzeForRefereeExposesTBProxyTeams(t *testing.T) {
+	t.Parallel()
+
+	state := stateAtFirstPick(t)
+	state.Turn = 11
+	analysis := AnalyzeForActor(state, RefereeActor(), state.Timer.StartedAt.Add(time.Second))
+	if !containsAction(analysis.AllowedActions, ActionRequestTB) || len(analysis.TBRequestTeams) != 2 {
+		t.Fatalf("TB request analysis = %+v", analysis)
+	}
+	state.PendingTBRequest = &TBRequestState{ID: "tb", RequestedBy: TeamRed, Basis: TBBasisCaptainAgreement}
+	analysis = AnalyzeForActor(state, RefereeActor(), state.Timer.StartedAt.Add(time.Second))
+	if !containsAction(analysis.AllowedActions, ActionRespondTBRequest) || len(analysis.TBResponseTeams) != 1 || analysis.TBResponseTeams[0] != TeamBlue {
+		t.Fatalf("TB response analysis = %+v", analysis)
+	}
+}
+
+func TestAnalyzeForActorReturnsCompleteRobberyPlans(t *testing.T) {
+	t.Parallel()
+
+	state := stateAtFirstPick(t)
+	state.ActiveTeam = TeamRed
+	seedPiece(&state.Board, "A1", "red-a", ModNM, OutcomeWon, team(TeamRed))
+	seedPiece(&state.Board, "B1", "red-b", ModNM, OutcomeWon, team(TeamRed))
+	seedPiece(&state.Board, "C2", "red-c", ModNM, OutcomeWon, team(TeamRed))
+	seedPiece(&state.Board, "D2", "shiro", ModShiro, OutcomeWhite, nil)
+
+	analysis := AnalyzeForActor(state, StrategistActor(TeamRed), state.Timer.StartedAt.Add(time.Second))
+	if !containsAction(analysis.AllowedActions, ActionRobPiece) || len(analysis.RobberyPlans) != 1 {
+		t.Fatalf("robbery analysis = %+v", analysis)
+	}
+	plan := analysis.RobberyPlans[0]
+	if plan.TargetPieceID != "shiro" || len(plan.SacrificeSets) != 1 || len(plan.SacrificeSets[0]) != 2 {
+		t.Fatalf("robbery plan = %+v", plan)
+	}
+}
+
+func containsAction(actions []Action, wanted Action) bool {
+	for _, action := range actions {
+		if action == wanted {
+			return true
+		}
+	}
+	return false
+}
+
 func TestPickEntryStalemateWithUnequalWonCountsFinishesMatch(t *testing.T) {
 	t.Parallel()
 

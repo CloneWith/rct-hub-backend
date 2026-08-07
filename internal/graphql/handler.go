@@ -22,10 +22,6 @@ import (
 func NewHandler(resolver *Resolver) *handler.Server {
 	config := Config{
 		Resolvers: resolver,
-		Directives: DirectiveRoot{
-			RequireRole: RequireRole,
-			Public:      Public,
-		},
 	}
 	execSchema := NewExecutableSchema(config)
 
@@ -60,24 +56,37 @@ func NewHandler(resolver *Resolver) *handler.Server {
 //
 // DataLoader 策略：
 //   - 每个请求创建独立的 BeatmapLoader 与 UserLoader，防止 N+1 重复查询
-func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, services *service.Services) gin.HandlerFunc {
+func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, services *service.Services, cookieNames ...string) gin.HandlerFunc {
+	cookieName := "rcthub_session"
+	if len(cookieNames) > 0 && cookieNames[0] != "" {
+		cookieName = cookieNames[0]
+	}
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
 		// 可选认证：尝试从 Authorization header 解析 JWT
 		header := c.GetHeader("Authorization")
+		token := ""
 		if header != "" {
 			parts := strings.SplitN(header, " ", 2)
 			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
-				if claims, err := signer.Parse(parts[1]); err == nil {
-					ctx = WithClaims(ctx, claims)
-				}
+				token = parts[1]
+			}
+		}
+		if token == "" {
+			token, _ = c.Cookie(cookieName)
+		}
+		if token != "" {
+			if claims, err := signer.Parse(token); err == nil {
+				ctx = WithClaims(ctx, claims)
 			}
 		}
 
 		// 请求级 DataLoader
-		ctx = WithBeatmapLoader(ctx, NewBeatmapLoader(services.Beatmaps))
-		ctx = WithUserLoader(ctx, NewUserLoader(services.Users))
+		if services != nil {
+			ctx = WithBeatmapLoader(ctx, NewBeatmapLoader(services.Beatmaps))
+			ctx = WithUserLoader(ctx, NewUserLoader(services.Users))
+		}
 
 		c.Request = c.Request.WithContext(ctx)
 		gqlHandler.ServeHTTP(c.Writer, c.Request)

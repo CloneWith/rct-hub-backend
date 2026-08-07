@@ -31,6 +31,7 @@ func main() {
 	}
 
 	checks := []check{
+		{name: "graphql-compat", cmd: "go", args: []string{"run", "./tools/graphqlcompat"}},
 		{name: "vet", cmd: "go", args: []string{"vet", "./..."}},
 		{name: "test", cmd: "go", args: []string{"test", "./..."}},
 		{name: "build", cmd: "go", args: []string{"build", "./..."}},
@@ -66,14 +67,15 @@ func checkMatchCommandBoundaries() error {
 			return err
 		}
 		text := string(source)
-		if strings.Contains(text, "matchengine.Execute(") && normalized != "internal/matchcommand/orchestrator.go" && normalized != "tools/matchlab/lab.go" {
+		fixtureGenerator := strings.HasPrefix(normalized, "internal/matchfixture/")
+		if strings.Contains(text, "matchengine.Execute(") && normalized != "internal/matchcommand/orchestrator.go" && normalized != "tools/matchlab/lab.go" && !fixtureGenerator {
 			return fmt.Errorf("%s calls MatchEngine directly; formal writes must enter through the orchestrator", normalized)
 		}
 		if !strings.Contains(text, `"rctHubBackend/internal/matchcommand"`) {
 			continue
 		}
 		allowed := strings.HasPrefix(normalized, "internal/graphql/") ||
-			strings.HasPrefix(normalized, "internal/persistence/") || normalized == "internal/server/server.go"
+			strings.HasPrefix(normalized, "internal/persistence/") || fixtureGenerator || normalized == "internal/server/server.go"
 		if !allowed {
 			return fmt.Errorf("%s imports matchcommand outside the GraphQL adapter, persistence store, or composition root", normalized)
 		}

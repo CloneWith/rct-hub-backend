@@ -67,6 +67,10 @@ func TestMongoIntegrationCommandStoreIsAtomicIdempotentAndOrdered(t *testing.T) 
 	assertCommandCollectionCount(t, ctx, db, persistence.MatchCommandReceiptsCollection, 1)
 	assertCommandCollectionCount(t, ctx, db, persistence.MatchActionLogCollection, 1)
 	assertCommandCollectionCount(t, ctx, db, persistence.MatchOutboxCollection, int64(len(first.Events)))
+	actions, err := store.ListActions(ctx, matchID, 50)
+	if err != nil || len(actions) != 1 || actions[0].Actor.OsuID != actor.OsuID || actions[0].ResultingVersion != 1 {
+		t.Fatalf("action log = %+v, err=%v", actions, err)
+	}
 
 	mismatch := startEnvelope
 	mismatch.RequestHash = "different-hash"

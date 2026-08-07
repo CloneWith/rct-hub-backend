@@ -125,9 +125,14 @@ func (s *Server) registerRoutes() {
 	health := handler.NewHealthHandler(s.deps.DB)
 	s.router.GET("/health", health.Check)
 
-	auth := handler.NewAuthHandler(s.deps.AuthSvc, s.deps.Cfg.FrontEndURI)
+	auth := handler.NewAuthHandler(s.deps.AuthSvc, s.deps.Cfg.FrontEndURI, handler.AuthCookieConfig{
+		Name: s.deps.Cfg.AuthCookie.Name, Domain: s.deps.Cfg.AuthCookie.Domain,
+		Secure: s.deps.Cfg.AuthCookie.Secure, SameSite: authSameSite(s.deps.Cfg.AuthCookie.SameSite),
+		TTL: s.deps.Cfg.JWT.Expiry,
+	})
 	s.router.GET("/auth/osu", auth.OsuLogin)
 	s.router.GET("/auth/osu/callback", auth.OsuCallback)
+	s.router.POST("/auth/logout", auth.Logout)
 
 	// GraphQL endpoint — all reads, client views, and in-game commands
 	// GET  /graphql → GraphiQL Playground
@@ -139,10 +144,10 @@ func (s *Server) registerRoutes() {
 		s.deps.Repos.Rooms,
 		nil,
 	)
-	gqlResolver := graphql.NewResolver(s.deps.Services, commands)
+	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
-	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.Services))
+	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.Services, s.deps.Cfg.AuthCookie.Name))
 
 	users := handler.NewUserHandler(s.deps.UserSvc)
 	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc)
@@ -187,6 +192,13 @@ func (s *Server) registerRoutes() {
 			admin.POST("/announcements/:id/publish", announcements.Publish)
 		}
 	}
+}
+
+func authSameSite(value string) http.SameSite {
+	if value == "strict" {
+		return http.SameSiteStrictMode
+	}
+	return http.SameSiteLaxMode
 }
 
 // Start runs the HTTP server.
