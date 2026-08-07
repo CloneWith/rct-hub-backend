@@ -14,7 +14,7 @@ import (
 	"rctHubBackend/pkg/jwtutil"
 )
 
-// AuthService handles osu! OAuth login and local session creation.
+// AuthService handles osu! OAuth login and tool-compatible JWT creation.
 type AuthService interface {
 	BeginOAuth(ctx context.Context) (string, error)
 	Callback(ctx context.Context, code, state string) (string, *domain.User, error)

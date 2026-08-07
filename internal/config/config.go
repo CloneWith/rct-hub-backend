@@ -25,6 +25,7 @@ type Config struct {
 	Osu         OsuConfig
 	CORS        CORSConfig
 	AuthCookie  AuthCookieConfig
+	AuthSession AuthSessionConfig
 }
 
 type MongoDBConfig struct {
@@ -63,6 +64,11 @@ type AuthCookieConfig struct {
 	Domain   string
 	Secure   bool
 	SameSite string
+}
+
+type AuthSessionConfig struct {
+	IdleExpiry     time.Duration
+	AbsoluteExpiry time.Duration
 }
 
 // Load reads configuration from environment variables.
@@ -112,6 +118,10 @@ func Load() (*Config, error) {
 			Name: getEnv("AUTH_COOKIE_NAME", "rcthub_session"), Domain: getEnv("AUTH_COOKIE_DOMAIN", ""),
 			Secure:   cookieSecure,
 			SameSite: strings.ToLower(getEnv("AUTH_COOKIE_SAME_SITE", "lax")),
+		},
+		AuthSession: AuthSessionConfig{
+			IdleExpiry:     time.Duration(mustAtoi(getEnv("AUTH_SESSION_IDLE_HOURS", "24"))) * time.Hour,
+			AbsoluteExpiry: time.Duration(mustAtoi(getEnv("AUTH_SESSION_MAX_HOURS", "168"))) * time.Hour,
 		},
 	}
 
@@ -193,6 +203,12 @@ func (c *Config) validate() error {
 	}
 	if c.AuthCookie.SameSite != "lax" && c.AuthCookie.SameSite != "strict" {
 		return fmt.Errorf("AUTH_COOKIE_SAME_SITE must be lax or strict")
+	}
+	if c.AuthSession.IdleExpiry <= 0 {
+		return fmt.Errorf("AUTH_SESSION_IDLE_HOURS must be greater than zero")
+	}
+	if c.AuthSession.AbsoluteExpiry <= 0 || c.AuthSession.AbsoluteExpiry < c.AuthSession.IdleExpiry {
+		return fmt.Errorf("AUTH_SESSION_MAX_HOURS must be at least AUTH_SESSION_IDLE_HOURS")
 	}
 	if c.AppEnv == "production" && !c.AuthCookie.Secure {
 		return fmt.Errorf("AUTH_COOKIE_SECURE must be true in production")

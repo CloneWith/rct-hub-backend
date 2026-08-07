@@ -19,6 +19,16 @@ type mockInvalidator struct {
 	err          error
 }
 
+type sessionRevokerStub struct {
+	userIDs []string
+	err     error
+}
+
+func (s *sessionRevokerStub) RevokeUser(_ context.Context, userID string) error {
+	s.userIDs = append(s.userIDs, userID)
+	return s.err
+}
+
 func (m *mockInvalidator) InvalidateUser(_ context.Context, osuID int64) error {
 	m.userCalls = append(m.userCalls, osuID)
 	return m.err
@@ -152,6 +162,57 @@ func TestUserServiceReturnsCacheInvalidationFailure(t *testing.T) {
 	_, err := svc.SetBanned(ctx, uid, true)
 	if !errors.Is(err, cacheErr) {
 		t.Fatalf("expected cache invalidation error, got %v", err)
+	}
+}
+
+func TestUserAuthorizationChangesRevokeBrowserSessions(t *testing.T) {
+	tests := []struct {
+		name   string
+		change func(context.Context, *UserService, bson.ObjectID) error
+	}{
+		{name: "roles", change: func(ctx context.Context, svc *UserService, id bson.ObjectID) error {
+			_, err := svc.UpdateRoles(ctx, id, []domain.UserRole{domain.RoleAdmin})
+			return err
+		}},
+		{name: "ban", change: func(ctx context.Context, svc *UserService, id bson.ObjectID) error {
+			_, err := svc.SetBanned(ctx, id, true)
+			return err
+		}},
+		{name: "verification", change: func(ctx context.Context, svc *UserService, id bson.ObjectID) error {
+			_, err := svc.SetVerifyStatus(ctx, id, domain.Unverified)
+			return err
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			repo := newFakeUserRepo()
+			id := bson.NewObjectID()
+			_ = repo.Create(ctx, &domain.User{ID: id, OnlineID: 42, Roles: []domain.UserRole{domain.RolePlayer}, VerifyStatus: domain.Verified})
+			revoker := &sessionRevokerStub{}
+			svc := NewUserService(repo, &mockInvalidator{}, revoker)
+
+			if err := test.change(ctx, svc, id); err != nil {
+				t.Fatal(err)
+			}
+			if len(revoker.userIDs) != 1 || revoker.userIDs[0] != id.Hex() {
+				t.Fatalf("revoked users = %v", revoker.userIDs)
+			}
+		})
+	}
+}
+
+func TestUserServiceReturnsSessionRevocationFailure(t *testing.T) {
+	ctx := context.Background()
+	repo := newFakeUserRepo()
+	id := bson.NewObjectID()
+	_ = repo.Create(ctx, &domain.User{ID: id, OnlineID: 42})
+	revokeErr := errors.New("redis unavailable")
+	svc := NewUserService(repo, &mockInvalidator{}, &sessionRevokerStub{err: revokeErr})
+
+	_, err := svc.SetBanned(ctx, id, true)
+	if !errors.Is(err, revokeErr) {
+		t.Fatalf("expected session revocation error, got %v", err)
 	}
 }
 

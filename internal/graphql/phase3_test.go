@@ -140,22 +140,27 @@ func TestGinGraphQLAcceptsHttpOnlySessionCookie(t *testing.T) {
 	stub := &commandExecutorStub{result: appliedGraphQLResult(matchID)}
 	server := NewHandler(NewResolver(nil, stub))
 	signer := jwtutil.NewSigner("this-is-a-32-byte-secret-key-for-test!", "test")
-	token, err := signer.Generate(bson.NewObjectID().Hex(), 9876543210, "captain", []domain.UserRole{domain.RoleReferee}, time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
+	sessions := fixedSessionResolver{claims: &jwtutil.Claims{UserID: bson.NewObjectID().Hex(), OsuID: 9876543210, Username: "captain", Roles: []domain.UserRole{domain.RoleReferee}}}
 	router := gin.New()
-	router.POST("/graphql", GinGraphQL(server, signer, nil, "test_session"))
+	router.POST("/graphql", GinGraphQL(server, signer, sessions, nil, "test_session"))
 	query := `mutation { startMatch(input: {matchId: "` + matchID.Hex() + `", expectedVersion: "0", commandId: "` + graphqlCommandID + `"}) { success } }`
 	payload, _ := json.Marshal(map[string]string{"query": query})
 	request := httptest.NewRequest(http.MethodPost, "/graphql", strings.NewReader(string(payload)))
 	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(&http.Cookie{Name: "test_session", Value: token, HttpOnly: true})
+	request.AddCookie(&http.Cookie{Name: "test_session", Value: "opaque-session", HttpOnly: true})
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	if !strings.Contains(response.Body.String(), `"success":true`) || stub.request.CallerOsuID != 9876543210 {
 		t.Fatalf("cookie auth response=%s caller=%d", response.Body.String(), stub.request.CallerOsuID)
 	}
+}
+
+type fixedSessionResolver struct {
+	claims *jwtutil.Claims
+}
+
+func (s fixedSessionResolver) Resolve(context.Context, string) (*jwtutil.Claims, error) {
+	return s.claims, nil
 }
 
 func TestPlacePieceMapsTransportWithoutLegacyService(t *testing.T) {
