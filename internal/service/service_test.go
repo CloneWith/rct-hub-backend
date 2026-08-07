@@ -215,7 +215,7 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	matches := newFakeMatchRepo()
 	users := newFakeUserRepo()
 	_ = users.Create(ctx, &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RolePlayer}})
-	svc := NewRoomService(rooms, matches, users, nil)
+	svc := NewRoomService(rooms, matches, users, nil, nil)
 
 	room, err := svc.CreateRoom(ctx, 1, domain.RoomTypeCasual, "Test Room")
 	if err != nil {
@@ -263,7 +263,7 @@ func TestFormalRoomUsesAuthoritativeBootstrap(t *testing.T) {
 	users := newFakeUserRepo()
 	_ = users.Create(ctx, &domain.User{ID: bson.NewObjectID(), OnlineID: room.OwnerID, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}})
 	bootstrap := &fakeFormalBootstrap{room: rooms.rooms[room.ID]}
-	svc := NewRoomService(rooms, matches, users, bootstrap)
+	svc := NewRoomService(rooms, matches, users, bootstrap, nil)
 	match, err := svc.StartMatch(ctx, room.OwnerID, room.ID)
 	if err != nil {
 		t.Fatalf("formal StartMatch: %v", err)
@@ -290,7 +290,7 @@ func TestFormalStartIsIdempotentAfterBootstrap(t *testing.T) {
 	users := newFakeUserRepo()
 	_ = users.Create(ctx, &domain.User{ID: bson.NewObjectID(), OnlineID: room.OwnerID, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}})
 	bootstrap := &fakeFormalBootstrap{room: rooms.rooms[room.ID]}
-	svc := NewRoomService(rooms, matches, users, bootstrap)
+	svc := NewRoomService(rooms, matches, users, bootstrap, nil)
 	first, err := svc.StartMatch(ctx, room.OwnerID, room.ID)
 	if err != nil {
 		t.Fatalf("first formal StartMatch: %v", err)
@@ -328,7 +328,7 @@ func TestFormalStartRecoversWhenBootstrapResponseIsLost(t *testing.T) {
 		createErr:       errs.ErrFormalMatchAlreadyStarted,
 		existingMatchID: existing.ID,
 	}
-	svc := NewRoomService(rooms, matches, users, bootstrap)
+	svc := NewRoomService(rooms, matches, users, bootstrap, nil)
 	recovered, err := svc.StartMatch(ctx, room.OwnerID, room.ID)
 	if err != nil {
 		t.Fatalf("formal StartMatch recovery: %v", err)
@@ -353,7 +353,7 @@ func TestRoomConfigurationUsesCurrentAccountAndOwnership(t *testing.T) {
 	formal := &domain.Room{ID: bson.NewObjectID(), Code: "FORMAL-AUTH", Type: domain.RoomTypeMatch, OwnerID: owner.OnlineID, Settings: domain.RoomSettings{}}
 	_ = rooms.Create(ctx, casual)
 	_ = rooms.Create(ctx, formal)
-	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil)
+	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil, nil)
 
 	if _, err := svc.SetMPLink(ctx, other.OnlineID, casual.ID, "https://example.test/mp"); !errors.Is(err, errs.ErrForbidden) {
 		t.Fatalf("non-owner error = %v", err)
@@ -388,7 +388,7 @@ func TestRoomSetupWriteCannotRaceFormalBootstrap(t *testing.T) {
 	_ = rooms.Create(ctx, &room)
 	startedMatchID := bson.NewObjectID()
 	rooms.beforeUpdateFields = func(stored *domain.Room) { stored.MatchID = &startedMatchID }
-	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil)
+	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil, nil)
 	red, blue := int64(102), int64(202)
 	if _, err := svc.SetStrategists(ctx, referee.OnlineID, room.ID, &red, &blue); !errors.Is(err, errs.ErrConflict) {
 		t.Fatalf("racing setup write error = %v, want conflict", err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.uber.org/zap"
 
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/repository"
@@ -16,15 +17,19 @@ import (
 type UserService struct {
 	users       repository.UserRepository
 	invalidator CacheInvalidator
+	log         *zap.Logger
 }
 
 // NewUserService creates a new UserService. If invalidator is nil, a
 // no-op implementation is used (cache entries will expire naturally).
-func NewUserService(users repository.UserRepository, invalidator CacheInvalidator) *UserService {
+func NewUserService(users repository.UserRepository, invalidator CacheInvalidator, log *zap.Logger) *UserService {
 	if invalidator == nil {
 		invalidator = noopInvalidator{}
 	}
-	return &UserService{users: users, invalidator: invalidator}
+	if log == nil {
+		log = zap.NewNop()
+	}
+	return &UserService{users: users, invalidator: invalidator, log: log}
 }
 
 // Get returns a user by id.
@@ -50,12 +55,15 @@ func (s *UserService) UpdateRoles(ctx context.Context, id bson.ObjectID, roles [
 	}
 	user.Roles = roles
 	if err := s.users.Update(ctx, user); err != nil {
+		s.log.Error("failed to update user", zap.Int64("osu_id", user.OnlineID), zap.Error(err))
 		return nil, err
 	}
 	// Invalidate cached copy so the new roles are visible immediately.
 	if err := s.invalidator.InvalidateUser(ctx, user.OnlineID); err != nil {
+		s.log.Error("failed to invalidate user cache", zap.Int64("osu_id", user.OnlineID), zap.Error(err))
 		return nil, fmt.Errorf("%w: update roles: %w", errs.ErrCacheSync, err)
 	}
+	s.log.Info("user roles updated", zap.Int64("osu_id", user.OnlineID), zap.Any("roles", roles))
 	return user, nil
 }
 
@@ -67,12 +75,15 @@ func (s *UserService) SetBanned(ctx context.Context, id bson.ObjectID, banned bo
 	}
 	user.IsBanned = banned
 	if err := s.users.Update(ctx, user); err != nil {
+		s.log.Error("failed to update user", zap.Int64("osu_id", user.OnlineID), zap.Error(err))
 		return nil, err
 	}
 	// Invalidate cached copy so the ban status is visible immediately.
 	if err := s.invalidator.InvalidateUser(ctx, user.OnlineID); err != nil {
+		s.log.Error("failed to invalidate user cache", zap.Int64("osu_id", user.OnlineID), zap.Error(err))
 		return nil, fmt.Errorf("%w: update ban status: %w", errs.ErrCacheSync, err)
 	}
+	s.log.Info("user ban status changed", zap.Int64("osu_id", user.OnlineID), zap.Bool("banned", banned))
 	return user, nil
 }
 
@@ -89,11 +100,14 @@ func (s *UserService) SetVerifyStatus(ctx context.Context, id bson.ObjectID, sta
 		return nil, fmt.Errorf("%w: invalid verify status", errs.ErrInvalidInput)
 	}
 	if err := s.users.Update(ctx, user); err != nil {
+		s.log.Error("failed to update user", zap.Int64("osu_id", user.OnlineID), zap.Error(err))
 		return nil, err
 	}
 	// Invalidate cached copy so the new verify status is visible immediately.
 	if err := s.invalidator.InvalidateUser(ctx, user.OnlineID); err != nil {
+		s.log.Error("failed to invalidate user cache", zap.Int64("osu_id", user.OnlineID), zap.Error(err))
 		return nil, fmt.Errorf("%w: update verification status: %w", errs.ErrCacheSync, err)
 	}
+	s.log.Info("user verify status changed", zap.Int64("osu_id", user.OnlineID), zap.String("status", string(status)))
 	return user, nil
 }

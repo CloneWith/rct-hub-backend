@@ -141,7 +141,7 @@ func TestAuthServiceCallbackCreatesUser(t *testing.T) {
 	}
 	users := newFakeUserRepo()
 	signer := jwtutil.NewSigner("this-is-a-32-byte-secret-key-for-test!", "rcthub-test")
-	svc := NewAuthService(oauthClient, users, nil, signer, time.Hour)
+	svc := NewAuthService(oauthClient, users, nil, signer, time.Hour, nil)
 
 	token, user, err := svc.Callback(ctx, "code", "state")
 	if err != nil {
@@ -187,7 +187,7 @@ func TestAuthServiceCallbackUpdatesExistingUser(t *testing.T) {
 	}
 	signer := jwtutil.NewSigner("this-is-a-32-byte-secret-key-for-test!", "rcthub-test")
 	inv := &mockInvalidator{}
-	svc := NewAuthService(oauthClient, users, inv, signer, time.Hour)
+	svc := NewAuthService(oauthClient, users, inv, signer, time.Hour, nil)
 
 	_, user, err := svc.Callback(ctx, "code", "state")
 	if err != nil {
@@ -228,7 +228,7 @@ func TestAuthServiceCallbackRejectsBannedUser(t *testing.T) {
 		},
 	}
 	signer := jwtutil.NewSigner("this-is-a-32-byte-secret-key-for-test!", "rcthub-test")
-	svc := NewAuthService(oauthClient, users, nil, signer, time.Hour)
+	svc := NewAuthService(oauthClient, users, nil, signer, time.Hour, nil)
 
 	_, _, err := svc.Callback(ctx, "code", "state")
 	if err != errs.ErrForbidden {
@@ -250,7 +250,7 @@ func TestAuthServiceCallbackReturnsCacheInvalidationFailure(t *testing.T) {
 	cacheErr := errors.New("redis unavailable")
 	inv := &mockInvalidator{err: cacheErr}
 	signer := jwtutil.NewSigner("this-is-a-32-byte-secret-key-for-test!", "rcthub-test")
-	svc := NewAuthService(oauthClient, users, inv, signer, time.Hour)
+	svc := NewAuthService(oauthClient, users, inv, signer, time.Hour, nil)
 
 	token, user, err := svc.Callback(ctx, "code", "state")
 	if !errors.Is(err, cacheErr) {

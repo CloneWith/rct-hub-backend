@@ -31,6 +31,7 @@ type Server struct {
 	httpServer *http.Server
 	router     *gin.Engine
 	deps       *Deps
+	logs       *logger.Provider
 	logger     *zap.Logger
 }
 
@@ -55,6 +56,10 @@ func New(cfg *config.Config, db *database.DB, logs *logger.Provider) *Server {
 	}
 
 	mainLog := logs.Main()
+	authLog := logs.Get(string(logger.CatAuth))
+	fetcherLog := logs.Get(string(logger.CatFetcher))
+	auditLog := logs.Get(string(logger.CatAudit))
+	matchEngineLog := logs.Get(string(logger.CatMatchEngine))
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -71,7 +76,7 @@ func New(cfg *config.Config, db *database.DB, logs *logger.Provider) *Server {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	router.Use(middleware.ErrorHandler())
+	router.Use(middleware.ErrorHandler(mainLog))
 
 	signer := jwtutil.NewSigner(cfg.JWT.Secret, "rcthub-backend")
 	oauthClient := oauth.NewClient(oauth.Config{
@@ -79,14 +84,12 @@ func New(cfg *config.Config, db *database.DB, logs *logger.Provider) *Server {
 		ClientSecret: cfg.Osu.ClientSecret,
 		RedirectURI:  cfg.Osu.RedirectURI,
 		APIBase:      cfg.Osu.APIBase,
-	}, db.Redis)
+	}, db.Redis, authLog)
 
 	repos := repository.NewRepositories(db.Mongo, db.MongoDB)
 
 	// osu! API fetcher — three-tier lookup (Redis → MongoDB → osu! API v2).
 	// Created before services so it can be injected as a CacheInvalidator.
-	// Uses the "fetcher" category logger (silenced if listed in LOG_SUPPRESS).
-	fetcherLog := logs.Get(string(logger.CatFetcher))
 	apiClient := fetcher.NewAPIClient(fetcher.APIClientConfig{
 		ClientID:     cfg.Osu.ClientID,
 		ClientSecret: cfg.Osu.ClientSecret,
@@ -97,14 +100,14 @@ func New(cfg *config.Config, db *database.DB, logs *logger.Provider) *Server {
 		BeatmapCacheTTL: cfg.Osu.FetcherBeatmapCacheTTL,
 	})
 
-	services := service.NewServices(repos, osuFetcher)
+	services := service.NewServices(repos, osuFetcher, logs)
 
 	deps := &Deps{
 		Cfg:         cfg,
 		DB:          db,
 		Repos:       repos,
 		Services:    services,
-		AuthSvc:     service.NewAuthService(oauthClient, repos.Users, osuFetcher, signer, cfg.JWT.Expiry),
+		AuthSvc:     service.NewAuthService(oauthClient, repos.Users, osuFetcher, signer, cfg.JWT.Expiry, authLog),
 		UserSvc:     services.Users,
 		BeatmapSvc:  services.Beatmaps,
 		AnnounceSvc: service.NewAnnouncementService(repos.Announcements),
@@ -115,6 +118,7 @@ func New(cfg *config.Config, db *database.DB, logs *logger.Provider) *Server {
 	s := &Server{
 		router: router,
 		deps:   deps,
+		logs:   logs,
 		logger: mainLog,
 		httpServer: &http.Server{
 			Addr:    fmt.Sprintf(":%s", cfg.Port),
@@ -122,15 +126,15 @@ func New(cfg *config.Config, db *database.DB, logs *logger.Provider) *Server {
 		},
 	}
 
-	s.registerRoutes()
+	s.registerRoutes(auditLog, authLog, matchEngineLog)
 	return s
 }
 
-func (s *Server) registerRoutes() {
+func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 	health := handler.NewHealthHandler(s.deps.DB)
 	s.router.GET("/health", health.Check)
 
-	auth := handler.NewAuthHandler(s.deps.AuthSvc, s.deps.Cfg.FrontEndURI)
+	auth := handler.NewAuthHandler(s.deps.AuthSvc, s.deps.Cfg.FrontEndURI, authLog)
 	s.router.GET("/auth/osu", auth.OsuLogin)
 	s.router.GET("/auth/osu/callback", auth.OsuCallback)
 
@@ -143,15 +147,16 @@ func (s *Server) registerRoutes() {
 		s.deps.Repos.Matches,
 		s.deps.Repos.Rooms,
 		nil,
+		matchEngineLog,
 	)
 	gqlResolver := graphql.NewResolver(s.deps.Services, commands)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
-	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.Services))
+	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.Services, authLog))
 
-	users := handler.NewUserHandler(s.deps.UserSvc)
-	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc)
-	rooms := handler.NewRoomHandler(s.deps.Services.Rooms)
+	users := handler.NewUserHandler(s.deps.UserSvc, auditLog)
+	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc, auditLog)
+	rooms := handler.NewRoomHandler(s.deps.Services.Rooms, auditLog)
 	announcements := handler.NewAnnouncementHandler(s.deps.AnnounceSvc)
 
 	api := s.router.Group("/api/v1")
@@ -161,7 +166,7 @@ func (s *Server) registerRoutes() {
 		// Authenticated endpoints — room configuration (pre-game setup)
 		// All read operations and in-game commands are served via GraphQL (/graphql).
 		authorized := api.Group("")
-		authorized.Use(middleware.Auth(s.deps.JWTSigner))
+		authorized.Use(middleware.Auth(s.deps.JWTSigner, authLog))
 		{
 			authorized.POST("/rooms", rooms.Create)
 			authorized.PATCH("/rooms/:id/strategists", rooms.SetStrategists)

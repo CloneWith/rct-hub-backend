@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.uber.org/zap"
 
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/matchengine"
@@ -23,6 +24,7 @@ type RoomService struct {
 	users         repository.UserRepository
 	formalMatches FormalMatchBootstrap
 	now           func() time.Time
+	log           *zap.Logger
 }
 
 type FormalMatchBootstrap interface {
@@ -30,8 +32,11 @@ type FormalMatchBootstrap interface {
 }
 
 // NewRoomService creates a new RoomService.
-func NewRoomService(rooms repository.RoomRepository, matches repository.MatchRepository, users repository.UserRepository, formalMatches FormalMatchBootstrap) *RoomService {
-	return &RoomService{rooms: rooms, matches: matches, users: users, formalMatches: formalMatches, now: func() time.Time { return time.Now().UTC() }}
+func NewRoomService(rooms repository.RoomRepository, matches repository.MatchRepository, users repository.UserRepository, formalMatches FormalMatchBootstrap, log *zap.Logger) *RoomService {
+	if log == nil {
+		log = zap.NewNop()
+	}
+	return &RoomService{rooms: rooms, matches: matches, users: users, formalMatches: formalMatches, now: func() time.Time { return time.Now().UTC() }, log: log}
 }
 
 // CreateRoom creates a new room for the given owner.
@@ -61,8 +66,15 @@ func (s *RoomService) CreateRoom(ctx context.Context, ownerID int64, roomType do
 		Settings: domain.RoomSettings{Mappool: domain.NewMappool()},
 	}
 	if err := s.rooms.Create(ctx, room); err != nil {
+		s.log.Error("failed to create room", zap.Int64("owner_id", ownerID), zap.Error(err))
 		return nil, err
 	}
+	s.log.Info("room created",
+		zap.String("room_id", room.ID.Hex()),
+		zap.String("code", room.Code),
+		zap.String("type", string(roomType)),
+		zap.Int64("owner_id", ownerID),
+	)
 	return room, nil
 }
 
@@ -233,12 +245,19 @@ func (s *RoomService) StartMatch(ctx context.Context, callerID int64, roomID bso
 	match.Timer = domain.NewTimerState(domain.BanTimeLimit, domain.BanBonusTime)
 
 	if err := s.matches.Create(ctx, &match); err != nil {
+		s.log.Error("failed to create match", zap.String("room_id", roomID.Hex()), zap.Error(err))
 		return nil, err
 	}
 	room.MatchID = &match.ID
 	if err := s.rooms.Update(ctx, room); err != nil {
+		s.log.Error("failed to link match to room", zap.String("room_id", roomID.Hex()), zap.String("match_id", match.ID.Hex()), zap.Error(err))
 		return nil, err
 	}
+	s.log.Info("audit: match started",
+		zap.String("room_id", roomID.Hex()),
+		zap.String("match_id", match.ID.Hex()),
+		zap.Int64("caller_id", callerID),
+	)
 	return &match, nil
 }
 

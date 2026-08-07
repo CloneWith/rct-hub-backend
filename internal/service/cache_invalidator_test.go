@@ -42,7 +42,7 @@ func TestUserServiceUpdateRolesInvalidatesCache(t *testing.T) {
 		Roles:    []domain.UserRole{domain.RolePlayer},
 	})
 	inv := &mockInvalidator{}
-	svc := NewUserService(repo, inv)
+	svc := NewUserService(repo, inv, nil)
 
 	_, err := svc.UpdateRoles(ctx, uid, []domain.UserRole{domain.RoleAdmin})
 	if err != nil {
@@ -65,7 +65,7 @@ func TestUserServiceSetBannedInvalidatesCache(t *testing.T) {
 		Roles:    []domain.UserRole{domain.RolePlayer},
 	})
 	inv := &mockInvalidator{}
-	svc := NewUserService(repo, inv)
+	svc := NewUserService(repo, inv, nil)
 
 	_, err := svc.SetBanned(ctx, uid, true)
 	if err != nil {
@@ -95,7 +95,7 @@ func TestUserServiceSetVerifyStatusInvalidatesCache(t *testing.T) {
 		VerifyStatus: domain.Pending,
 	})
 	inv := &mockInvalidator{}
-	svc := NewUserService(repo, inv)
+	svc := NewUserService(repo, inv, nil)
 
 	_, err := svc.SetVerifyStatus(ctx, uid, domain.Verified)
 	if err != nil {
@@ -111,7 +111,7 @@ func TestUserServiceUpdateRolesNotFoundDoesNotInvalidate(t *testing.T) {
 	ctx := context.Background()
 	repo := newFakeUserRepo()
 	inv := &mockInvalidator{}
-	svc := NewUserService(repo, inv)
+	svc := NewUserService(repo, inv, nil)
 
 	_, err := svc.UpdateRoles(ctx, bson.NewObjectID(), []domain.UserRole{domain.RoleAdmin})
 	if err != errs.ErrNotFound {
@@ -133,7 +133,7 @@ func TestUserServiceNilInvalidatorIsSafe(t *testing.T) {
 		Username: "p1",
 		Roles:    []domain.UserRole{domain.RolePlayer},
 	})
-	svc := NewUserService(repo, nil) // nil invalidator — should not panic
+	svc := NewUserService(repo, nil, nil) // nil invalidator — should not panic
 
 	_, err := svc.UpdateRoles(ctx, uid, []domain.UserRole{domain.RoleAdmin})
 	if err != nil {
@@ -147,7 +147,7 @@ func TestUserServiceReturnsCacheInvalidationFailure(t *testing.T) {
 	uid := bson.NewObjectID()
 	_ = repo.Create(ctx, &domain.User{ID: uid, OnlineID: 42})
 	cacheErr := errors.New("redis unavailable")
-	svc := NewUserService(repo, &mockInvalidator{err: cacheErr})
+	svc := NewUserService(repo, &mockInvalidator{err: cacheErr}, nil)
 
 	_, err := svc.SetBanned(ctx, uid, true)
 	if !errors.Is(err, cacheErr) {
@@ -233,7 +233,7 @@ func TestBeatmapServiceUpdateInvalidatesCache(t *testing.T) {
 	_ = repo.Create(ctx, bm)
 
 	inv := &mockInvalidator{}
-	svc := NewBeatmapService(repo, inv)
+	svc := NewBeatmapService(repo, inv, nil)
 
 	bm.ModString = "HD"
 	err := svc.Update(ctx, bm)
@@ -252,7 +252,7 @@ func TestBeatmapServiceUpdateRejectsOnlineIDChange(t *testing.T) {
 	bid := bson.NewObjectID()
 	stored := &domain.Beatmap{ID: bid, OnlineID: 100, Title: "Original"}
 	_ = repo.Create(ctx, stored)
-	svc := NewBeatmapService(repo, &mockInvalidator{})
+	svc := NewBeatmapService(repo, &mockInvalidator{}, nil)
 
 	changed := *stored
 	changed.OnlineID = 101
@@ -272,7 +272,7 @@ func TestBeatmapServiceReturnsCacheInvalidationFailure(t *testing.T) {
 	stored := &domain.Beatmap{ID: bid, OnlineID: 100}
 	_ = repo.Create(ctx, stored)
 	cacheErr := errors.New("redis unavailable")
-	svc := NewBeatmapService(repo, &mockInvalidator{err: cacheErr})
+	svc := NewBeatmapService(repo, &mockInvalidator{err: cacheErr}, nil)
 
 	err := svc.Update(ctx, stored)
 	if !errors.Is(err, cacheErr) {
@@ -291,7 +291,7 @@ func TestBeatmapServiceDeleteInvalidatesCache(t *testing.T) {
 	})
 
 	inv := &mockInvalidator{}
-	svc := NewBeatmapService(repo, inv)
+	svc := NewBeatmapService(repo, inv, nil)
 
 	err := svc.Delete(ctx, bid)
 	if err != nil {
@@ -313,7 +313,7 @@ func TestBeatmapServiceDeleteNotFoundDoesNotInvalidate(t *testing.T) {
 	ctx := context.Background()
 	repo := newFakeBeatmapRepo()
 	inv := &mockInvalidator{}
-	svc := NewBeatmapService(repo, inv)
+	svc := NewBeatmapService(repo, inv, nil)
 
 	err := svc.Delete(ctx, bson.NewObjectID())
 	if err != errs.ErrNotFound {
@@ -329,7 +329,7 @@ func TestBeatmapServiceCreateInvalidatesCache(t *testing.T) {
 	ctx := context.Background()
 	repo := newFakeBeatmapRepo()
 	inv := &mockInvalidator{}
-	svc := NewBeatmapService(repo, inv)
+	svc := NewBeatmapService(repo, inv, nil)
 
 	bm := &domain.Beatmap{
 		ID:       bson.NewObjectID(),
@@ -349,7 +349,7 @@ func TestBeatmapServiceCreateInvalidatesCache(t *testing.T) {
 func TestBeatmapServiceNilInvalidatorIsSafe(t *testing.T) {
 	ctx := context.Background()
 	repo := newFakeBeatmapRepo()
-	svc := NewBeatmapService(repo, nil) // nil invalidator — should not panic
+	svc := NewBeatmapService(repo, nil, nil) // nil invalidator — should not panic
 
 	bm := &domain.Beatmap{
 		ID:       bson.NewObjectID(),
