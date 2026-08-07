@@ -18,11 +18,23 @@ type Config struct {
 	Port        string
 	LogLevel    string
 	FrontEndURI string
+	Log         LogConfig
 	MongoDB     MongoDBConfig
 	Redis       RedisConfig
 	JWT         JWTConfig
 	Osu         OsuConfig
 	CORS        CORSConfig
+}
+
+// LogConfig holds logging configuration.
+type LogConfig struct {
+	// Dir is the directory for log files. If empty, logs go to stdout only.
+	Dir string
+	// Suppress is a blacklist of log categories that will NOT be recorded.
+	// All predefined categories (see logger.AllCategories) get their own log
+	// files by default; list categories here to silence them entirely.
+	// The "runtime" category (main logger) is never suppressed.
+	Suppress []string
 }
 
 type MongoDBConfig struct {
@@ -69,6 +81,10 @@ func Load() (*Config, error) {
 		Port:        getEnv("PORT", "8080"),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		FrontEndURI: getEnv("FRONTEND_URI", "http://localhost:3000"),
+		Log: LogConfig{
+			Dir:      getEnv("LOG_DIR", "./logs"),
+			Suppress: parseCSV(getEnv("LOG_SUPPRESS", "")),
+		},
 		MongoDB: MongoDBConfig{
 			URI:  getEnv("MONGODB_URI", "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true"),
 			Name: getEnv("MONGODB_NAME", "rcthub"),
@@ -181,4 +197,21 @@ func mustAtoi(s string) int {
 		return 0
 	}
 	return n
+}
+
+// parseCSV splits a comma-separated string into trimmed, non-empty parts.
+func parseCSV(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
 }
