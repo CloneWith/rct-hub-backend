@@ -57,7 +57,7 @@ func (r *moveRepo) ByMatch(ctx context.Context, matchID bson.ObjectID, params pa
 	opts := options.Find().
 		SetSkip(params.Skip()).
 		SetLimit(params.PerPage).
-		SetSort(bson.M{"created_at": 1})
+		SetSort(bson.D{{Key: "created_at", Value: 1}})
 	cur, err := r.coll.Find(ctx, filter, opts)
 	if err != nil {
 		return paginate.Result[domain.Move]{}, err
@@ -76,7 +76,7 @@ func (r *moveRepo) LatestByMatch(ctx context.Context, matchID bson.ObjectID, lim
 	}
 	opts := options.Find().
 		SetLimit(limit).
-		SetSort(bson.M{"created_at": -1})
+		SetSort(bson.D{{Key: "created_at", Value: -1}})
 	cur, err := r.coll.Find(ctx, bson.M{"match_id": matchID}, opts)
 	if err != nil {
 		return nil, err

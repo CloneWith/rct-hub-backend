@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -202,7 +203,17 @@ func (r *queryResolver) Users(ctx context.Context, page *int, perPage *int) (*Us
 
 func (r *queryResolver) Announcements(ctx context.Context, page *int, perPage *int) (*AnnouncementPage, error) {
 	params := buildPageParams(page, perPage)
-	result, err := r.svc.Announcements.ListVisible(ctx, params)
+
+	claims, ok := ClaimsFromCtx(ctx)
+	isAdmin := ok && claims != nil && slices.Contains(claims.Roles, domain.RoleAdmin)
+
+	var result paginate.Result[domain.Announcement]
+	var err error
+	if isAdmin {
+		result, err = r.svc.Announcements.ListAll(ctx, params)
+	} else {
+		result, err = r.svc.Announcements.ListVisible(ctx, params)
+	}
 	if err != nil {
 		return nil, err
 	}
