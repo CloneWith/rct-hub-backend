@@ -3,10 +3,10 @@ package middleware
 import (
 	"net/http"
 	"slices"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"rctHubBackend/internal/authsession"
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/pkg/jwtutil"
 	"rctHubBackend/pkg/response"
@@ -17,26 +17,12 @@ const (
 	ContextKeyUserID = "user_id"
 )
 
-// Auth verifies the JWT in the Authorization header.
-func Auth(signer *jwtutil.Signer) gin.HandlerFunc {
+// Auth accepts script Bearer JWTs and revocable browser session cookies.
+func Auth(signer *jwtutil.Signer, sessions authsession.Resolver, cookieName string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		header := c.GetHeader("Authorization")
-		if header == "" {
-			response.Unauthorized(c, "missing authorization header")
-			c.Abort()
-			return
-		}
-
-		parts := strings.SplitN(header, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			response.Unauthorized(c, "invalid authorization header")
-			c.Abort()
-			return
-		}
-
-		claims, err := signer.Parse(parts[1])
+		claims, err := authsession.ClaimsFromRequest(c.Request, signer, sessions, cookieName)
 		if err != nil {
-			response.Error(c, http.StatusUnauthorized, "invalid or expired token")
+			response.Error(c, http.StatusUnauthorized, "invalid or expired authentication")
 			c.Abort()
 			return
 		}

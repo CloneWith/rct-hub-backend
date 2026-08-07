@@ -164,6 +164,8 @@ All configuration is loaded from environment variables (with `.env` file support
 | `AUTH_COOKIE_DOMAIN` | *(empty)* | Optional shared parent domain for Web/API subdomains |
 | `AUTH_COOKIE_SECURE` | `false` in development, required in production | Send the session cookie only over HTTPS |
 | `AUTH_COOKIE_SAME_SITE` | `lax` | Browser SameSite policy (`lax` or `strict`) |
+| `AUTH_SESSION_IDLE_HOURS` | `24` | Browser session expires after this much inactivity |
+| `AUTH_SESSION_MAX_HOURS` | `168` | Absolute browser session lifetime |
 | `OSU_CLIENT_ID` | *(empty)* | osu! OAuth client ID |
 | `OSU_CLIENT_SECRET` | *(empty)* | osu! OAuth client secret |
 | `OSU_REDIRECT_URI` | `http://localhost:8080/auth/osu/callback` | OAuth callback URL |
@@ -172,9 +174,11 @@ All configuration is loaded from environment variables (with `.env` file support
 
 ## Authentication
 
-The backend uses osu! OAuth 2.0. Browser login stores the signed session in an
-HttpOnly cookie; the OAuth redirect contains no token. Bearer JWT remains
-available for scripts and non-browser clients.
+The backend uses osu! OAuth 2.0. Browser login stores an opaque, revocable
+session secret in an HttpOnly cookie; only its hash and session data are held in
+Redis. The OAuth redirect contains no credential. Browser sessions expire after
+24 hours of inactivity and after seven days at most. Bearer JWT remains
+supported for scripts and non-browser clients that obtain a token out of band.
 
 ### Setup osu! OAuth
 
@@ -209,7 +213,8 @@ After the GraphQL migration, REST is focused on OAuth, health, room setup, and a
 
 ### Room Configuration (Authenticated)
 
-Pre-match setup endpoints — all require a valid JWT.
+Pre-match setup endpoints accept either a browser session cookie or a valid
+Bearer JWT.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|

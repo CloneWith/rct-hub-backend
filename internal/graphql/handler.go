@@ -1,8 +1,6 @@
 package graphql
 
 import (
-	"strings"
-
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/lru"
@@ -11,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vektah/gqlparser/v2/ast"
 
+	"rctHubBackend/internal/authsession"
 	"rctHubBackend/internal/service"
 	"rctHubBackend/pkg/jwtutil"
 )
@@ -56,7 +55,7 @@ func NewHandler(resolver *Resolver) *handler.Server {
 //
 // DataLoader 策略：
 //   - 每个请求创建独立的 BeatmapLoader 与 UserLoader，防止 N+1 重复查询
-func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, services *service.Services, cookieNames ...string) gin.HandlerFunc {
+func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, sessions authsession.Resolver, services *service.Services, cookieNames ...string) gin.HandlerFunc {
 	cookieName := "rcthub_session"
 	if len(cookieNames) > 0 && cookieNames[0] != "" {
 		cookieName = cookieNames[0]
@@ -64,22 +63,10 @@ func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, services *se
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
-		// 可选认证：尝试从 Authorization header 解析 JWT
-		header := c.GetHeader("Authorization")
-		token := ""
-		if header != "" {
-			parts := strings.SplitN(header, " ", 2)
-			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
-				token = parts[1]
-			}
-		}
-		if token == "" {
-			token, _ = c.Cookie(cookieName)
-		}
-		if token != "" {
-			if claims, err := signer.Parse(token); err == nil {
-				ctx = WithClaims(ctx, claims)
-			}
+		// Public GraphQL queries remain available without credentials. Valid
+		// Bearer tokens or browser sessions add the authenticated viewer.
+		if claims, err := authsession.ClaimsFromRequest(c.Request, signer, sessions, cookieName); err == nil {
+			ctx = WithClaims(ctx, claims)
 		}
 
 		// 请求级 DataLoader
