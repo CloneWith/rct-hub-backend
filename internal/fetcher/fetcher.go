@@ -115,6 +115,7 @@ func New(api *APIClient, users repository.UserRepository, beatmaps repository.Be
 func (f *fetcher) GetUser(ctx context.Context, osuID int64) (*domain.User, error) {
 	// 1. Redis hot cache.
 	if user, ok := f.getCachedUser(ctx, osuID); ok {
+		f.logger.Debug("user cache hit (redis)", zap.Int64("osu_id", osuID))
 		return user, nil
 	}
 	generation := f.cacheGeneration(ctx, userGenerationKey(osuID))
@@ -122,14 +123,17 @@ func (f *fetcher) GetUser(ctx context.Context, osuID int64) (*domain.User, error
 	// 2. MongoDB persistent store.
 	user, err := f.users.ByOsuID(ctx, osuID)
 	if err == nil {
+		f.logger.Debug("user cache miss (redis), hit (mongo)", zap.Int64("osu_id", osuID))
 		f.cacheUser(ctx, user, generation)
 		return user, nil
 	}
 	if !errors.Is(err, errs.ErrNotFound) {
+		f.logger.Error("failed to fetch user from MongoDB", zap.Int64("osu_id", osuID), zap.Error(err))
 		return nil, fmt.Errorf("fetch user from db: %w", err)
 	}
 
 	// 3. osu! API fallback.
+	f.logger.Info("user cache miss (redis + mongo), fetching from osu! API", zap.Int64("osu_id", osuID))
 	return f.SyncUser(ctx, osuID)
 }
 
@@ -140,8 +144,10 @@ func (f *fetcher) SyncUser(ctx context.Context, osuID int64) (*domain.User, erro
 	resp, err := f.api.GetUser(ctx, osuID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
+			f.logger.Info("osu! user not found", zap.Int64("osu_id", osuID))
 			return nil, fmt.Errorf("%w: osu! user %d", errs.ErrNotFound, osuID)
 		}
+		f.logger.Error("failed to fetch user from osu! API", zap.Int64("osu_id", osuID), zap.Error(err))
 		return nil, fmt.Errorf("fetch user from osu! api: %w", err)
 	}
 
@@ -150,8 +156,13 @@ func (f *fetcher) SyncUser(ctx context.Context, osuID int64) (*domain.User, erro
 	// with a valid _id and current local fields.
 	user, err := f.users.UpsertOsuFields(ctx, osuID, userOsuFields(resp))
 	if err != nil {
+		f.logger.Error("failed to upsert user to MongoDB", zap.Int64("osu_id", osuID), zap.Error(err))
 		return nil, fmt.Errorf("upsert user from osu! api: %w", err)
 	}
+	f.logger.Debug("upserted user from osu! API",
+		zap.Int64("osu_id", osuID),
+		zap.String("username", user.Username),
+	)
 
 	f.cacheUser(ctx, user, generation)
 	return user, nil
@@ -163,6 +174,7 @@ func (f *fetcher) SyncUser(ctx context.Context, osuID int64) (*domain.User, erro
 func (f *fetcher) GetBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap, error) {
 	// 1. Redis hot cache.
 	if bm, ok := f.getCachedBeatmap(ctx, osuID); ok {
+		f.logger.Debug("beatmap cache hit (redis)", zap.Int64("osu_id", osuID))
 		return bm, nil
 	}
 	generation := f.cacheGeneration(ctx, beatmapGenerationKey(osuID))
@@ -170,14 +182,17 @@ func (f *fetcher) GetBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap,
 	// 2. MongoDB persistent store.
 	bm, err := f.beatmaps.ByOsuID(ctx, osuID)
 	if err == nil {
+		f.logger.Debug("beatmap cache miss (redis), hit (mongo)", zap.Int64("osu_id", osuID))
 		f.cacheBeatmap(ctx, bm, generation)
 		return bm, nil
 	}
 	if !errors.Is(err, errs.ErrNotFound) {
+		f.logger.Error("failed to fetch beatmap from MongoDB", zap.Int64("osu_id", osuID), zap.Error(err))
 		return nil, fmt.Errorf("fetch beatmap from db: %w", err)
 	}
 
 	// 3. osu! API fallback.
+	f.logger.Info("beatmap cache miss (redis + mongo), fetching from osu! API", zap.Int64("osu_id", osuID))
 	return f.SyncBeatmap(ctx, osuID)
 }
 
@@ -188,16 +203,23 @@ func (f *fetcher) SyncBeatmap(ctx context.Context, osuID int64) (*domain.Beatmap
 	resp, err := f.api.GetBeatmap(ctx, osuID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
+			f.logger.Info("osu! beatmap not found", zap.Int64("osu_id", osuID))
 			return nil, fmt.Errorf("%w: osu! beatmap %d", errs.ErrNotFound, osuID)
 		}
+		f.logger.Error("failed to fetch beatmap from osu! API", zap.Int64("osu_id", osuID), zap.Error(err))
 		return nil, fmt.Errorf("fetch beatmap from osu! api: %w", err)
 	}
 
 	// Atomic upsert: only touches API-owned fields via $set.
 	bm, err := f.beatmaps.UpsertOsuFields(ctx, osuID, beatmapOsuFields(resp))
 	if err != nil {
+		f.logger.Error("failed to upsert beatmap to MongoDB", zap.Int64("osu_id", osuID), zap.Error(err))
 		return nil, fmt.Errorf("upsert beatmap from osu! api: %w", err)
 	}
+	f.logger.Debug("upserted beatmap from osu! API",
+		zap.Int64("osu_id", osuID),
+		zap.String("title", bm.Title),
+	)
 
 	f.cacheBeatmap(ctx, bm, generation)
 	return bm, nil
