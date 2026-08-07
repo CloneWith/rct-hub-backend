@@ -10,6 +10,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-gonic/gin"
 	"github.com/vektah/gqlparser/v2/ast"
+	"go.uber.org/zap"
 
 	"rctHubBackend/internal/service"
 	"rctHubBackend/pkg/jwtutil"
@@ -60,7 +61,10 @@ func NewHandler(resolver *Resolver) *handler.Server {
 //
 // DataLoader 策略：
 //   - 每个请求创建独立的 BeatmapLoader 与 UserLoader，防止 N+1 重复查询
-func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, services *service.Services) gin.HandlerFunc {
+func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, services *service.Services, log *zap.Logger) gin.HandlerFunc {
+	if log == nil {
+		log = zap.NewNop()
+	}
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
@@ -71,6 +75,11 @@ func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, services *se
 			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
 				if claims, err := signer.Parse(parts[1]); err == nil {
 					ctx = WithClaims(ctx, claims)
+				} else {
+					log.Debug("GraphQL: JWT parse failed (optional auth, continuing without claims)",
+						zap.String("path", c.Request.URL.Path),
+						zap.Error(err),
+					)
 				}
 			}
 		}
