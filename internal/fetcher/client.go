@@ -181,9 +181,9 @@ func (c *APIClient) refreshToken(ctx context.Context) (string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		raw, _ := io.ReadAll(resp.Body)
+		// Only output to console to reduce log size, in case the response body is too long.
 		c.logger.Error("osu! token endpoint returned non-OK status",
 			zap.Int("status", resp.StatusCode),
-			zap.String("body", string(raw)),
 		)
 		return "", fmt.Errorf("osu! token endpoint returned %d: %s", resp.StatusCode, string(raw))
 	}
