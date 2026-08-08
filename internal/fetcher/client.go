@@ -117,8 +117,10 @@ func (c *APIClient) getToken(ctx context.Context) (string, error) {
 	// Fast path: in-memory cache is still valid.
 	c.mu.Lock()
 	if c.token != "" && time.Now().Before(c.expires) {
+		// Use a local variable to store token before releasing the lock.
+		tok := c.token
 		c.mu.Unlock()
-		return c.token, nil
+		return tok, nil
 	}
 	c.mu.Unlock()
 
