@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"rctHubBackend/internal/authsession"
 	"rctHubBackend/internal/config"
 	"rctHubBackend/internal/database"
 	"rctHubBackend/internal/domain"
@@ -35,16 +36,17 @@ type Server struct {
 
 // Deps aggregates repositories, services, and utilities used by handlers.
 type Deps struct {
-	Cfg         *config.Config
-	DB          *database.DB
-	Repos       *repository.Repositories
-	Services    *service.Services
-	AuthSvc     service.AuthService
-	UserSvc     *service.UserService
-	BeatmapSvc  *service.BeatmapService
-	AnnounceSvc *service.AnnouncementService
-	Fetcher     fetcher.Fetcher
-	JWTSigner   *jwtutil.Signer
+	Cfg          *config.Config
+	DB           *database.DB
+	Repos        *repository.Repositories
+	Services     *service.Services
+	AuthSvc      service.AuthService
+	UserSvc      *service.UserService
+	BeatmapSvc   *service.BeatmapService
+	AnnounceSvc  *service.AnnouncementService
+	Fetcher      fetcher.Fetcher
+	JWTSigner    *jwtutil.Signer
+	AuthSessions *authsession.Store
 }
 
 // New creates a new Server with routes configured.
@@ -71,6 +73,7 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 	router.Use(middleware.ErrorHandler())
 
 	signer := jwtutil.NewSigner(cfg.JWT.Secret, "rcthub-backend")
+	browserSessions := authsession.NewStore(db.Redis, cfg.AuthSession.IdleExpiry, cfg.AuthSession.AbsoluteExpiry)
 	oauthClient := oauth.NewClient(oauth.Config{
 		ClientID:     cfg.Osu.ClientID,
 		ClientSecret: cfg.Osu.ClientSecret,
@@ -92,19 +95,20 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 		BeatmapCacheTTL: cfg.Osu.FetcherBeatmapCacheTTL,
 	})
 
-	services := service.NewServices(repos, osuFetcher)
+	services := service.NewServices(repos, osuFetcher, browserSessions)
 
 	deps := &Deps{
-		Cfg:         cfg,
-		DB:          db,
-		Repos:       repos,
-		Services:    services,
-		AuthSvc:     service.NewAuthService(oauthClient, repos.Users, osuFetcher, signer, cfg.JWT.Expiry),
-		UserSvc:     services.Users,
-		BeatmapSvc:  services.Beatmaps,
-		AnnounceSvc: service.NewAnnouncementService(repos.Announcements),
-		Fetcher:     osuFetcher,
-		JWTSigner:   signer,
+		Cfg:          cfg,
+		DB:           db,
+		Repos:        repos,
+		Services:     services,
+		AuthSvc:      service.NewAuthService(oauthClient, repos.Users, osuFetcher, signer, cfg.JWT.Expiry),
+		UserSvc:      services.Users,
+		BeatmapSvc:   services.Beatmaps,
+		AnnounceSvc:  service.NewAnnouncementService(repos.Announcements),
+		Fetcher:      osuFetcher,
+		JWTSigner:    signer,
+		AuthSessions: browserSessions,
 	}
 
 	s := &Server{
@@ -125,9 +129,14 @@ func (s *Server) registerRoutes() {
 	health := handler.NewHealthHandler(s.deps.DB)
 	s.router.GET("/health", health.Check)
 
-	auth := handler.NewAuthHandler(s.deps.AuthSvc, s.deps.Cfg.FrontEndURI)
+	auth := handler.NewAuthHandler(s.deps.AuthSvc, s.deps.AuthSessions, s.deps.Cfg.FrontEndURI, handler.AuthCookieConfig{
+		Name: s.deps.Cfg.AuthCookie.Name, Domain: s.deps.Cfg.AuthCookie.Domain,
+		Secure: s.deps.Cfg.AuthCookie.Secure, SameSite: authSameSite(s.deps.Cfg.AuthCookie.SameSite),
+		TTL: s.deps.Cfg.AuthSession.AbsoluteExpiry,
+	})
 	s.router.GET("/auth/osu", auth.OsuLogin)
 	s.router.GET("/auth/osu/callback", auth.OsuCallback)
+	s.router.POST("/auth/logout", auth.Logout)
 
 	// GraphQL endpoint — all reads, client views, and in-game commands
 	// GET  /graphql → GraphiQL Playground
@@ -139,10 +148,10 @@ func (s *Server) registerRoutes() {
 		s.deps.Repos.Rooms,
 		nil,
 	)
-	gqlResolver := graphql.NewResolver(s.deps.Services, commands)
+	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
-	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.Services))
+	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Services, s.deps.Cfg.AuthCookie.Name))
 
 	users := handler.NewUserHandler(s.deps.UserSvc)
 	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc)
@@ -156,7 +165,7 @@ func (s *Server) registerRoutes() {
 		// Authenticated endpoints — room configuration (pre-game setup)
 		// All read operations and in-game commands are served via GraphQL (/graphql).
 		authorized := api.Group("")
-		authorized.Use(middleware.Auth(s.deps.JWTSigner))
+		authorized.Use(middleware.Auth(s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Cfg.AuthCookie.Name))
 		{
 			authorized.POST("/rooms", rooms.Create)
 			authorized.PATCH("/rooms/:id/strategists", rooms.SetStrategists)
@@ -187,6 +196,13 @@ func (s *Server) registerRoutes() {
 			admin.POST("/announcements/:id/publish", announcements.Publish)
 		}
 	}
+}
+
+func authSameSite(value string) http.SameSite {
+	if value == "strict" {
+		return http.SameSiteStrictMode
+	}
+	return http.SameSiteLaxMode
 }
 
 // Start runs the HTTP server.

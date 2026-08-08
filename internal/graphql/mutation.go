@@ -2,8 +2,8 @@ package graphql
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -17,19 +17,23 @@ func (r *mutationResolver) executeCommand(ctx context.Context, meta *CommandMeta
 	if meta != nil {
 		commandID = meta.CommandID
 	}
-	failure := func(code, message string, currentVersion *int) *MatchCommandResult {
+	failure := func(code, message string, currentVersion *string) *MatchCommandResult {
 		return &MatchCommandResult{
 			Success: false, CommandID: commandID, Events: []*MatchCommandEvent{},
 			CurrentVersion: currentVersion,
-			Error:          &MatchError{Code: code, Message: message, CurrentVersion: currentVersion},
+			Error:          &MatchError{Code: MatchErrorCode(code), Message: message, CurrentVersion: currentVersion},
 		}
 	}
 	claims, ok := ClaimsFromCtx(ctx)
 	if !ok || claims == nil {
 		return failure(string(matchcommand.CodeAuthRequired), "authentication required", nil)
 	}
-	if meta == nil || meta.ExpectedVersion < 0 {
+	if meta == nil {
 		return failure(string(matchcommand.CodeInvalidRequest), "valid command metadata is required", nil)
+	}
+	expectedVersion, err := strconv.ParseUint(meta.ExpectedVersion, 10, 64)
+	if err != nil {
+		return failure(string(matchcommand.CodeInvalidRequest), "expectedVersion must be an unsigned decimal string", nil)
 	}
 	matchID, err := bson.ObjectIDFromHex(meta.MatchID)
 	if err != nil {
@@ -39,7 +43,7 @@ func (r *mutationResolver) executeCommand(ctx context.Context, meta *CommandMeta
 		return failure(string(matchcommand.CodeInternalError), "match command service is unavailable", nil)
 	}
 	result, err := r.commands.Execute(ctx, matchcommand.Request{
-		MatchID: matchID, ExpectedVersion: uint64(meta.ExpectedVersion), CommandID: meta.CommandID,
+		MatchID: matchID, ExpectedVersion: expectedVersion, CommandID: meta.CommandID,
 		CallerOsuID: claims.OsuID, Command: command,
 	})
 	if err != nil {
@@ -47,41 +51,66 @@ func (r *mutationResolver) executeCommand(ctx context.Context, meta *CommandMeta
 		if commandErr == nil {
 			return failure(string(matchcommand.CodeInternalError), "match command failed", nil)
 		}
-		var currentVersion *int
+		var currentVersion *string
 		if commandErr.CurrentVersion != nil {
-			value := int(*commandErr.CurrentVersion)
+			value := strconv.FormatUint(*commandErr.CurrentVersion, 10)
 			currentVersion = &value
 		}
 		return failure(string(commandErr.Code), commandErr.Message, currentVersion)
 	}
 
-	previousVersion, resultingVersion := int(result.PreviousVersion), int(result.ResultingVersion)
-	disposition := string(result.Disposition)
-	state := jsonMap(result.State)
+	previousVersion := strconv.FormatUint(result.PreviousVersion, 10)
+	resultingVersion := strconv.FormatUint(result.ResultingVersion, 10)
+	disposition := MatchCommandDisposition(result.Disposition)
 	events := make([]*MatchCommandEvent, 0, len(result.Events))
 	for _, event := range result.Events {
+		actorTeam := gqlTeamPtrValue(event.Actor.Team)
 		events = append(events, &MatchCommandEvent{
-			EventID: event.EventID, Sequence: int(event.Sequence), ResultingVersion: int(event.ResultingVersion),
-			Type: string(event.Type), OccurredAt: event.OccurredAt, Payload: jsonMap(event.Payload),
+			EventID: event.EventID, SchemaVersion: matchcommand.EventSchemaVersion, AggregateID: matchID.Hex(), AggregateType: "MATCH",
+			Sequence: strconv.FormatUint(event.Sequence, 10), ResultingVersion: strconv.FormatUint(event.ResultingVersion, 10),
+			Type: MatchEventType(event.Type), OccurredAt: event.OccurredAt,
+			Actor: &MatchCommandActor{
+				OsuID: strconv.FormatInt(event.Actor.OsuID, 10), Capability: MatchActorCapability(event.Actor.Capability), Team: actorTeam,
+				AdminOverride: event.Actor.AdminOverride, RefereeOverride: event.Actor.RefereeOverride,
+			},
+			Fact: mapEventFact(event.Payload),
 		})
 	}
 	return &MatchCommandResult{
 		Success: true, CommandID: result.CommandID, Disposition: &disposition,
 		PreviousVersion: &previousVersion, ResultingVersion: &resultingVersion,
-		State: state, Events: events,
+		Snapshot: mapMatchSnapshot(result.State), Events: events,
 	}
 }
 
-func jsonMap(value any) map[string]any {
-	encoded, err := json.Marshal(value)
-	if err != nil {
+func mapEventFact(event matchengine.Event) *MatchEventFact {
+	playerIDs := make([]string, len(event.PlayerIDs))
+	for index, id := range event.PlayerIDs {
+		playerIDs[index] = strconv.FormatInt(id, 10)
+	}
+	return &MatchEventFact{
+		Team: gqlTeamPtr(event.Team), PoolSlotID: optionalString(event.PoolSlotID),
+		BoardPieceID: optionalString(event.BoardPieceID), BoardPieceIDs: append([]string(nil), event.BoardPieceIDs...),
+		Cell: optionalString(string(event.Cell)), DurationMilliseconds: optionalDurationMilliseconds(event.Duration),
+		Reason: optionalString(event.Reason), RequestID: optionalString(event.RequestID),
+		TbBasis: gqlTBBasis(event.Basis), PlayerIDs: playerIDs,
+	}
+}
+
+func optionalDurationMilliseconds(value time.Duration) *int {
+	if value == 0 {
 		return nil
 	}
-	var mapped map[string]any
-	if err := json.Unmarshal(encoded, &mapped); err != nil {
+	milliseconds := int(value / time.Millisecond)
+	return &milliseconds
+}
+
+func gqlTBBasis(value matchengine.TBBasis) *TBBasis {
+	if value == "" {
 		return nil
 	}
-	return mapped
+	result := TBBasis(value)
+	return &result
 }
 
 func engineTeam(side TeamSide) matchengine.TeamSide {
@@ -104,16 +133,20 @@ func invalidCommandInput(meta *CommandMeta, err error) *MatchCommandResult {
 	}
 	return &MatchCommandResult{
 		Success: false, CommandID: commandID, Events: []*MatchCommandEvent{},
-		Error: &MatchError{Code: string(matchcommand.CodeInvalidRequest), Message: err.Error()},
+		Error: &MatchError{Code: MatchErrorCode(matchcommand.CodeInvalidRequest), Message: err.Error()},
 	}
 }
 
-func int64IDs(ids []int) []int64 {
+func int64IDs(ids []string) ([]int64, error) {
 	converted := make([]int64, len(ids))
 	for index, id := range ids {
-		converted[index] = int64(id)
+		value, err := strconv.ParseInt(id, 10, 64)
+		if err != nil || value <= 0 {
+			return nil, fmt.Errorf("player IDs must be positive decimal strings")
+		}
+		converted[index] = value
 	}
-	return converted
+	return converted, nil
 }
 
 func milliseconds(value int) time.Duration { return time.Duration(value) * time.Millisecond }

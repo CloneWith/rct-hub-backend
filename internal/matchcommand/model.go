@@ -53,6 +53,8 @@ type Result struct {
 	Events           []CommittedEvent
 }
 
+const EventSchemaVersion = 1
+
 // CommittedEvent is the durable event envelope returned to API clients and
 // later published from the outbox. Its identity is stable across retries.
 type CommittedEvent struct {
@@ -61,7 +63,16 @@ type CommittedEvent struct {
 	ResultingVersion uint64                `json:"resultingVersion"`
 	Type             matchengine.EventType `json:"type"`
 	OccurredAt       time.Time             `json:"occurredAt"`
+	Actor            EventActor            `json:"actor"`
 	Payload          matchengine.Event     `json:"payload"`
+}
+
+type EventActor struct {
+	OsuID           int64                  `json:"osuId"`
+	Capability      matchengine.Capability `json:"capability"`
+	Team            *matchengine.TeamSide  `json:"team,omitempty"`
+	AdminOverride   bool                   `json:"adminOverride"`
+	RefereeOverride bool                   `json:"refereeOverride"`
 }
 
 type AuthorizeFunc func(context.Context) (AuthorizedActor, error)

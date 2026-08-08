@@ -31,18 +31,16 @@ type ResolverRoot interface {
 	Announcement() AnnouncementResolver
 	Beatmap() BeatmapResolver
 	Match() MatchResolver
-	Move() MoveResolver
+	MatchPoolSlotMetadata() MatchPoolSlotMetadataResolver
 	Mutation() MutationResolver
 	PoolSlot() PoolSlotResolver
 	Query() QueryResolver
+	RefereeView() RefereeViewResolver
 	Room() RoomResolver
 	RoomSettings() RoomSettingsResolver
-	Team() TeamResolver
 }
 
 type DirectiveRoot struct {
-	Public      func(ctx context.Context, obj any, next graphql.Resolver) (res any, err error)
-	RequireRole func(ctx context.Context, obj any, next graphql.Resolver, role UserRole, admin *bool) (res any, err error)
 }
 
 type ComplexityRoot struct {
@@ -69,21 +67,14 @@ type ComplexityRoot struct {
 
 	AuditEntry struct {
 		ActionID         func(childComplexity int) int
-		ActorID          func(childComplexity int) int
-		ActorRole        func(childComplexity int) int
+		Actor            func(childComplexity int) int
 		CommandType      func(childComplexity int) int
-		IsAdminOverride  func(childComplexity int) int
 		MatchID          func(childComplexity int) int
 		PreviousVersion  func(childComplexity int) int
 		Reason           func(childComplexity int) int
 		ResultingVersion func(childComplexity int) int
 		Sequence         func(childComplexity int) int
 		Timestamp        func(childComplexity int) int
-	}
-
-	BPOrder struct {
-		FirstBan  func(childComplexity int) int
-		FirstPick func(childComplexity int) int
 	}
 
 	Beatmap struct {
@@ -126,53 +117,68 @@ type ComplexityRoot struct {
 		TotalPages func(childComplexity int) int
 	}
 
-	Board struct {
-		Cells func(childComplexity int) int
-		Cols  func(childComplexity int) int
-		Rows  func(childComplexity int) int
+	CaptainView struct {
+		Analysis func(childComplexity int) int
+		MyTeam   func(childComplexity int) int
 	}
 
-	BoardCell struct {
-		PieceID  func(childComplexity int) int
-		Position func(childComplexity int) int
-		State    func(childComplexity int) int
-		TeamID   func(childComplexity int) int
-		Zone     func(childComplexity int) int
-	}
-
-	BoardRenderData struct {
-		Cells            func(childComplexity int) int
-		LastChangedCells func(childComplexity int) int
-	}
-
-	BoardSummary struct {
+	FormalBoard struct {
 		Cells func(childComplexity int) int
 	}
 
-	CellRender struct {
-		Piece    func(childComplexity int) int
-		Position func(childComplexity int) int
-		Zone     func(childComplexity int) int
+	FormalBoardCell struct {
+		Cell  func(childComplexity int) int
+		Col   func(childComplexity int) int
+		Piece func(childComplexity int) int
+		Row   func(childComplexity int) int
+		Zone  func(childComplexity int) int
 	}
 
-	CellSummary struct {
-		Piece    func(childComplexity int) int
-		Position func(childComplexity int) int
+	FormalBoardPiece struct {
+		ForceMod         func(childComplexity int) int
+		ID               func(childComplexity int) int
+		Mod              func(childComplexity int) int
+		Outcome          func(childComplexity int) int
+		Owner            func(childComplexity int) int
+		SelectedBy       func(childComplexity int) int
+		SourcePoolSlotID func(childComplexity int) int
 	}
 
-	ClientConnection struct {
-		IsConnected func(childComplexity int) int
-		LastSeenAt  func(childComplexity int) int
-		Role        func(childComplexity int) int
-		TeamSide    func(childComplexity int) int
-		UserID      func(childComplexity int) int
-		Username    func(childComplexity int) int
+	FormalMatchResult struct {
+		ConfirmingPlayerIDs func(childComplexity int) int
+		Reason              func(childComplexity int) int
+		SurrenderingTeam    func(childComplexity int) int
+		Winner              func(childComplexity int) int
+		WonCounts           func(childComplexity int) int
 	}
 
-	DomainEventSnapshot struct {
-		Payload   func(childComplexity int) int
-		Timestamp func(childComplexity int) int
-		Type      func(childComplexity int) int
+	FormalPoolSlot struct {
+		ID    func(childComplexity int) int
+		Mod   func(childComplexity int) int
+		State func(childComplexity int) int
+	}
+
+	FormalRoster struct {
+		LeaderID  func(childComplexity int) int
+		PlayerIDs func(childComplexity int) int
+	}
+
+	FormalRosters struct {
+		Blue func(childComplexity int) int
+		Red  func(childComplexity int) int
+	}
+
+	FormalTimer struct {
+		DurationMilliseconds         func(childComplexity int) int
+		Paused                       func(childComplexity int) int
+		RemainingAtPauseMilliseconds func(childComplexity int) int
+		StartedAt                    func(childComplexity int) int
+	}
+
+	LegalPlacement struct {
+		Cell       func(childComplexity int) int
+		ForceMod   func(childComplexity int) int
+		PoolSlotID func(childComplexity int) int
 	}
 
 	Mappool struct {
@@ -180,39 +186,52 @@ type ComplexityRoot struct {
 	}
 
 	Match struct {
-		ActiveTeam     func(childComplexity int) int
-		Board          func(childComplexity int) int
-		BpOrder        func(childComplexity int) int
+		CaptainView    func(childComplexity int) int
 		Code           func(childComplexity int) int
 		CreatedAt      func(childComplexity int) int
-		FinishedAt     func(childComplexity int) int
 		ID             func(childComplexity int) int
-		Moves          func(childComplexity int, limit *int, offset *int) int
 		Name           func(childComplexity int) int
 		OverlayView    func(childComplexity int) int
-		Phase          func(childComplexity int) int
 		Pool           func(childComplexity int) int
-		RecentMove     func(childComplexity int) int
 		RefereeView    func(childComplexity int) int
-		Result         func(childComplexity int) int
 		Room           func(childComplexity int) int
 		RoomID         func(childComplexity int) int
 		RoomType       func(childComplexity int) int
+		Snapshot       func(childComplexity int) int
 		SpectatorView  func(childComplexity int) int
-		StartedAt      func(childComplexity int) int
-		Status         func(childComplexity int) int
 		StrategistView func(childComplexity int) int
-		Teams          func(childComplexity int) int
-		Timer          func(childComplexity int) int
-		TurnState      func(childComplexity int) int
-		UpdatedAt      func(childComplexity int) int
+	}
+
+	MatchActorAnalysis struct {
+		AllowedActions     func(childComplexity int) int
+		BanPoolSlotIDs     func(childComplexity int) int
+		CanAcceptTBRequest func(childComplexity int) int
+		CanRejectTBRequest func(childComplexity int) int
+		LegalPlacements    func(childComplexity int) int
+		PendingTBRequestID func(childComplexity int) int
+		RobberyPlans       func(childComplexity int) int
+		ShiroCells         func(childComplexity int) int
+		TbRequestTeams     func(childComplexity int) int
+		TbResponseTeams    func(childComplexity int) int
+	}
+
+	MatchCommandActor struct {
+		AdminOverride   func(childComplexity int) int
+		Capability      func(childComplexity int) int
+		OsuID           func(childComplexity int) int
+		RefereeOverride func(childComplexity int) int
+		Team            func(childComplexity int) int
 	}
 
 	MatchCommandEvent struct {
+		Actor            func(childComplexity int) int
+		AggregateID      func(childComplexity int) int
+		AggregateType    func(childComplexity int) int
 		EventID          func(childComplexity int) int
+		Fact             func(childComplexity int) int
 		OccurredAt       func(childComplexity int) int
-		Payload          func(childComplexity int) int
 		ResultingVersion func(childComplexity int) int
+		SchemaVersion    func(childComplexity int) int
 		Sequence         func(childComplexity int) int
 		Type             func(childComplexity int) int
 	}
@@ -225,7 +244,7 @@ type ComplexityRoot struct {
 		Events           func(childComplexity int) int
 		PreviousVersion  func(childComplexity int) int
 		ResultingVersion func(childComplexity int) int
-		State            func(childComplexity int) int
+		Snapshot         func(childComplexity int) int
 		Success          func(childComplexity int) int
 	}
 
@@ -233,6 +252,19 @@ type ComplexityRoot struct {
 		Code           func(childComplexity int) int
 		CurrentVersion func(childComplexity int) int
 		Message        func(childComplexity int) int
+	}
+
+	MatchEventFact struct {
+		BoardPieceID         func(childComplexity int) int
+		BoardPieceIDs        func(childComplexity int) int
+		Cell                 func(childComplexity int) int
+		DurationMilliseconds func(childComplexity int) int
+		PlayerIDs            func(childComplexity int) int
+		PoolSlotID           func(childComplexity int) int
+		Reason               func(childComplexity int) int
+		RequestID            func(childComplexity int) int
+		TbBasis              func(childComplexity int) int
+		Team                 func(childComplexity int) int
 	}
 
 	MatchPage struct {
@@ -243,41 +275,33 @@ type ComplexityRoot struct {
 		TotalPages func(childComplexity int) int
 	}
 
-	MatchResult struct {
-		Alignments func(childComplexity int) int
-		CreatedAt  func(childComplexity int) int
-		ID         func(childComplexity int) int
-		MatchID    func(childComplexity int) int
-		RoomID     func(childComplexity int) int
-		Scores     func(childComplexity int) int
-		Summary    func(childComplexity int) int
-		UpdatedAt  func(childComplexity int) int
-		WinReason  func(childComplexity int) int
-		Winner     func(childComplexity int) int
-		WonPieces  func(childComplexity int) int
+	MatchPoolSlotMetadata struct {
+		Beatmap    func(childComplexity int) int
+		BeatmapID  func(childComplexity int) int
+		PoolSlotID func(childComplexity int) int
 	}
 
-	MatchTeams struct {
-		Blue func(childComplexity int) int
-		Red  func(childComplexity int) int
-	}
-
-	Move struct {
-		BlueScore  func(childComplexity int) int
-		Comment    func(childComplexity int) int
-		CreatedAt  func(childComplexity int) int
-		ForceMod   func(childComplexity int) int
-		From       func(childComplexity int) int
-		ID         func(childComplexity int) int
-		MatchID    func(childComplexity int) int
-		Operator   func(childComplexity int) int
-		OperatorID func(childComplexity int) int
-		RedScore   func(childComplexity int) int
-		RoomID     func(childComplexity int) int
-		Slot       func(childComplexity int) int
-		TeamSide   func(childComplexity int) int
-		To         func(childComplexity int) int
-		Type       func(childComplexity int) int
+	MatchSnapshot struct {
+		ActiveTeam       func(childComplexity int) int
+		Board            func(childComplexity int) int
+		FirstBan         func(childComplexity int) int
+		FirstPick        func(childComplexity int) int
+		Lifecycle        func(childComplexity int) int
+		PendingPieceID   func(childComplexity int) int
+		PendingTBRequest func(childComplexity int) int
+		Phase            func(childComplexity int) int
+		PoolSlots        func(childComplexity int) int
+		Result           func(childComplexity int) int
+		RobberyUsed      func(childComplexity int) int
+		Rosters          func(childComplexity int) int
+		Stalemate        func(childComplexity int) int
+		TbEntry          func(childComplexity int) int
+		TeamPauseUsed    func(childComplexity int) int
+		Timer            func(childComplexity int) int
+		Turn             func(childComplexity int) int
+		Version          func(childComplexity int) int
+		Winner           func(childComplexity int) int
+		WonCounts        func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -309,38 +333,18 @@ type ComplexityRoot struct {
 	}
 
 	OverlayView struct {
-		Board     func(childComplexity int) int
-		LastEvent func(childComplexity int) int
-		Scores    func(childComplexity int) int
-		Timer     func(childComplexity int) int
+		ActiveTeam func(childComplexity int) int
+		Board      func(childComplexity int) int
+		Lifecycle  func(childComplexity int) int
+		Phase      func(childComplexity int) int
+		Timer      func(childComplexity int) int
+		WonCounts  func(childComplexity int) int
 	}
 
-	Piece struct {
-		BeatmapID func(childComplexity int) int
-		ForceMod  func(childComplexity int) int
-		Position  func(childComplexity int) int
-		State     func(childComplexity int) int
-		TeamID    func(childComplexity int) int
-	}
-
-	PieceRender struct {
-		BeatmapCover func(childComplexity int) int
-		Mod          func(childComplexity int) int
-		Owner        func(childComplexity int) int
-		State        func(childComplexity int) int
-	}
-
-	PieceSummary struct {
-		Mod   func(childComplexity int) int
-		Owner func(childComplexity int) int
-		State func(childComplexity int) int
-	}
-
-	PlayerScore struct {
-		Accuracy func(childComplexity int) int
-		Combo    func(childComplexity int) int
-		Score    func(childComplexity int) int
-		UserID   func(childComplexity int) int
+	PendingTBRequest struct {
+		Basis       func(childComplexity int) int
+		ID          func(childComplexity int) int
+		RequestedBy func(childComplexity int) int
 	}
 
 	PoolSlot struct {
@@ -368,11 +372,11 @@ type ComplexityRoot struct {
 		Announcement   func(childComplexity int, id string) int
 		Announcements  func(childComplexity int, page *int, perPage *int) int
 		Beatmap        func(childComplexity int, id string) int
-		BeatmapByOsuID func(childComplexity int, osuID int) int
+		BeatmapByOsuID func(childComplexity int, osuID string) int
 		Beatmaps       func(childComplexity int, page *int, perPage *int) int
 		Match          func(childComplexity int, id string) int
 		MatchByCode    func(childComplexity int, code string) int
-		Matches        func(childComplexity int, status *MatchStatus, page *int, perPage *int) int
+		Matches        func(childComplexity int, page *int, perPage *int) int
 		Me             func(childComplexity int) int
 		Ping           func(childComplexity int) int
 		Room           func(childComplexity int, id string) int
@@ -383,13 +387,17 @@ type ComplexityRoot struct {
 	}
 
 	RefereeView struct {
+		AbortReason      func(childComplexity int) int
+		Analysis         func(childComplexity int) int
 		AuditLog         func(childComplexity int, limit *int) int
-		Board            func(childComplexity int) int
-		ConnectionStatus func(childComplexity int) int
-		Pool             func(childComplexity int) int
-		Teams            func(childComplexity int) int
-		Timer            func(childComplexity int) int
-		TurnState        func(childComplexity int) int
+		MatchID          func(childComplexity int) int
+		Snapshot         func(childComplexity int) int
+		SuspensionReason func(childComplexity int) int
+	}
+
+	RobberyPlan struct {
+		SacrificeSets func(childComplexity int) int
+		TargetPieceID func(childComplexity int) int
 	}
 
 	Room struct {
@@ -436,79 +444,35 @@ type ComplexityRoot struct {
 		ActiveTeam   func(childComplexity int) int
 		Board        func(childComplexity int) int
 		CurrentPhase func(childComplexity int) int
-		RecentMoves  func(childComplexity int) int
-		Scores       func(childComplexity int) int
+		Lifecycle    func(childComplexity int) int
 		TurnNumber   func(childComplexity int) int
+		WonCounts    func(childComplexity int) int
+	}
+
+	StalemateEvidence struct {
+		WonCounts func(childComplexity int) int
 	}
 
 	StrategistView struct {
-		AllowedActions       func(childComplexity int) int
-		DisallowedActions    func(childComplexity int) int
-		IsMyTurn             func(childComplexity int) int
-		MyTeam               func(childComplexity int) int
-		RobberyInProgress    func(childComplexity int) int
-		SelectableBoardCells func(childComplexity int) int
-		SelectablePoolSlots  func(childComplexity int) int
-		Timer                func(childComplexity int) int
+		Analysis func(childComplexity int) int
+		IsMyTurn func(childComplexity int) int
+		MyTeam   func(childComplexity int) int
 	}
 
-	Team struct {
-		Color        func(childComplexity int) int
-		Description  func(childComplexity int) int
-		ID           func(childComplexity int) int
-		Leader       func(childComplexity int) int
-		LeaderID     func(childComplexity int) int
-		Name         func(childComplexity int) int
-		PlayerUsers  func(childComplexity int) int
-		Players      func(childComplexity int) int
-		Seed         func(childComplexity int) int
-		Side         func(childComplexity int) int
-		Strategist   func(childComplexity int) int
-		StrategistID func(childComplexity int) int
+	TBEntry struct {
+		Basis       func(childComplexity int) int
+		RequestID   func(childComplexity int) int
+		RequestedBy func(childComplexity int) int
 	}
 
-	TeamScore struct {
-		Score    func(childComplexity int) int
-		TeamSide func(childComplexity int) int
-	}
-
-	TeamScores struct {
+	TeamCounts struct {
 		Blue func(childComplexity int) int
 		Red  func(childComplexity int) int
 	}
 
-	TimerDisplay struct {
-		IsPaused         func(childComplexity int) int
-		IsWarning        func(childComplexity int) int
-		RemainingSeconds func(childComplexity int) int
-	}
-
-	TimerInfo struct {
-		DurationSeconds  func(childComplexity int) int
-		IsPaused         func(childComplexity int) int
-		RemainingSeconds func(childComplexity int) int
-		StartedAt        func(childComplexity int) int
-	}
-
-	TimerState struct {
-		BonusTime        func(childComplexity int) int
-		BonusUsed        func(childComplexity int) int
-		IsPaused         func(childComplexity int) int
-		PausedAt         func(childComplexity int) int
-		RemainingAtPause func(childComplexity int) int
-		StartedAt        func(childComplexity int) int
-		TimeLimit        func(childComplexity int) int
-	}
-
-	TurnState struct {
-		Action     func(childComplexity int) int
-		ActiveTeam func(childComplexity int) int
-		BonusTime  func(childComplexity int) int
-		BonusUsed  func(childComplexity int) int
-		Counter    func(childComplexity int) int
-		Phase      func(childComplexity int) int
-		StartedAt  func(childComplexity int) int
-		TimeLimit  func(childComplexity int) int
+	TeamFlags struct {
+		Blue func(childComplexity int) int
+		Red  func(childComplexity int) int
 	}
 
 	User struct {
@@ -533,12 +497,6 @@ type ComplexityRoot struct {
 		Total      func(childComplexity int) int
 		TotalPages func(childComplexity int) int
 	}
-
-	WinningAlignment struct {
-		Length    func(childComplexity int) int
-		Positions func(childComplexity int) int
-		TeamID    func(childComplexity int) int
-	}
 }
 
 // endregion ***************************** api!.gotpl *****************************
@@ -556,17 +514,16 @@ type BeatmapResolver interface {
 	Credits(ctx context.Context, obj *Beatmap) ([]*User, error)
 }
 type MatchResolver interface {
-	Result(ctx context.Context, obj *Match) (*MatchResult, error)
-	Moves(ctx context.Context, obj *Match, limit *int, offset *int) ([]*Move, error)
-	RecentMove(ctx context.Context, obj *Match) (*Move, error)
 	Room(ctx context.Context, obj *Match) (*Room, error)
+
 	StrategistView(ctx context.Context, obj *Match) (*StrategistView, error)
+	CaptainView(ctx context.Context, obj *Match) (*CaptainView, error)
 	SpectatorView(ctx context.Context, obj *Match) (*SpectatorView, error)
 	OverlayView(ctx context.Context, obj *Match) (*OverlayView, error)
 	RefereeView(ctx context.Context, obj *Match) (*RefereeView, error)
 }
-type MoveResolver interface {
-	Operator(ctx context.Context, obj *Move) (*User, error)
+type MatchPoolSlotMetadataResolver interface {
+	Beatmap(ctx context.Context, obj *MatchPoolSlotMetadata) (*Beatmap, error)
 }
 type MutationResolver interface {
 	StartMatch(ctx context.Context, input CommandMeta) (*MatchCommandResult, error)
@@ -603,17 +560,20 @@ type QueryResolver interface {
 	Me(ctx context.Context) (*User, error)
 	Match(ctx context.Context, id string) (*Match, error)
 	MatchByCode(ctx context.Context, code string) (*Match, error)
-	Matches(ctx context.Context, status *MatchStatus, page *int, perPage *int) (*MatchPage, error)
+	Matches(ctx context.Context, page *int, perPage *int) (*MatchPage, error)
 	Room(ctx context.Context, id string) (*Room, error)
 	RoomByCode(ctx context.Context, code string) (*Room, error)
 	Rooms(ctx context.Context, typeArg *RoomType, page *int, perPage *int) (*RoomPage, error)
 	Beatmap(ctx context.Context, id string) (*Beatmap, error)
-	BeatmapByOsuID(ctx context.Context, osuID int) (*Beatmap, error)
+	BeatmapByOsuID(ctx context.Context, osuID string) (*Beatmap, error)
 	Beatmaps(ctx context.Context, page *int, perPage *int) (*BeatmapPage, error)
 	User(ctx context.Context, id string) (*User, error)
 	Users(ctx context.Context, page *int, perPage *int) (*UserPage, error)
 	Announcements(ctx context.Context, page *int, perPage *int) (*AnnouncementPage, error)
 	Announcement(ctx context.Context, id string) (*Announcement, error)
+}
+type RefereeViewResolver interface {
+	AuditLog(ctx context.Context, obj *RefereeView, limit *int) ([]*AuditEntry, error)
 }
 type RoomResolver interface {
 	Owner(ctx context.Context, obj *Room) (*User, error)
@@ -626,13 +586,6 @@ type RoomSettingsResolver interface {
 	BlueStrategist(ctx context.Context, obj *RoomSettings) (*User, error)
 
 	Streamer(ctx context.Context, obj *RoomSettings) (*User, error)
-}
-type TeamResolver interface {
-	Leader(ctx context.Context, obj *Team) (*User, error)
-
-	Strategist(ctx context.Context, obj *Team) (*User, error)
-
-	PlayerUsers(ctx context.Context, obj *Team) ([]*User, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -751,30 +704,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.AuditEntry.ActionID(childComplexity), true
-	case "AuditEntry.actorId":
-		if e.ComplexityRoot.AuditEntry.ActorID == nil {
+	case "AuditEntry.actor":
+		if e.ComplexityRoot.AuditEntry.Actor == nil {
 			break
 		}
 
-		return e.ComplexityRoot.AuditEntry.ActorID(childComplexity), true
-	case "AuditEntry.actorRole":
-		if e.ComplexityRoot.AuditEntry.ActorRole == nil {
-			break
-		}
-
-		return e.ComplexityRoot.AuditEntry.ActorRole(childComplexity), true
+		return e.ComplexityRoot.AuditEntry.Actor(childComplexity), true
 	case "AuditEntry.commandType":
 		if e.ComplexityRoot.AuditEntry.CommandType == nil {
 			break
 		}
 
 		return e.ComplexityRoot.AuditEntry.CommandType(childComplexity), true
-	case "AuditEntry.isAdminOverride":
-		if e.ComplexityRoot.AuditEntry.IsAdminOverride == nil {
-			break
-		}
-
-		return e.ComplexityRoot.AuditEntry.IsAdminOverride(childComplexity), true
 	case "AuditEntry.matchId":
 		if e.ComplexityRoot.AuditEntry.MatchID == nil {
 			break
@@ -811,19 +752,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.AuditEntry.Timestamp(childComplexity), true
-
-	case "BPOrder.firstBan":
-		if e.ComplexityRoot.BPOrder.FirstBan == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BPOrder.FirstBan(childComplexity), true
-	case "BPOrder.firstPick":
-		if e.ComplexityRoot.BPOrder.FirstPick == nil {
-			break
-		}
-
-		return e.ComplexityRoot.BPOrder.FirstPick(childComplexity), true
 
 	case "Beatmap.approachRate":
 		if e.ComplexityRoot.Beatmap.ApproachRate == nil {
@@ -1031,163 +959,219 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.BeatmapPage.TotalPages(childComplexity), true
 
-	case "Board.cells":
-		if e.ComplexityRoot.Board.Cells == nil {
+	case "CaptainView.analysis":
+		if e.ComplexityRoot.CaptainView.Analysis == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Board.Cells(childComplexity), true
-	case "Board.cols":
-		if e.ComplexityRoot.Board.Cols == nil {
+		return e.ComplexityRoot.CaptainView.Analysis(childComplexity), true
+	case "CaptainView.myTeam":
+		if e.ComplexityRoot.CaptainView.MyTeam == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Board.Cols(childComplexity), true
-	case "Board.rows":
-		if e.ComplexityRoot.Board.Rows == nil {
+		return e.ComplexityRoot.CaptainView.MyTeam(childComplexity), true
+
+	case "FormalBoard.cells":
+		if e.ComplexityRoot.FormalBoard.Cells == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Board.Rows(childComplexity), true
+		return e.ComplexityRoot.FormalBoard.Cells(childComplexity), true
 
-	case "BoardCell.pieceID":
-		if e.ComplexityRoot.BoardCell.PieceID == nil {
+	case "FormalBoardCell.cell":
+		if e.ComplexityRoot.FormalBoardCell.Cell == nil {
 			break
 		}
 
-		return e.ComplexityRoot.BoardCell.PieceID(childComplexity), true
-	case "BoardCell.position":
-		if e.ComplexityRoot.BoardCell.Position == nil {
+		return e.ComplexityRoot.FormalBoardCell.Cell(childComplexity), true
+	case "FormalBoardCell.col":
+		if e.ComplexityRoot.FormalBoardCell.Col == nil {
 			break
 		}
 
-		return e.ComplexityRoot.BoardCell.Position(childComplexity), true
-	case "BoardCell.state":
-		if e.ComplexityRoot.BoardCell.State == nil {
+		return e.ComplexityRoot.FormalBoardCell.Col(childComplexity), true
+	case "FormalBoardCell.piece":
+		if e.ComplexityRoot.FormalBoardCell.Piece == nil {
 			break
 		}
 
-		return e.ComplexityRoot.BoardCell.State(childComplexity), true
-	case "BoardCell.teamID":
-		if e.ComplexityRoot.BoardCell.TeamID == nil {
+		return e.ComplexityRoot.FormalBoardCell.Piece(childComplexity), true
+	case "FormalBoardCell.row":
+		if e.ComplexityRoot.FormalBoardCell.Row == nil {
 			break
 		}
 
-		return e.ComplexityRoot.BoardCell.TeamID(childComplexity), true
-	case "BoardCell.zone":
-		if e.ComplexityRoot.BoardCell.Zone == nil {
+		return e.ComplexityRoot.FormalBoardCell.Row(childComplexity), true
+	case "FormalBoardCell.zone":
+		if e.ComplexityRoot.FormalBoardCell.Zone == nil {
 			break
 		}
 
-		return e.ComplexityRoot.BoardCell.Zone(childComplexity), true
+		return e.ComplexityRoot.FormalBoardCell.Zone(childComplexity), true
 
-	case "BoardRenderData.cells":
-		if e.ComplexityRoot.BoardRenderData.Cells == nil {
+	case "FormalBoardPiece.forceMod":
+		if e.ComplexityRoot.FormalBoardPiece.ForceMod == nil {
 			break
 		}
 
-		return e.ComplexityRoot.BoardRenderData.Cells(childComplexity), true
-	case "BoardRenderData.lastChangedCells":
-		if e.ComplexityRoot.BoardRenderData.LastChangedCells == nil {
+		return e.ComplexityRoot.FormalBoardPiece.ForceMod(childComplexity), true
+	case "FormalBoardPiece.id":
+		if e.ComplexityRoot.FormalBoardPiece.ID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.BoardRenderData.LastChangedCells(childComplexity), true
-
-	case "BoardSummary.cells":
-		if e.ComplexityRoot.BoardSummary.Cells == nil {
+		return e.ComplexityRoot.FormalBoardPiece.ID(childComplexity), true
+	case "FormalBoardPiece.mod":
+		if e.ComplexityRoot.FormalBoardPiece.Mod == nil {
 			break
 		}
 
-		return e.ComplexityRoot.BoardSummary.Cells(childComplexity), true
-
-	case "CellRender.piece":
-		if e.ComplexityRoot.CellRender.Piece == nil {
+		return e.ComplexityRoot.FormalBoardPiece.Mod(childComplexity), true
+	case "FormalBoardPiece.outcome":
+		if e.ComplexityRoot.FormalBoardPiece.Outcome == nil {
 			break
 		}
 
-		return e.ComplexityRoot.CellRender.Piece(childComplexity), true
-	case "CellRender.position":
-		if e.ComplexityRoot.CellRender.Position == nil {
+		return e.ComplexityRoot.FormalBoardPiece.Outcome(childComplexity), true
+	case "FormalBoardPiece.owner":
+		if e.ComplexityRoot.FormalBoardPiece.Owner == nil {
 			break
 		}
 
-		return e.ComplexityRoot.CellRender.Position(childComplexity), true
-	case "CellRender.zone":
-		if e.ComplexityRoot.CellRender.Zone == nil {
+		return e.ComplexityRoot.FormalBoardPiece.Owner(childComplexity), true
+	case "FormalBoardPiece.selectedBy":
+		if e.ComplexityRoot.FormalBoardPiece.SelectedBy == nil {
 			break
 		}
 
-		return e.ComplexityRoot.CellRender.Zone(childComplexity), true
-
-	case "CellSummary.piece":
-		if e.ComplexityRoot.CellSummary.Piece == nil {
+		return e.ComplexityRoot.FormalBoardPiece.SelectedBy(childComplexity), true
+	case "FormalBoardPiece.sourcePoolSlotID":
+		if e.ComplexityRoot.FormalBoardPiece.SourcePoolSlotID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.CellSummary.Piece(childComplexity), true
-	case "CellSummary.position":
-		if e.ComplexityRoot.CellSummary.Position == nil {
+		return e.ComplexityRoot.FormalBoardPiece.SourcePoolSlotID(childComplexity), true
+
+	case "FormalMatchResult.confirmingPlayerIDs":
+		if e.ComplexityRoot.FormalMatchResult.ConfirmingPlayerIDs == nil {
 			break
 		}
 
-		return e.ComplexityRoot.CellSummary.Position(childComplexity), true
-
-	case "ClientConnection.isConnected":
-		if e.ComplexityRoot.ClientConnection.IsConnected == nil {
+		return e.ComplexityRoot.FormalMatchResult.ConfirmingPlayerIDs(childComplexity), true
+	case "FormalMatchResult.reason":
+		if e.ComplexityRoot.FormalMatchResult.Reason == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ClientConnection.IsConnected(childComplexity), true
-	case "ClientConnection.lastSeenAt":
-		if e.ComplexityRoot.ClientConnection.LastSeenAt == nil {
+		return e.ComplexityRoot.FormalMatchResult.Reason(childComplexity), true
+	case "FormalMatchResult.surrenderingTeam":
+		if e.ComplexityRoot.FormalMatchResult.SurrenderingTeam == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ClientConnection.LastSeenAt(childComplexity), true
-	case "ClientConnection.role":
-		if e.ComplexityRoot.ClientConnection.Role == nil {
+		return e.ComplexityRoot.FormalMatchResult.SurrenderingTeam(childComplexity), true
+	case "FormalMatchResult.winner":
+		if e.ComplexityRoot.FormalMatchResult.Winner == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ClientConnection.Role(childComplexity), true
-	case "ClientConnection.teamSide":
-		if e.ComplexityRoot.ClientConnection.TeamSide == nil {
+		return e.ComplexityRoot.FormalMatchResult.Winner(childComplexity), true
+	case "FormalMatchResult.wonCounts":
+		if e.ComplexityRoot.FormalMatchResult.WonCounts == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ClientConnection.TeamSide(childComplexity), true
-	case "ClientConnection.userID":
-		if e.ComplexityRoot.ClientConnection.UserID == nil {
+		return e.ComplexityRoot.FormalMatchResult.WonCounts(childComplexity), true
+
+	case "FormalPoolSlot.id":
+		if e.ComplexityRoot.FormalPoolSlot.ID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ClientConnection.UserID(childComplexity), true
-	case "ClientConnection.username":
-		if e.ComplexityRoot.ClientConnection.Username == nil {
+		return e.ComplexityRoot.FormalPoolSlot.ID(childComplexity), true
+	case "FormalPoolSlot.mod":
+		if e.ComplexityRoot.FormalPoolSlot.Mod == nil {
 			break
 		}
 
-		return e.ComplexityRoot.ClientConnection.Username(childComplexity), true
-
-	case "DomainEventSnapshot.payload":
-		if e.ComplexityRoot.DomainEventSnapshot.Payload == nil {
+		return e.ComplexityRoot.FormalPoolSlot.Mod(childComplexity), true
+	case "FormalPoolSlot.state":
+		if e.ComplexityRoot.FormalPoolSlot.State == nil {
 			break
 		}
 
-		return e.ComplexityRoot.DomainEventSnapshot.Payload(childComplexity), true
-	case "DomainEventSnapshot.timestamp":
-		if e.ComplexityRoot.DomainEventSnapshot.Timestamp == nil {
+		return e.ComplexityRoot.FormalPoolSlot.State(childComplexity), true
+
+	case "FormalRoster.leaderID":
+		if e.ComplexityRoot.FormalRoster.LeaderID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.DomainEventSnapshot.Timestamp(childComplexity), true
-	case "DomainEventSnapshot.type":
-		if e.ComplexityRoot.DomainEventSnapshot.Type == nil {
+		return e.ComplexityRoot.FormalRoster.LeaderID(childComplexity), true
+	case "FormalRoster.playerIDs":
+		if e.ComplexityRoot.FormalRoster.PlayerIDs == nil {
 			break
 		}
 
-		return e.ComplexityRoot.DomainEventSnapshot.Type(childComplexity), true
+		return e.ComplexityRoot.FormalRoster.PlayerIDs(childComplexity), true
+
+	case "FormalRosters.blue":
+		if e.ComplexityRoot.FormalRosters.Blue == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FormalRosters.Blue(childComplexity), true
+	case "FormalRosters.red":
+		if e.ComplexityRoot.FormalRosters.Red == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FormalRosters.Red(childComplexity), true
+
+	case "FormalTimer.durationMilliseconds":
+		if e.ComplexityRoot.FormalTimer.DurationMilliseconds == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FormalTimer.DurationMilliseconds(childComplexity), true
+	case "FormalTimer.paused":
+		if e.ComplexityRoot.FormalTimer.Paused == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FormalTimer.Paused(childComplexity), true
+	case "FormalTimer.remainingAtPauseMilliseconds":
+		if e.ComplexityRoot.FormalTimer.RemainingAtPauseMilliseconds == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FormalTimer.RemainingAtPauseMilliseconds(childComplexity), true
+	case "FormalTimer.startedAt":
+		if e.ComplexityRoot.FormalTimer.StartedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FormalTimer.StartedAt(childComplexity), true
+
+	case "LegalPlacement.cell":
+		if e.ComplexityRoot.LegalPlacement.Cell == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LegalPlacement.Cell(childComplexity), true
+	case "LegalPlacement.forceMod":
+		if e.ComplexityRoot.LegalPlacement.ForceMod == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LegalPlacement.ForceMod(childComplexity), true
+	case "LegalPlacement.poolSlotID":
+		if e.ComplexityRoot.LegalPlacement.PoolSlotID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LegalPlacement.PoolSlotID(childComplexity), true
 
 	case "Mappool.slots":
 		if e.ComplexityRoot.Mappool.Slots == nil {
@@ -1196,24 +1180,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Mappool.Slots(childComplexity), true
 
-	case "Match.activeTeam":
-		if e.ComplexityRoot.Match.ActiveTeam == nil {
+	case "Match.captainView":
+		if e.ComplexityRoot.Match.CaptainView == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Match.ActiveTeam(childComplexity), true
-	case "Match.board":
-		if e.ComplexityRoot.Match.Board == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Match.Board(childComplexity), true
-	case "Match.bpOrder":
-		if e.ComplexityRoot.Match.BpOrder == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Match.BpOrder(childComplexity), true
+		return e.ComplexityRoot.Match.CaptainView(childComplexity), true
 	case "Match.code":
 		if e.ComplexityRoot.Match.Code == nil {
 			break
@@ -1226,29 +1198,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Match.CreatedAt(childComplexity), true
-	case "Match.finishedAt":
-		if e.ComplexityRoot.Match.FinishedAt == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Match.FinishedAt(childComplexity), true
 	case "Match.id":
 		if e.ComplexityRoot.Match.ID == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Match.ID(childComplexity), true
-	case "Match.moves":
-		if e.ComplexityRoot.Match.Moves == nil {
-			break
-		}
-
-		args, err := ec.field_Match_moves_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.ComplexityRoot.Match.Moves(childComplexity, args["limit"].(*int), args["offset"].(*int)), true
 	case "Match.name":
 		if e.ComplexityRoot.Match.Name == nil {
 			break
@@ -1261,36 +1216,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Match.OverlayView(childComplexity), true
-	case "Match.phase":
-		if e.ComplexityRoot.Match.Phase == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Match.Phase(childComplexity), true
 	case "Match.pool":
 		if e.ComplexityRoot.Match.Pool == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Match.Pool(childComplexity), true
-	case "Match.recentMove":
-		if e.ComplexityRoot.Match.RecentMove == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Match.RecentMove(childComplexity), true
 	case "Match.refereeView":
 		if e.ComplexityRoot.Match.RefereeView == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Match.RefereeView(childComplexity), true
-	case "Match.result":
-		if e.ComplexityRoot.Match.Result == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Match.Result(childComplexity), true
 	case "Match.room":
 		if e.ComplexityRoot.Match.Room == nil {
 			break
@@ -1309,79 +1246,165 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Match.RoomType(childComplexity), true
+	case "Match.snapshot":
+		if e.ComplexityRoot.Match.Snapshot == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Match.Snapshot(childComplexity), true
 	case "Match.spectatorView":
 		if e.ComplexityRoot.Match.SpectatorView == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Match.SpectatorView(childComplexity), true
-	case "Match.startedAt":
-		if e.ComplexityRoot.Match.StartedAt == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Match.StartedAt(childComplexity), true
-	case "Match.status":
-		if e.ComplexityRoot.Match.Status == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Match.Status(childComplexity), true
 	case "Match.strategistView":
 		if e.ComplexityRoot.Match.StrategistView == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Match.StrategistView(childComplexity), true
-	case "Match.teams":
-		if e.ComplexityRoot.Match.Teams == nil {
+
+	case "MatchActorAnalysis.allowedActions":
+		if e.ComplexityRoot.MatchActorAnalysis.AllowedActions == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Match.Teams(childComplexity), true
-	case "Match.timer":
-		if e.ComplexityRoot.Match.Timer == nil {
+		return e.ComplexityRoot.MatchActorAnalysis.AllowedActions(childComplexity), true
+	case "MatchActorAnalysis.banPoolSlotIDs":
+		if e.ComplexityRoot.MatchActorAnalysis.BanPoolSlotIDs == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Match.Timer(childComplexity), true
-	case "Match.turnState":
-		if e.ComplexityRoot.Match.TurnState == nil {
+		return e.ComplexityRoot.MatchActorAnalysis.BanPoolSlotIDs(childComplexity), true
+	case "MatchActorAnalysis.canAcceptTBRequest":
+		if e.ComplexityRoot.MatchActorAnalysis.CanAcceptTBRequest == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Match.TurnState(childComplexity), true
-	case "Match.updatedAt":
-		if e.ComplexityRoot.Match.UpdatedAt == nil {
+		return e.ComplexityRoot.MatchActorAnalysis.CanAcceptTBRequest(childComplexity), true
+	case "MatchActorAnalysis.canRejectTBRequest":
+		if e.ComplexityRoot.MatchActorAnalysis.CanRejectTBRequest == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Match.UpdatedAt(childComplexity), true
+		return e.ComplexityRoot.MatchActorAnalysis.CanRejectTBRequest(childComplexity), true
+	case "MatchActorAnalysis.legalPlacements":
+		if e.ComplexityRoot.MatchActorAnalysis.LegalPlacements == nil {
+			break
+		}
 
+		return e.ComplexityRoot.MatchActorAnalysis.LegalPlacements(childComplexity), true
+	case "MatchActorAnalysis.pendingTBRequestID":
+		if e.ComplexityRoot.MatchActorAnalysis.PendingTBRequestID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchActorAnalysis.PendingTBRequestID(childComplexity), true
+	case "MatchActorAnalysis.robberyPlans":
+		if e.ComplexityRoot.MatchActorAnalysis.RobberyPlans == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchActorAnalysis.RobberyPlans(childComplexity), true
+	case "MatchActorAnalysis.shiroCells":
+		if e.ComplexityRoot.MatchActorAnalysis.ShiroCells == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchActorAnalysis.ShiroCells(childComplexity), true
+	case "MatchActorAnalysis.tbRequestTeams":
+		if e.ComplexityRoot.MatchActorAnalysis.TbRequestTeams == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchActorAnalysis.TbRequestTeams(childComplexity), true
+	case "MatchActorAnalysis.tbResponseTeams":
+		if e.ComplexityRoot.MatchActorAnalysis.TbResponseTeams == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchActorAnalysis.TbResponseTeams(childComplexity), true
+
+	case "MatchCommandActor.adminOverride":
+		if e.ComplexityRoot.MatchCommandActor.AdminOverride == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCommandActor.AdminOverride(childComplexity), true
+	case "MatchCommandActor.capability":
+		if e.ComplexityRoot.MatchCommandActor.Capability == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCommandActor.Capability(childComplexity), true
+	case "MatchCommandActor.osuID":
+		if e.ComplexityRoot.MatchCommandActor.OsuID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCommandActor.OsuID(childComplexity), true
+	case "MatchCommandActor.refereeOverride":
+		if e.ComplexityRoot.MatchCommandActor.RefereeOverride == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCommandActor.RefereeOverride(childComplexity), true
+	case "MatchCommandActor.team":
+		if e.ComplexityRoot.MatchCommandActor.Team == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCommandActor.Team(childComplexity), true
+
+	case "MatchCommandEvent.actor":
+		if e.ComplexityRoot.MatchCommandEvent.Actor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCommandEvent.Actor(childComplexity), true
+	case "MatchCommandEvent.aggregateId":
+		if e.ComplexityRoot.MatchCommandEvent.AggregateID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCommandEvent.AggregateID(childComplexity), true
+	case "MatchCommandEvent.aggregateType":
+		if e.ComplexityRoot.MatchCommandEvent.AggregateType == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCommandEvent.AggregateType(childComplexity), true
 	case "MatchCommandEvent.eventId":
 		if e.ComplexityRoot.MatchCommandEvent.EventID == nil {
 			break
 		}
 
 		return e.ComplexityRoot.MatchCommandEvent.EventID(childComplexity), true
+	case "MatchCommandEvent.fact":
+		if e.ComplexityRoot.MatchCommandEvent.Fact == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCommandEvent.Fact(childComplexity), true
 	case "MatchCommandEvent.occurredAt":
 		if e.ComplexityRoot.MatchCommandEvent.OccurredAt == nil {
 			break
 		}
 
 		return e.ComplexityRoot.MatchCommandEvent.OccurredAt(childComplexity), true
-	case "MatchCommandEvent.payload":
-		if e.ComplexityRoot.MatchCommandEvent.Payload == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MatchCommandEvent.Payload(childComplexity), true
 	case "MatchCommandEvent.resultingVersion":
 		if e.ComplexityRoot.MatchCommandEvent.ResultingVersion == nil {
 			break
 		}
 
 		return e.ComplexityRoot.MatchCommandEvent.ResultingVersion(childComplexity), true
+	case "MatchCommandEvent.schemaVersion":
+		if e.ComplexityRoot.MatchCommandEvent.SchemaVersion == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchCommandEvent.SchemaVersion(childComplexity), true
 	case "MatchCommandEvent.sequence":
 		if e.ComplexityRoot.MatchCommandEvent.Sequence == nil {
 			break
@@ -1437,12 +1460,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchCommandResult.ResultingVersion(childComplexity), true
-	case "MatchCommandResult.state":
-		if e.ComplexityRoot.MatchCommandResult.State == nil {
+	case "MatchCommandResult.snapshot":
+		if e.ComplexityRoot.MatchCommandResult.Snapshot == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchCommandResult.State(childComplexity), true
+		return e.ComplexityRoot.MatchCommandResult.Snapshot(childComplexity), true
 	case "MatchCommandResult.success":
 		if e.ComplexityRoot.MatchCommandResult.Success == nil {
 			break
@@ -1468,6 +1491,67 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchError.Message(childComplexity), true
+
+	case "MatchEventFact.boardPieceID":
+		if e.ComplexityRoot.MatchEventFact.BoardPieceID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEventFact.BoardPieceID(childComplexity), true
+	case "MatchEventFact.boardPieceIDs":
+		if e.ComplexityRoot.MatchEventFact.BoardPieceIDs == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEventFact.BoardPieceIDs(childComplexity), true
+	case "MatchEventFact.cell":
+		if e.ComplexityRoot.MatchEventFact.Cell == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEventFact.Cell(childComplexity), true
+	case "MatchEventFact.durationMilliseconds":
+		if e.ComplexityRoot.MatchEventFact.DurationMilliseconds == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEventFact.DurationMilliseconds(childComplexity), true
+	case "MatchEventFact.playerIDs":
+		if e.ComplexityRoot.MatchEventFact.PlayerIDs == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEventFact.PlayerIDs(childComplexity), true
+	case "MatchEventFact.poolSlotID":
+		if e.ComplexityRoot.MatchEventFact.PoolSlotID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEventFact.PoolSlotID(childComplexity), true
+	case "MatchEventFact.reason":
+		if e.ComplexityRoot.MatchEventFact.Reason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEventFact.Reason(childComplexity), true
+	case "MatchEventFact.requestID":
+		if e.ComplexityRoot.MatchEventFact.RequestID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEventFact.RequestID(childComplexity), true
+	case "MatchEventFact.tbBasis":
+		if e.ComplexityRoot.MatchEventFact.TbBasis == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEventFact.TbBasis(childComplexity), true
+	case "MatchEventFact.team":
+		if e.ComplexityRoot.MatchEventFact.Team == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchEventFact.Team(childComplexity), true
 
 	case "MatchPage.items":
 		if e.ComplexityRoot.MatchPage.Items == nil {
@@ -1500,176 +1584,145 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MatchPage.TotalPages(childComplexity), true
 
-	case "MatchResult.alignments":
-		if e.ComplexityRoot.MatchResult.Alignments == nil {
+	case "MatchPoolSlotMetadata.beatmap":
+		if e.ComplexityRoot.MatchPoolSlotMetadata.Beatmap == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.Alignments(childComplexity), true
-	case "MatchResult.createdAt":
-		if e.ComplexityRoot.MatchResult.CreatedAt == nil {
+		return e.ComplexityRoot.MatchPoolSlotMetadata.Beatmap(childComplexity), true
+	case "MatchPoolSlotMetadata.beatmapID":
+		if e.ComplexityRoot.MatchPoolSlotMetadata.BeatmapID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.CreatedAt(childComplexity), true
-	case "MatchResult.id":
-		if e.ComplexityRoot.MatchResult.ID == nil {
+		return e.ComplexityRoot.MatchPoolSlotMetadata.BeatmapID(childComplexity), true
+	case "MatchPoolSlotMetadata.poolSlotID":
+		if e.ComplexityRoot.MatchPoolSlotMetadata.PoolSlotID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.ID(childComplexity), true
-	case "MatchResult.matchID":
-		if e.ComplexityRoot.MatchResult.MatchID == nil {
+		return e.ComplexityRoot.MatchPoolSlotMetadata.PoolSlotID(childComplexity), true
+
+	case "MatchSnapshot.activeTeam":
+		if e.ComplexityRoot.MatchSnapshot.ActiveTeam == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.MatchID(childComplexity), true
-	case "MatchResult.roomID":
-		if e.ComplexityRoot.MatchResult.RoomID == nil {
+		return e.ComplexityRoot.MatchSnapshot.ActiveTeam(childComplexity), true
+	case "MatchSnapshot.board":
+		if e.ComplexityRoot.MatchSnapshot.Board == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.RoomID(childComplexity), true
-	case "MatchResult.scores":
-		if e.ComplexityRoot.MatchResult.Scores == nil {
+		return e.ComplexityRoot.MatchSnapshot.Board(childComplexity), true
+	case "MatchSnapshot.firstBan":
+		if e.ComplexityRoot.MatchSnapshot.FirstBan == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.Scores(childComplexity), true
-	case "MatchResult.summary":
-		if e.ComplexityRoot.MatchResult.Summary == nil {
+		return e.ComplexityRoot.MatchSnapshot.FirstBan(childComplexity), true
+	case "MatchSnapshot.firstPick":
+		if e.ComplexityRoot.MatchSnapshot.FirstPick == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.Summary(childComplexity), true
-	case "MatchResult.updatedAt":
-		if e.ComplexityRoot.MatchResult.UpdatedAt == nil {
+		return e.ComplexityRoot.MatchSnapshot.FirstPick(childComplexity), true
+	case "MatchSnapshot.lifecycle":
+		if e.ComplexityRoot.MatchSnapshot.Lifecycle == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.UpdatedAt(childComplexity), true
-	case "MatchResult.winReason":
-		if e.ComplexityRoot.MatchResult.WinReason == nil {
+		return e.ComplexityRoot.MatchSnapshot.Lifecycle(childComplexity), true
+	case "MatchSnapshot.pendingPieceID":
+		if e.ComplexityRoot.MatchSnapshot.PendingPieceID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.WinReason(childComplexity), true
-	case "MatchResult.winner":
-		if e.ComplexityRoot.MatchResult.Winner == nil {
+		return e.ComplexityRoot.MatchSnapshot.PendingPieceID(childComplexity), true
+	case "MatchSnapshot.pendingTBRequest":
+		if e.ComplexityRoot.MatchSnapshot.PendingTBRequest == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.Winner(childComplexity), true
-	case "MatchResult.wonPieces":
-		if e.ComplexityRoot.MatchResult.WonPieces == nil {
+		return e.ComplexityRoot.MatchSnapshot.PendingTBRequest(childComplexity), true
+	case "MatchSnapshot.phase":
+		if e.ComplexityRoot.MatchSnapshot.Phase == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchResult.WonPieces(childComplexity), true
-
-	case "MatchTeams.blue":
-		if e.ComplexityRoot.MatchTeams.Blue == nil {
+		return e.ComplexityRoot.MatchSnapshot.Phase(childComplexity), true
+	case "MatchSnapshot.poolSlots":
+		if e.ComplexityRoot.MatchSnapshot.PoolSlots == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchTeams.Blue(childComplexity), true
-	case "MatchTeams.red":
-		if e.ComplexityRoot.MatchTeams.Red == nil {
+		return e.ComplexityRoot.MatchSnapshot.PoolSlots(childComplexity), true
+	case "MatchSnapshot.result":
+		if e.ComplexityRoot.MatchSnapshot.Result == nil {
 			break
 		}
 
-		return e.ComplexityRoot.MatchTeams.Red(childComplexity), true
-
-	case "Move.blueScore":
-		if e.ComplexityRoot.Move.BlueScore == nil {
+		return e.ComplexityRoot.MatchSnapshot.Result(childComplexity), true
+	case "MatchSnapshot.robberyUsed":
+		if e.ComplexityRoot.MatchSnapshot.RobberyUsed == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Move.BlueScore(childComplexity), true
-	case "Move.comment":
-		if e.ComplexityRoot.Move.Comment == nil {
+		return e.ComplexityRoot.MatchSnapshot.RobberyUsed(childComplexity), true
+	case "MatchSnapshot.rosters":
+		if e.ComplexityRoot.MatchSnapshot.Rosters == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Move.Comment(childComplexity), true
-	case "Move.createdAt":
-		if e.ComplexityRoot.Move.CreatedAt == nil {
+		return e.ComplexityRoot.MatchSnapshot.Rosters(childComplexity), true
+	case "MatchSnapshot.stalemate":
+		if e.ComplexityRoot.MatchSnapshot.Stalemate == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Move.CreatedAt(childComplexity), true
-	case "Move.forceMod":
-		if e.ComplexityRoot.Move.ForceMod == nil {
+		return e.ComplexityRoot.MatchSnapshot.Stalemate(childComplexity), true
+	case "MatchSnapshot.tbEntry":
+		if e.ComplexityRoot.MatchSnapshot.TbEntry == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Move.ForceMod(childComplexity), true
-	case "Move.from":
-		if e.ComplexityRoot.Move.From == nil {
+		return e.ComplexityRoot.MatchSnapshot.TbEntry(childComplexity), true
+	case "MatchSnapshot.teamPauseUsed":
+		if e.ComplexityRoot.MatchSnapshot.TeamPauseUsed == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Move.From(childComplexity), true
-	case "Move.id":
-		if e.ComplexityRoot.Move.ID == nil {
+		return e.ComplexityRoot.MatchSnapshot.TeamPauseUsed(childComplexity), true
+	case "MatchSnapshot.timer":
+		if e.ComplexityRoot.MatchSnapshot.Timer == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Move.ID(childComplexity), true
-	case "Move.matchID":
-		if e.ComplexityRoot.Move.MatchID == nil {
+		return e.ComplexityRoot.MatchSnapshot.Timer(childComplexity), true
+	case "MatchSnapshot.turn":
+		if e.ComplexityRoot.MatchSnapshot.Turn == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Move.MatchID(childComplexity), true
-	case "Move.operator":
-		if e.ComplexityRoot.Move.Operator == nil {
+		return e.ComplexityRoot.MatchSnapshot.Turn(childComplexity), true
+	case "MatchSnapshot.version":
+		if e.ComplexityRoot.MatchSnapshot.Version == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Move.Operator(childComplexity), true
-	case "Move.operatorID":
-		if e.ComplexityRoot.Move.OperatorID == nil {
+		return e.ComplexityRoot.MatchSnapshot.Version(childComplexity), true
+	case "MatchSnapshot.winner":
+		if e.ComplexityRoot.MatchSnapshot.Winner == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Move.OperatorID(childComplexity), true
-	case "Move.redScore":
-		if e.ComplexityRoot.Move.RedScore == nil {
+		return e.ComplexityRoot.MatchSnapshot.Winner(childComplexity), true
+	case "MatchSnapshot.wonCounts":
+		if e.ComplexityRoot.MatchSnapshot.WonCounts == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Move.RedScore(childComplexity), true
-	case "Move.roomID":
-		if e.ComplexityRoot.Move.RoomID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Move.RoomID(childComplexity), true
-	case "Move.slot":
-		if e.ComplexityRoot.Move.Slot == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Move.Slot(childComplexity), true
-	case "Move.teamSide":
-		if e.ComplexityRoot.Move.TeamSide == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Move.TeamSide(childComplexity), true
-	case "Move.to":
-		if e.ComplexityRoot.Move.To == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Move.To(childComplexity), true
-	case "Move.type":
-		if e.ComplexityRoot.Move.Type == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Move.Type(childComplexity), true
+		return e.ComplexityRoot.MatchSnapshot.WonCounts(childComplexity), true
 
 	case "Mutation.abortMatch":
 		if e.ComplexityRoot.Mutation.AbortMatch == nil {
@@ -1947,130 +2000,61 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Mutation.SuspendMatch(childComplexity, args["input"].(ReasonCommandInput)), true
 
+	case "OverlayView.activeTeam":
+		if e.ComplexityRoot.OverlayView.ActiveTeam == nil {
+			break
+		}
+
+		return e.ComplexityRoot.OverlayView.ActiveTeam(childComplexity), true
 	case "OverlayView.board":
 		if e.ComplexityRoot.OverlayView.Board == nil {
 			break
 		}
 
 		return e.ComplexityRoot.OverlayView.Board(childComplexity), true
-	case "OverlayView.lastEvent":
-		if e.ComplexityRoot.OverlayView.LastEvent == nil {
+	case "OverlayView.lifecycle":
+		if e.ComplexityRoot.OverlayView.Lifecycle == nil {
 			break
 		}
 
-		return e.ComplexityRoot.OverlayView.LastEvent(childComplexity), true
-	case "OverlayView.scores":
-		if e.ComplexityRoot.OverlayView.Scores == nil {
+		return e.ComplexityRoot.OverlayView.Lifecycle(childComplexity), true
+	case "OverlayView.phase":
+		if e.ComplexityRoot.OverlayView.Phase == nil {
 			break
 		}
 
-		return e.ComplexityRoot.OverlayView.Scores(childComplexity), true
+		return e.ComplexityRoot.OverlayView.Phase(childComplexity), true
 	case "OverlayView.timer":
 		if e.ComplexityRoot.OverlayView.Timer == nil {
 			break
 		}
 
 		return e.ComplexityRoot.OverlayView.Timer(childComplexity), true
-
-	case "Piece.beatmapID":
-		if e.ComplexityRoot.Piece.BeatmapID == nil {
+	case "OverlayView.wonCounts":
+		if e.ComplexityRoot.OverlayView.WonCounts == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Piece.BeatmapID(childComplexity), true
-	case "Piece.forceMod":
-		if e.ComplexityRoot.Piece.ForceMod == nil {
+		return e.ComplexityRoot.OverlayView.WonCounts(childComplexity), true
+
+	case "PendingTBRequest.basis":
+		if e.ComplexityRoot.PendingTBRequest.Basis == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Piece.ForceMod(childComplexity), true
-	case "Piece.position":
-		if e.ComplexityRoot.Piece.Position == nil {
+		return e.ComplexityRoot.PendingTBRequest.Basis(childComplexity), true
+	case "PendingTBRequest.id":
+		if e.ComplexityRoot.PendingTBRequest.ID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Piece.Position(childComplexity), true
-	case "Piece.state":
-		if e.ComplexityRoot.Piece.State == nil {
+		return e.ComplexityRoot.PendingTBRequest.ID(childComplexity), true
+	case "PendingTBRequest.requestedBy":
+		if e.ComplexityRoot.PendingTBRequest.RequestedBy == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Piece.State(childComplexity), true
-	case "Piece.teamID":
-		if e.ComplexityRoot.Piece.TeamID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Piece.TeamID(childComplexity), true
-
-	case "PieceRender.beatmapCover":
-		if e.ComplexityRoot.PieceRender.BeatmapCover == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PieceRender.BeatmapCover(childComplexity), true
-	case "PieceRender.mod":
-		if e.ComplexityRoot.PieceRender.Mod == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PieceRender.Mod(childComplexity), true
-	case "PieceRender.owner":
-		if e.ComplexityRoot.PieceRender.Owner == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PieceRender.Owner(childComplexity), true
-	case "PieceRender.state":
-		if e.ComplexityRoot.PieceRender.State == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PieceRender.State(childComplexity), true
-
-	case "PieceSummary.mod":
-		if e.ComplexityRoot.PieceSummary.Mod == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PieceSummary.Mod(childComplexity), true
-	case "PieceSummary.owner":
-		if e.ComplexityRoot.PieceSummary.Owner == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PieceSummary.Owner(childComplexity), true
-	case "PieceSummary.state":
-		if e.ComplexityRoot.PieceSummary.State == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PieceSummary.State(childComplexity), true
-
-	case "PlayerScore.accuracy":
-		if e.ComplexityRoot.PlayerScore.Accuracy == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PlayerScore.Accuracy(childComplexity), true
-	case "PlayerScore.combo":
-		if e.ComplexityRoot.PlayerScore.Combo == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PlayerScore.Combo(childComplexity), true
-	case "PlayerScore.score":
-		if e.ComplexityRoot.PlayerScore.Score == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PlayerScore.Score(childComplexity), true
-	case "PlayerScore.userID":
-		if e.ComplexityRoot.PlayerScore.UserID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.PlayerScore.UserID(childComplexity), true
+		return e.ComplexityRoot.PendingTBRequest.RequestedBy(childComplexity), true
 
 	case "PoolSlot.beatmap":
 		if e.ComplexityRoot.PoolSlot.Beatmap == nil {
@@ -2190,7 +2174,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.BeatmapByOsuID(childComplexity, args["osuId"].(int)), true
+		return e.ComplexityRoot.Query.BeatmapByOsuID(childComplexity, args["osuId"].(string)), true
 	case "Query.beatmaps":
 		if e.ComplexityRoot.Query.Beatmaps == nil {
 			break
@@ -2235,7 +2219,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.Matches(childComplexity, args["status"].(*MatchStatus), args["page"].(*int), args["perPage"].(*int)), true
+		return e.ComplexityRoot.Query.Matches(childComplexity, args["page"].(*int), args["perPage"].(*int)), true
 	case "Query.me":
 		if e.ComplexityRoot.Query.Me == nil {
 			break
@@ -2304,6 +2288,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.Users(childComplexity, args["page"].(*int), args["perPage"].(*int)), true
 
+	case "RefereeView.abortReason":
+		if e.ComplexityRoot.RefereeView.AbortReason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RefereeView.AbortReason(childComplexity), true
+	case "RefereeView.analysis":
+		if e.ComplexityRoot.RefereeView.Analysis == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RefereeView.Analysis(childComplexity), true
 	case "RefereeView.auditLog":
 		if e.ComplexityRoot.RefereeView.AuditLog == nil {
 			break
@@ -2315,42 +2311,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RefereeView.AuditLog(childComplexity, args["limit"].(*int)), true
-	case "RefereeView.board":
-		if e.ComplexityRoot.RefereeView.Board == nil {
+	case "RefereeView.matchID":
+		if e.ComplexityRoot.RefereeView.MatchID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RefereeView.Board(childComplexity), true
-	case "RefereeView.connectionStatus":
-		if e.ComplexityRoot.RefereeView.ConnectionStatus == nil {
+		return e.ComplexityRoot.RefereeView.MatchID(childComplexity), true
+	case "RefereeView.snapshot":
+		if e.ComplexityRoot.RefereeView.Snapshot == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RefereeView.ConnectionStatus(childComplexity), true
-	case "RefereeView.pool":
-		if e.ComplexityRoot.RefereeView.Pool == nil {
+		return e.ComplexityRoot.RefereeView.Snapshot(childComplexity), true
+	case "RefereeView.suspensionReason":
+		if e.ComplexityRoot.RefereeView.SuspensionReason == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RefereeView.Pool(childComplexity), true
-	case "RefereeView.teams":
-		if e.ComplexityRoot.RefereeView.Teams == nil {
+		return e.ComplexityRoot.RefereeView.SuspensionReason(childComplexity), true
+
+	case "RobberyPlan.sacrificeSets":
+		if e.ComplexityRoot.RobberyPlan.SacrificeSets == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RefereeView.Teams(childComplexity), true
-	case "RefereeView.timer":
-		if e.ComplexityRoot.RefereeView.Timer == nil {
+		return e.ComplexityRoot.RobberyPlan.SacrificeSets(childComplexity), true
+	case "RobberyPlan.targetPieceID":
+		if e.ComplexityRoot.RobberyPlan.TargetPieceID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RefereeView.Timer(childComplexity), true
-	case "RefereeView.turnState":
-		if e.ComplexityRoot.RefereeView.TurnState == nil {
-			break
-		}
-
-		return e.ComplexityRoot.RefereeView.TurnState(childComplexity), true
+		return e.ComplexityRoot.RobberyPlan.TargetPieceID(childComplexity), true
 
 	case "Room.code":
 		if e.ComplexityRoot.Room.Code == nil {
@@ -2559,37 +2550,38 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.SpectatorView.CurrentPhase(childComplexity), true
-	case "SpectatorView.recentMoves":
-		if e.ComplexityRoot.SpectatorView.RecentMoves == nil {
+	case "SpectatorView.lifecycle":
+		if e.ComplexityRoot.SpectatorView.Lifecycle == nil {
 			break
 		}
 
-		return e.ComplexityRoot.SpectatorView.RecentMoves(childComplexity), true
-	case "SpectatorView.scores":
-		if e.ComplexityRoot.SpectatorView.Scores == nil {
-			break
-		}
-
-		return e.ComplexityRoot.SpectatorView.Scores(childComplexity), true
+		return e.ComplexityRoot.SpectatorView.Lifecycle(childComplexity), true
 	case "SpectatorView.turnNumber":
 		if e.ComplexityRoot.SpectatorView.TurnNumber == nil {
 			break
 		}
 
 		return e.ComplexityRoot.SpectatorView.TurnNumber(childComplexity), true
-
-	case "StrategistView.allowedActions":
-		if e.ComplexityRoot.StrategistView.AllowedActions == nil {
+	case "SpectatorView.wonCounts":
+		if e.ComplexityRoot.SpectatorView.WonCounts == nil {
 			break
 		}
 
-		return e.ComplexityRoot.StrategistView.AllowedActions(childComplexity), true
-	case "StrategistView.disallowedActions":
-		if e.ComplexityRoot.StrategistView.DisallowedActions == nil {
+		return e.ComplexityRoot.SpectatorView.WonCounts(childComplexity), true
+
+	case "StalemateEvidence.wonCounts":
+		if e.ComplexityRoot.StalemateEvidence.WonCounts == nil {
 			break
 		}
 
-		return e.ComplexityRoot.StrategistView.DisallowedActions(childComplexity), true
+		return e.ComplexityRoot.StalemateEvidence.WonCounts(childComplexity), true
+
+	case "StrategistView.analysis":
+		if e.ComplexityRoot.StrategistView.Analysis == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StrategistView.Analysis(childComplexity), true
 	case "StrategistView.isMyTurn":
 		if e.ComplexityRoot.StrategistView.IsMyTurn == nil {
 			break
@@ -2602,265 +2594,51 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.StrategistView.MyTeam(childComplexity), true
-	case "StrategistView.robberyInProgress":
-		if e.ComplexityRoot.StrategistView.RobberyInProgress == nil {
+
+	case "TBEntry.basis":
+		if e.ComplexityRoot.TBEntry.Basis == nil {
 			break
 		}
 
-		return e.ComplexityRoot.StrategistView.RobberyInProgress(childComplexity), true
-	case "StrategistView.selectableBoardCells":
-		if e.ComplexityRoot.StrategistView.SelectableBoardCells == nil {
+		return e.ComplexityRoot.TBEntry.Basis(childComplexity), true
+	case "TBEntry.requestID":
+		if e.ComplexityRoot.TBEntry.RequestID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.StrategistView.SelectableBoardCells(childComplexity), true
-	case "StrategistView.selectablePoolSlots":
-		if e.ComplexityRoot.StrategistView.SelectablePoolSlots == nil {
+		return e.ComplexityRoot.TBEntry.RequestID(childComplexity), true
+	case "TBEntry.requestedBy":
+		if e.ComplexityRoot.TBEntry.RequestedBy == nil {
 			break
 		}
 
-		return e.ComplexityRoot.StrategistView.SelectablePoolSlots(childComplexity), true
-	case "StrategistView.timer":
-		if e.ComplexityRoot.StrategistView.Timer == nil {
+		return e.ComplexityRoot.TBEntry.RequestedBy(childComplexity), true
+
+	case "TeamCounts.blue":
+		if e.ComplexityRoot.TeamCounts.Blue == nil {
 			break
 		}
 
-		return e.ComplexityRoot.StrategistView.Timer(childComplexity), true
-
-	case "Team.color":
-		if e.ComplexityRoot.Team.Color == nil {
+		return e.ComplexityRoot.TeamCounts.Blue(childComplexity), true
+	case "TeamCounts.red":
+		if e.ComplexityRoot.TeamCounts.Red == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Team.Color(childComplexity), true
-	case "Team.description":
-		if e.ComplexityRoot.Team.Description == nil {
+		return e.ComplexityRoot.TeamCounts.Red(childComplexity), true
+
+	case "TeamFlags.blue":
+		if e.ComplexityRoot.TeamFlags.Blue == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Team.Description(childComplexity), true
-	case "Team.id":
-		if e.ComplexityRoot.Team.ID == nil {
+		return e.ComplexityRoot.TeamFlags.Blue(childComplexity), true
+	case "TeamFlags.red":
+		if e.ComplexityRoot.TeamFlags.Red == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Team.ID(childComplexity), true
-	case "Team.leader":
-		if e.ComplexityRoot.Team.Leader == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Team.Leader(childComplexity), true
-	case "Team.leaderID":
-		if e.ComplexityRoot.Team.LeaderID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Team.LeaderID(childComplexity), true
-	case "Team.name":
-		if e.ComplexityRoot.Team.Name == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Team.Name(childComplexity), true
-	case "Team.playerUsers":
-		if e.ComplexityRoot.Team.PlayerUsers == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Team.PlayerUsers(childComplexity), true
-	case "Team.players":
-		if e.ComplexityRoot.Team.Players == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Team.Players(childComplexity), true
-	case "Team.seed":
-		if e.ComplexityRoot.Team.Seed == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Team.Seed(childComplexity), true
-	case "Team.side":
-		if e.ComplexityRoot.Team.Side == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Team.Side(childComplexity), true
-	case "Team.strategist":
-		if e.ComplexityRoot.Team.Strategist == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Team.Strategist(childComplexity), true
-	case "Team.strategistID":
-		if e.ComplexityRoot.Team.StrategistID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Team.StrategistID(childComplexity), true
-
-	case "TeamScore.score":
-		if e.ComplexityRoot.TeamScore.Score == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TeamScore.Score(childComplexity), true
-	case "TeamScore.teamSide":
-		if e.ComplexityRoot.TeamScore.TeamSide == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TeamScore.TeamSide(childComplexity), true
-
-	case "TeamScores.blue":
-		if e.ComplexityRoot.TeamScores.Blue == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TeamScores.Blue(childComplexity), true
-	case "TeamScores.red":
-		if e.ComplexityRoot.TeamScores.Red == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TeamScores.Red(childComplexity), true
-
-	case "TimerDisplay.isPaused":
-		if e.ComplexityRoot.TimerDisplay.IsPaused == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerDisplay.IsPaused(childComplexity), true
-	case "TimerDisplay.isWarning":
-		if e.ComplexityRoot.TimerDisplay.IsWarning == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerDisplay.IsWarning(childComplexity), true
-	case "TimerDisplay.remainingSeconds":
-		if e.ComplexityRoot.TimerDisplay.RemainingSeconds == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerDisplay.RemainingSeconds(childComplexity), true
-
-	case "TimerInfo.durationSeconds":
-		if e.ComplexityRoot.TimerInfo.DurationSeconds == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerInfo.DurationSeconds(childComplexity), true
-	case "TimerInfo.isPaused":
-		if e.ComplexityRoot.TimerInfo.IsPaused == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerInfo.IsPaused(childComplexity), true
-	case "TimerInfo.remainingSeconds":
-		if e.ComplexityRoot.TimerInfo.RemainingSeconds == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerInfo.RemainingSeconds(childComplexity), true
-	case "TimerInfo.startedAt":
-		if e.ComplexityRoot.TimerInfo.StartedAt == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerInfo.StartedAt(childComplexity), true
-
-	case "TimerState.bonusTime":
-		if e.ComplexityRoot.TimerState.BonusTime == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerState.BonusTime(childComplexity), true
-	case "TimerState.bonusUsed":
-		if e.ComplexityRoot.TimerState.BonusUsed == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerState.BonusUsed(childComplexity), true
-	case "TimerState.isPaused":
-		if e.ComplexityRoot.TimerState.IsPaused == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerState.IsPaused(childComplexity), true
-	case "TimerState.pausedAt":
-		if e.ComplexityRoot.TimerState.PausedAt == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerState.PausedAt(childComplexity), true
-	case "TimerState.remainingAtPause":
-		if e.ComplexityRoot.TimerState.RemainingAtPause == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerState.RemainingAtPause(childComplexity), true
-	case "TimerState.startedAt":
-		if e.ComplexityRoot.TimerState.StartedAt == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerState.StartedAt(childComplexity), true
-	case "TimerState.timeLimit":
-		if e.ComplexityRoot.TimerState.TimeLimit == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TimerState.TimeLimit(childComplexity), true
-
-	case "TurnState.action":
-		if e.ComplexityRoot.TurnState.Action == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TurnState.Action(childComplexity), true
-	case "TurnState.activeTeam":
-		if e.ComplexityRoot.TurnState.ActiveTeam == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TurnState.ActiveTeam(childComplexity), true
-	case "TurnState.bonusTime":
-		if e.ComplexityRoot.TurnState.BonusTime == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TurnState.BonusTime(childComplexity), true
-	case "TurnState.bonusUsed":
-		if e.ComplexityRoot.TurnState.BonusUsed == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TurnState.BonusUsed(childComplexity), true
-	case "TurnState.counter":
-		if e.ComplexityRoot.TurnState.Counter == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TurnState.Counter(childComplexity), true
-	case "TurnState.phase":
-		if e.ComplexityRoot.TurnState.Phase == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TurnState.Phase(childComplexity), true
-	case "TurnState.startedAt":
-		if e.ComplexityRoot.TurnState.StartedAt == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TurnState.StartedAt(childComplexity), true
-	case "TurnState.timeLimit":
-		if e.ComplexityRoot.TurnState.TimeLimit == nil {
-			break
-		}
-
-		return e.ComplexityRoot.TurnState.TimeLimit(childComplexity), true
+		return e.ComplexityRoot.TeamFlags.Red(childComplexity), true
 
 	case "User.avatarURL":
 		if e.ComplexityRoot.User.AvatarURL == nil {
@@ -2966,25 +2744,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.UserPage.TotalPages(childComplexity), true
 
-	case "WinningAlignment.length":
-		if e.ComplexityRoot.WinningAlignment.Length == nil {
-			break
-		}
-
-		return e.ComplexityRoot.WinningAlignment.Length(childComplexity), true
-	case "WinningAlignment.positions":
-		if e.ComplexityRoot.WinningAlignment.Positions == nil {
-			break
-		}
-
-		return e.ComplexityRoot.WinningAlignment.Positions(childComplexity), true
-	case "WinningAlignment.teamID":
-		if e.ComplexityRoot.WinningAlignment.TeamID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.WinningAlignment.TeamID(childComplexity), true
-
 	}
 	return 0, false
 }
@@ -3089,7 +2848,6 @@ func newExecutionContext(
 var sources = []*ast.Source{
 	{Name: "../../schema.graphql", Input: `# rctHubBackend GraphQL Schema
 # Phase 1 — 只读查询: 覆盖全部 domain 类型的 Query + 嵌套查询
-# 完整 Schema (含 Phase 2/3 类型) 见 docs/schema-full.graphql
 
 # =============================================================================
 # 自定义标量
@@ -3097,16 +2855,10 @@ var sources = []*ast.Source{
 
 scalar Time     # time.Time — gqlgen 内置支持 (graphql.Time)
 scalar ObjectID # bson.ObjectID hex — 映射为 string
-scalar JSON     # 任意 JSON 值 — 用于事件 payload 等
+scalar UInt64   # 十进制字符串，避免 GraphQL Int32 截断版本号
 
 # gqlgen 内置 directive: 控制字段生成行为
 directive @goField(forceResolver: Boolean, name: String) on FIELD_DEFINITION
-
-# 鉴权 directive (Phase 2 — §9.10 Read Model 角色裁剪)
-# @requireRole: 检查 JWT claims 中的角色；admin=true 时也接受 ADMIN 角色
-directive @requireRole(role: UserRole!, admin: Boolean = false) on FIELD_DEFINITION
-# @public: 标记字段公开可访问 (no-op, 文档语义)
-directive @public on FIELD_DEFINITION
 
 # =============================================================================
 # 枚举 (值用大写，domain 用小写/混合大小写，mapper 中转换)
@@ -3137,23 +2889,6 @@ enum TeamSide {
   BLUE
 }
 
-enum MatchStatus {
-  PENDING
-  ACTIVE
-  FINISHED
-  CANCELED
-}
-
-enum MatchPhase {
-  SETUP
-  ROLL
-  BAN
-  PICK
-  WIN
-  TB
-  ENDED
-}
-
 enum PieceMod {
   NM
   HD
@@ -3172,43 +2907,13 @@ enum PieceState {
   DEAD
 }
 
-enum MoveType {
-  PICK
-  UNPICK
-  BAN
-  UNBAN
-  CLAIM
-  WIN
-  UNWIN
-  ROB
-  UNROB
-  DEAD
-  UNDEAD
-  SURRENDER
-}
-
-enum WinReason {
-  FOUR_IN_A_ROW
-  TIE_BREAKER
-  SURRENDER
-  DRAW
-  FORFEIT
-}
-
-enum BoardZone {
-  NM
-  HD
-  HR
-  DT
-}
-
 # =============================================================================
 # 核心类型
 # =============================================================================
 
 type User {
   id: ObjectID!
-  onlineID: Int!
+  onlineID: ID!
   username: String!
   avatarURL: String!
   countryCode: String!
@@ -3226,7 +2931,7 @@ type Room {
   code: String!
   name: String!
   type: RoomType!
-  ownerID: Int!
+  ownerID: ID!
   owner: User @goField(forceResolver: true)
   settings: RoomSettings!
   matchID: ID               # 内部关联, null 表示尚未开始比赛
@@ -3236,19 +2941,19 @@ type Room {
 }
 
 type RoomSettings {
-  redStrategistUserID: Int
+  redStrategistUserID: ID
   redStrategist: User @goField(forceResolver: true)
-  blueStrategistUserID: Int
+  blueStrategistUserID: ID
   blueStrategist: User @goField(forceResolver: true)
-  streamerUserID: Int
+  streamerUserID: ID
   streamer: User @goField(forceResolver: true)
   mappool: Mappool!
   firstPick: TeamSide
   firstBan: TeamSide
-  redPlayers: [Int!]!
-  bluePlayers: [Int!]!
-  redLeader: Int
-  blueLeader: Int
+  redPlayers: [ID!]!
+  bluePlayers: [ID!]!
+  redLeader: ID
+  blueLeader: ID
   mpLink: String
   streamLink: String
 }
@@ -3259,75 +2964,192 @@ type Match {
   name: String!
   roomType: RoomType!
   roomID: ID!               # 内部关联
-  status: MatchStatus!
-  phase: MatchPhase          # 计算字段: from TurnState.Phase
-  activeTeam: TeamSide       # 计算字段: from TurnState.ActiveTeam
-  board: Board
-  pool: Mappool
-  teams: MatchTeams!
-  bpOrder: BPOrder
-  turnState: TurnState
-  timer: TimerState
-  result: MatchResult @goField(forceResolver: true)   # domain.Result 独立实体，需 resolver 查询
-
-  # 嵌套查询 — 需要 service 调用
-  moves(limit: Int = 50, offset: Int = 0): [Move!]! @goField(forceResolver: true)
-  recentMove: Move @goField(forceResolver: true)
   room: Room @goField(forceResolver: true)
+  pool: [MatchPoolSlotMetadata!]!
 
   # 客户端专属视图 (Phase 2 — Read Model §9.10)
   # 视图字段需要 forceResolver，因为计算逻辑需要重新获取 domain.Match
-  strategistView: StrategistView! @requireRole(role: STRATEGIST) @goField(forceResolver: true)
+  strategistView: StrategistView @goField(forceResolver: true)
+  captainView: CaptainView @goField(forceResolver: true)
   spectatorView: SpectatorView! @goField(forceResolver: true)
   overlayView: OverlayView! @goField(forceResolver: true)
-  refereeView: RefereeView! @requireRole(role: REFEREE, admin: true) @goField(forceResolver: true)
+  refereeView: RefereeView @goField(forceResolver: true)
 
   createdAt: Time!
+
+  # 正式比赛唯一权威赛况。
+  snapshot: MatchSnapshot!
+}
+
+type MatchPoolSlotMetadata {
+  poolSlotID: ID!
+  beatmapID: ID
+  beatmap: Beatmap @goField(forceResolver: true)
+}
+
+enum MatchLifecycle {
+  READY
+  RUNNING
+  SUSPENDED
+  ADJUDICATION_REQUIRED
+  FINISHED
+  ABORTED
+}
+
+enum FormalMatchPhase {
+  NONE
+  BAN
+  PICK
+  WAITING_FOR_RESULT
+  TB_PREPARATION
+  TB_PLAYING
+}
+
+enum FormalBoardZone { DT HD HR }
+enum PoolSlotState { AVAILABLE BANNED SELECTED }
+enum BoardPieceOutcome { WAITING_RESULT WON WHITE DEAD }
+enum ForceMod { NM HD HR }
+enum TBBasis { CAPTAIN_AGREEMENT FORCED_AFTER_ROBBERY_CHECKS }
+enum MatchResultReason { FOUR_ALIGNMENT TB SURRENDER STALEMATE_WON_COUNT }
+
+enum MatchAction {
+  START_MATCH
+  BAN_POOL_SLOT
+  PLACE_PIECE
+  PLACE_SHIRO
+  ROB_PIECE
+  CONFIRM_BEATMAP_RESULT
+  GRANT_ADDITIONAL_TIME
+  CALIBRATE_TIMER
+  PAUSE_TIMER
+  RESUME_TIMER
+  SUSPEND_MATCH
+  RESUME_MATCH
+  SKIP_CURRENT_ACTION
+  ABORT_MATCH
+  REQUEST_TB
+  RESPOND_TB_REQUEST
+  START_TB
+  CONFIRM_TB_RESULT
+  RECORD_SURRENDER
+}
+
+enum MatchCommandDisposition { APPLIED REPLAYED }
+enum MatchActorCapability { STRATEGIST CAPTAIN REFEREE }
+
+enum MatchEventType {
+  MATCH_STARTED
+  BAN_PHASE_STARTED
+  POOL_SLOT_BANNED
+  TURN_ADVANCED
+  PICK_PHASE_STARTED
+  PIECE_PLACED
+  SHIRO_PLACED
+  RESULT_CONFIRMATION_REQUESTED
+  BEATMAP_RESULT_CONFIRMED
+  PIECE_WON
+  PIECES_SACRIFICED
+  PIECE_ROBBED
+  ADDITIONAL_TIME_GRANTED
+  TIMER_CALIBRATED
+  TIMER_PAUSED
+  TIMER_RESUMED
+  MATCH_SUSPENDED
+  MATCH_RESUMED
+  ACTION_SKIPPED
+  MATCH_ABORTED
+  REFEREE_PROXY_ACTION_RECORDED
+  TB_REQUESTED
+  TB_REQUEST_ACCEPTED
+  TB_REQUEST_REJECTED
+  TB_REQUEST_EXPIRED
+  TB_FORCED
+  TB_PREPARATION_STARTED
+  TB_STARTED
+  TB_RESULT_CONFIRMED
+  SURRENDER_RECORDED
+  MATCH_FINISHED
+  STALEMATE_DETECTED
+  ADJUDICATION_REQUIRED
+  TIMER_STARTED
+  TIMER_STOPPED
+}
+
+type MatchSnapshot {
+  version: UInt64!
+  lifecycle: MatchLifecycle!
+  phase: FormalMatchPhase!
+  firstBan: TeamSide!
+  firstPick: TeamSide!
+  turn: Int!
+  activeTeam: TeamSide
+  poolSlots: [FormalPoolSlot!]!
+  board: FormalBoard!
+  wonCounts: TeamCounts!
+  timer: FormalTimer!
+  robberyUsed: TeamFlags!
+  teamPauseUsed: TeamFlags!
+  rosters: FormalRosters!
+  pendingPieceID: ID
+  pendingTBRequest: PendingTBRequest
+  tbEntry: TBEntry
+  winner: TeamSide
+  result: FormalMatchResult
+  stalemate: StalemateEvidence
+}
+
+type FormalPoolSlot { id: ID!, mod: PieceMod!, state: PoolSlotState! }
+type FormalBoard { cells: [FormalBoardCell!]! }
+type FormalBoardCell {
+  cell: ID!
+  row: Int!
+  col: Int!
+  zone: FormalBoardZone!
+  piece: FormalBoardPiece
+}
+type FormalBoardPiece {
+  id: ID!
+  sourcePoolSlotID: ID!
+  mod: PieceMod!
+  forceMod: ForceMod
+  selectedBy: TeamSide!
+  owner: TeamSide
+  outcome: BoardPieceOutcome!
+}
+type FormalTimer {
   startedAt: Time
-  finishedAt: Time
-  updatedAt: Time!
+  durationMilliseconds: Int!
+  paused: Boolean!
+  remainingAtPauseMilliseconds: Int
 }
-
-type MatchTeams {
-  red: Team!
-  blue: Team!
+type TeamFlags { red: Boolean!, blue: Boolean! }
+type FormalRoster { leaderID: ID!, playerIDs: [ID!]! }
+type FormalRosters { red: FormalRoster!, blue: FormalRoster! }
+type PendingTBRequest { id: ID!, requestedBy: TeamSide!, basis: TBBasis! }
+type TBEntry { basis: TBBasis!, requestID: ID, requestedBy: TeamSide }
+type FormalMatchResult {
+  winner: TeamSide!
+  reason: MatchResultReason!
+  surrenderingTeam: TeamSide
+  confirmingPlayerIDs: [ID!]!
+  wonCounts: TeamCounts!
 }
+type TeamCounts { red: Int!, blue: Int! }
+type StalemateEvidence { wonCounts: TeamCounts! }
 
-type Team {
-  id: ObjectID!
-  side: TeamSide!
-  name: String!
-  description: String!
-  seed: String!
-  color: String!
-  leaderID: Int
-  leader: User @goField(forceResolver: true)
-  strategistID: Int
-  strategist: User @goField(forceResolver: true)
-  players: [Int!]!
-  playerUsers: [User!]! @goField(forceResolver: true)
-}
-
-type Board {
-  rows: Int!
-  cols: Int!
-  cells: [[BoardCell!]!]!
-}
-
-type BoardCell {
-  position: Position!
-  zone: BoardZone!
-  state: String!
-  pieceID: String
-  teamID: String
-}
-
-type Piece {
-  beatmapID: Int
-  state: PieceState!
-  teamID: String
-  forceMod: String
-  position: Position
+type LegalPlacement { poolSlotID: ID!, cell: ID!, forceMod: ForceMod }
+type RobberyPlan { targetPieceID: ID!, sacrificeSets: [[ID!]!]! }
+type MatchActorAnalysis {
+  allowedActions: [MatchAction!]!
+  banPoolSlotIDs: [ID!]!
+  legalPlacements: [LegalPlacement!]!
+  shiroCells: [ID!]!
+  robberyPlans: [RobberyPlan!]!
+  pendingTBRequestID: ID
+  canAcceptTBRequest: Boolean!
+  canRejectTBRequest: Boolean!
+  tbRequestTeams: [TeamSide!]!
+  tbResponseTeams: [TeamSide!]!
 }
 
 type Position {
@@ -3347,7 +3169,7 @@ type PoolSlotGroup {
 type PoolSlot {
   mod: PieceMod!
   index: Int!
-  beatmapID: Int           # osu! beatmap ID, null for Shiro/removed
+  beatmapID: ID            # osu! beatmap ID, null for Shiro/removed
   beatmap: Beatmap @goField(forceResolver: true)
   state: PieceState!
   teamID: String
@@ -3357,13 +3179,13 @@ type PoolSlot {
 
 type Beatmap {
   id: ObjectID!
-  onlineID: Int!
-  beatmapsetID: Int!
+  onlineID: ID!
+  beatmapsetID: ID!
   title: String!
   artist: String!
   difficultyName: String!
   status: String!
-  authorID: Int!
+  authorID: ID!
   author: User @goField(forceResolver: true)
   rulesetID: Int!
   starRating: Float!
@@ -3376,9 +3198,9 @@ type Beatmap {
   coverURL: String!
   modString: String!
   modIndex: Int!
-  selectorID: Int               # domain: SelectorID int64 (谱面选择者)
+  selectorID: ID                # domain: SelectorID int64 (谱面选择者)
   selector: User @goField(forceResolver: true)
-  creditUserIDs: [Int!]!        # domain: CreditUserIDs []int64 (贡献者)
+  creditUserIDs: [ID!]!         # domain: CreditUserIDs []int64 (贡献者)
   credits: [User!]! @goField(forceResolver: true)
   skill: String
   comment: String
@@ -3387,97 +3209,17 @@ type Beatmap {
   updatedAt: Time!
 }
 
-type Move {
-  id: ObjectID!
-  matchID: ObjectID!
-  roomID: ObjectID!
-  type: MoveType!
-  teamSide: TeamSide
-  operatorID: Int!
-  operator: User @goField(forceResolver: true)
-  slot: PoolSlot
-  from: Position
-  to: Position
-  forceMod: String
-  redScore: PlayerScore
-  blueScore: PlayerScore
-  comment: String!
-  createdAt: Time!
-}
-
-type PlayerScore {
-  userID: Int!
-  score: Int!
-  accuracy: Float!
-  combo: Int!
-}
-
-type BPOrder {
-  firstPick: TeamSide!
-  firstBan: TeamSide!
-}
-
-type TurnState {
-  phase: MatchPhase!
-  counter: Int!
-  activeTeam: TeamSide
-  action: String
-  startedAt: Time
-  timeLimit: Int    # seconds (domain: time.Duration)
-  bonusTime: Int    # seconds
-  bonusUsed: Boolean!
-}
-
-type TimerState {
-  startedAt: Time
-  timeLimit: Int!   # seconds (domain: time.Duration)
-  bonusTime: Int!   # seconds
-  bonusUsed: Boolean!
-  isPaused: Boolean!
-  pausedAt: Time
-  remainingAtPause: Int  # seconds
-}
-
 type Announcement {
   id: ObjectID!
   pinned: Boolean!
   visible: Boolean!
   title: String!
   content: String!
-  authorID: Int!
+  authorID: ID!
   author: User @goField(forceResolver: true)
   publishedAt: Time
   createdAt: Time!
   updatedAt: Time!
-}
-
-# =============================================================================
-# 比赛结果类型 (domain.Result / domain.TeamScore / domain.WinningAlignment)
-# =============================================================================
-
-type MatchResult {
-  id: ObjectID!
-  matchID: ObjectID!
-  roomID: ObjectID!
-  winner: TeamSide              # domain: *TeamSide (nil = 平局/无赢家 → null)
-  winReason: WinReason!
-  scores: [TeamScore!]!
-  wonPieces: JSON               # domain: map[TeamSide]int → {"red":N,"blue":N}
-  alignments: [WinningAlignment!]!
-  summary: String               # domain: string (空 = null)
-  createdAt: Time!
-  updatedAt: Time!
-}
-
-type TeamScore {
-  teamSide: TeamSide!           # domain: TeamID TeamSide
-  score: Int!
-}
-
-type WinningAlignment {
-  length: Int!                  # domain: Length int (连子长度)
-  positions: [Position!]!      # domain: Positions []Position
-  teamID: String!               # domain: TeamID string ("red"/"blue")
 }
 
 # =============================================================================
@@ -3488,124 +3230,55 @@ type WinningAlignment {
 # --- 策略师视图: 当前可执行操作、可选格子、计时器 ---
 type StrategistView {
   isMyTurn: Boolean!
-  myTeam: TeamSide                # null 如果用户不是本比赛的策略师
-  allowedActions: [String!]!
-  disallowedActions: [String!]!
-  selectablePoolSlots: [String!]! # 格式: "MOD-INDEX" 如 "NM-1"
-  selectableBoardCells: [String!]! # 格式: "row,col" 如 "0,1"
-  timer: TimerInfo!
-  robberyInProgress: Boolean!
+  myTeam: TeamSide!
+  analysis: MatchActorAnalysis!
+}
+
+type CaptainView {
+  myTeam: TeamSide!
+  analysis: MatchActorAnalysis!
 }
 
 # --- 观众视图: 公开安全的棋盘摘要和比分 ---
 type SpectatorView {
-  board: BoardSummary!
-  scores: TeamScores!
-  currentPhase: MatchPhase!
+  board: FormalBoard!
+  wonCounts: TeamCounts!
+  currentPhase: FormalMatchPhase!
   activeTeam: TeamSide
-  turnNumber: Int
-  recentMoves: [Move!]!
+  turnNumber: Int!
+  lifecycle: MatchLifecycle!
 }
 
 # --- OBS Overlay 视图: 极简渲染数据 ---
 type OverlayView {
-  board: BoardRenderData!
-  scores: TeamScores!
-  timer: TimerDisplay!
-  lastEvent: DomainEventSnapshot  # null: WebSocket 事件系统尚未实现
+  board: FormalBoard!
+  wonCounts: TeamCounts!
+  timer: FormalTimer!
+  lifecycle: MatchLifecycle!
+  phase: FormalMatchPhase!
+  activeTeam: TeamSide
 }
 
 # --- 裁判视图: 完整比赛数据 + 审计 ---
 type RefereeView {
-  board: Board!
-  pool: Mappool!
-  teams: MatchTeams!
-  turnState: TurnState!
-  timer: TimerState!
-  auditLog(limit: Int = 50): [AuditEntry!]!    # 空: 审计系统尚未实现
-  connectionStatus: [ClientConnection!]!        # 空: WebSocket 连接追踪尚未实现
-}
-
-# --- 视图支撑类型 ---
-
-type BoardSummary {
-  cells: [[CellSummary!]!]!
-}
-
-type CellSummary {
-  position: Position!
-  piece: PieceSummary              # null if cell is empty
-}
-
-type PieceSummary {
-  mod: PieceMod!
-  state: PieceState!
-  owner: TeamSide                  # null if not owned
-}
-
-type BoardRenderData {
-  cells: [[CellRender!]!]!
-  lastChangedCells: [Position!]!   # 空: 变更追踪尚未实现
-}
-
-type CellRender {
-  position: Position!
-  zone: BoardZone!
-  piece: PieceRender               # null if cell is empty
-}
-
-type PieceRender {
-  mod: PieceMod!
-  state: PieceState!
-  owner: TeamSide
-  beatmapCover: String             # 谱面封面 URL
-}
-
-type TeamScores {
-  red: Int!
-  blue: Int!
-}
-
-type TimerInfo {
-  startedAt: Time!
-  durationSeconds: Int!
-  remainingSeconds: Int!
-  isPaused: Boolean!
-}
-
-type TimerDisplay {
-  remainingSeconds: Int!
-  isPaused: Boolean!
-  isWarning: Boolean!              # 剩余 < 10s 时为 true
-}
-
-type DomainEventSnapshot {
-  type: String!
-  payload: JSON!
-  timestamp: Time!
+  matchID: ID!
+  snapshot: MatchSnapshot!
+  analysis: MatchActorAnalysis!
+  suspensionReason: String
+  abortReason: String
+  auditLog(limit: Int = 50): [AuditEntry!]! @goField(forceResolver: true)
 }
 
 type AuditEntry {
   actionId: ObjectID!
   matchId: ObjectID!
-  sequence: Int!
-  actorId: Int!
-  actorRole: UserRole!
+  sequence: UInt64!
+  actor: MatchCommandActor!
   commandType: String!
-  previousVersion: Int!
-  resultingVersion: Int!
+  previousVersion: UInt64!
+  resultingVersion: UInt64!
   timestamp: Time!
-  isAdminOverride: Boolean!
   reason: String
-}
-
-type ClientConnection {
-  userID: Int!
-  username: String!
-  role: UserRole!
-  teamSide: TeamSide
-  isConnected: Boolean!
-  lastSeenAt: Time
 }
 
 # =============================================================================
@@ -3666,7 +3339,7 @@ type Query {
   # 比赛
   match(id: ID!): Match
   matchByCode(code: String!): Match
-  matches(status: MatchStatus, page: Int = 1, perPage: Int = 20): MatchPage!
+  matches(page: Int = 1, perPage: Int = 20): MatchPage!
 
   # 房间
   room(id: ID!): Room
@@ -3675,7 +3348,7 @@ type Query {
 
   # 谱面
   beatmap(id: ID!): Beatmap
-  beatmapByOsuId(osuId: Int!): Beatmap
+  beatmapByOsuId(osuId: ID!): Beatmap
   beatmaps(page: Int = 1, perPage: Int = 20): BeatmapPage!
 
   # 用户
@@ -3693,7 +3366,7 @@ type Query {
 
 input CommandMeta {
   matchId: ID!
-  expectedVersion: Int!
+  expectedVersion: UInt64!
   commandId: String!
 }
 
@@ -3718,31 +3391,86 @@ input RespondTbRequestInput { meta: CommandMeta!, requestId: String!, accept: Bo
 input RefereeRespondTbRequestInput { meta: CommandMeta!, actingTeam: TeamSide!, requestId: String!, accept: Boolean!, reason: String! }
 input ConfirmTbResultInput { meta: CommandMeta!, winningTeam: TeamSide! }
 input ConfirmBeatmapResultInput { meta: CommandMeta!, boardPieceId: String!, winningTeam: TeamSide! }
-input RecordSurrenderInput { meta: CommandMeta!, surrenderingTeam: TeamSide!, confirmingPlayerIds: [Int!]!, reason: String! }
+input RecordSurrenderInput { meta: CommandMeta!, surrenderingTeam: TeamSide!, confirmingPlayerIds: [ID!]!, reason: String! }
+
+enum MatchErrorCode {
+  INVALID_REQUEST
+  AUTH_REQUIRED
+  USER_NOT_VERIFIED
+  USER_BANNED
+  GLOBAL_ROLE_REQUIRED
+  ROOM_ROLE_REQUIRED
+  ACTION_NOT_ALLOWED
+  RESOURCE_NOT_FOUND
+  MATCH_VERSION_CONFLICT
+  DUPLICATE_COMMAND_MISMATCH
+  INTERNAL_ERROR
+  MATCH_LIFECYCLE_CONFLICT
+  MATCH_PHASE_CONFLICT
+  NOT_ACTIVE_TEAM
+  INVALID_POOL_SLOT
+  POOL_SLOT_UNAVAILABLE
+  INVALID_BOARD_CELL
+  INVALID_MOD_ZONE
+  RESULT_NOT_PENDING
+  TIMER_EXPIRED
+  TIMER_PAUSED
+  TEAM_PAUSE_ALREADY_USED
+  ROBBERY_NOT_AVAILABLE
+  ROBBERY_REQUIREMENTS_NOT_MET
+  ALIGNMENT_OVERLAP
+  TB_NOT_AVAILABLE
+  SURRENDER_EVIDENCE_INVALID
+}
 
 type MatchError {
-  code: String!
+  code: MatchErrorCode!
   message: String!
-  currentVersion: Int
+  currentVersion: UInt64
+}
+
+type MatchCommandActor {
+  osuID: ID!
+  capability: MatchActorCapability!
+  team: TeamSide
+  adminOverride: Boolean!
+  refereeOverride: Boolean!
+}
+
+type MatchEventFact {
+  team: TeamSide
+  poolSlotID: ID
+  boardPieceID: ID
+  boardPieceIDs: [ID!]!
+  cell: ID
+  durationMilliseconds: Int
+  reason: String
+  requestID: ID
+  tbBasis: TBBasis
+  playerIDs: [ID!]!
 }
 
 type MatchCommandEvent {
   eventId: ID!
-  sequence: Int!
-  resultingVersion: Int!
-  type: String!
+  schemaVersion: Int!
+  aggregateId: ID!
+  aggregateType: String!
+  sequence: UInt64!
+  resultingVersion: UInt64!
+  type: MatchEventType!
   occurredAt: Time!
-  payload: JSON!
+  actor: MatchCommandActor!
+  fact: MatchEventFact!
 }
 
 type MatchCommandResult {
   success: Boolean!
   commandId: String!
-  disposition: String
-  previousVersion: Int
-  resultingVersion: Int
-  currentVersion: Int
-  state: JSON
+  disposition: MatchCommandDisposition
+  previousVersion: UInt64
+  resultingVersion: UInt64
+  currentVersion: UInt64
+  snapshot: MatchSnapshot
   events: [MatchCommandEvent!]!
   error: MatchError
 }
@@ -3832,10 +3560,8 @@ func (ec *executionContext) childFields_AuditEntry(ctx context.Context, field gr
 		return ec.fieldContext_AuditEntry_matchId(ctx, field)
 	case "sequence":
 		return ec.fieldContext_AuditEntry_sequence(ctx, field)
-	case "actorId":
-		return ec.fieldContext_AuditEntry_actorId(ctx, field)
-	case "actorRole":
-		return ec.fieldContext_AuditEntry_actorRole(ctx, field)
+	case "actor":
+		return ec.fieldContext_AuditEntry_actor(ctx, field)
 	case "commandType":
 		return ec.fieldContext_AuditEntry_commandType(ctx, field)
 	case "previousVersion":
@@ -3844,22 +3570,10 @@ func (ec *executionContext) childFields_AuditEntry(ctx context.Context, field gr
 		return ec.fieldContext_AuditEntry_resultingVersion(ctx, field)
 	case "timestamp":
 		return ec.fieldContext_AuditEntry_timestamp(ctx, field)
-	case "isAdminOverride":
-		return ec.fieldContext_AuditEntry_isAdminOverride(ctx, field)
 	case "reason":
 		return ec.fieldContext_AuditEntry_reason(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type AuditEntry", field.Name)
-}
-
-func (ec *executionContext) childFields_BPOrder(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "firstPick":
-		return ec.fieldContext_BPOrder_firstPick(ctx, field)
-	case "firstBan":
-		return ec.fieldContext_BPOrder_firstBan(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type BPOrder", field.Name)
 }
 
 func (ec *executionContext) childFields_Beatmap(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -3942,102 +3656,132 @@ func (ec *executionContext) childFields_BeatmapPage(ctx context.Context, field g
 	return nil, fmt.Errorf("no field named %q was found under type BeatmapPage", field.Name)
 }
 
-func (ec *executionContext) childFields_Board(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_CaptainView(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "rows":
-		return ec.fieldContext_Board_rows(ctx, field)
-	case "cols":
-		return ec.fieldContext_Board_cols(ctx, field)
-	case "cells":
-		return ec.fieldContext_Board_cells(ctx, field)
+	case "myTeam":
+		return ec.fieldContext_CaptainView_myTeam(ctx, field)
+	case "analysis":
+		return ec.fieldContext_CaptainView_analysis(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type Board", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type CaptainView", field.Name)
 }
 
-func (ec *executionContext) childFields_BoardCell(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_FormalBoard(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "position":
-		return ec.fieldContext_BoardCell_position(ctx, field)
+	case "cells":
+		return ec.fieldContext_FormalBoard_cells(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type FormalBoard", field.Name)
+}
+
+func (ec *executionContext) childFields_FormalBoardCell(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cell":
+		return ec.fieldContext_FormalBoardCell_cell(ctx, field)
+	case "row":
+		return ec.fieldContext_FormalBoardCell_row(ctx, field)
+	case "col":
+		return ec.fieldContext_FormalBoardCell_col(ctx, field)
 	case "zone":
-		return ec.fieldContext_BoardCell_zone(ctx, field)
+		return ec.fieldContext_FormalBoardCell_zone(ctx, field)
+	case "piece":
+		return ec.fieldContext_FormalBoardCell_piece(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type FormalBoardCell", field.Name)
+}
+
+func (ec *executionContext) childFields_FormalBoardPiece(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_FormalBoardPiece_id(ctx, field)
+	case "sourcePoolSlotID":
+		return ec.fieldContext_FormalBoardPiece_sourcePoolSlotID(ctx, field)
+	case "mod":
+		return ec.fieldContext_FormalBoardPiece_mod(ctx, field)
+	case "forceMod":
+		return ec.fieldContext_FormalBoardPiece_forceMod(ctx, field)
+	case "selectedBy":
+		return ec.fieldContext_FormalBoardPiece_selectedBy(ctx, field)
+	case "owner":
+		return ec.fieldContext_FormalBoardPiece_owner(ctx, field)
+	case "outcome":
+		return ec.fieldContext_FormalBoardPiece_outcome(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type FormalBoardPiece", field.Name)
+}
+
+func (ec *executionContext) childFields_FormalMatchResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "winner":
+		return ec.fieldContext_FormalMatchResult_winner(ctx, field)
+	case "reason":
+		return ec.fieldContext_FormalMatchResult_reason(ctx, field)
+	case "surrenderingTeam":
+		return ec.fieldContext_FormalMatchResult_surrenderingTeam(ctx, field)
+	case "confirmingPlayerIDs":
+		return ec.fieldContext_FormalMatchResult_confirmingPlayerIDs(ctx, field)
+	case "wonCounts":
+		return ec.fieldContext_FormalMatchResult_wonCounts(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type FormalMatchResult", field.Name)
+}
+
+func (ec *executionContext) childFields_FormalPoolSlot(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_FormalPoolSlot_id(ctx, field)
+	case "mod":
+		return ec.fieldContext_FormalPoolSlot_mod(ctx, field)
 	case "state":
-		return ec.fieldContext_BoardCell_state(ctx, field)
-	case "pieceID":
-		return ec.fieldContext_BoardCell_pieceID(ctx, field)
-	case "teamID":
-		return ec.fieldContext_BoardCell_teamID(ctx, field)
+		return ec.fieldContext_FormalPoolSlot_state(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type BoardCell", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type FormalPoolSlot", field.Name)
 }
 
-func (ec *executionContext) childFields_BoardRenderData(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_FormalRoster(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "cells":
-		return ec.fieldContext_BoardRenderData_cells(ctx, field)
-	case "lastChangedCells":
-		return ec.fieldContext_BoardRenderData_lastChangedCells(ctx, field)
+	case "leaderID":
+		return ec.fieldContext_FormalRoster_leaderID(ctx, field)
+	case "playerIDs":
+		return ec.fieldContext_FormalRoster_playerIDs(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type BoardRenderData", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type FormalRoster", field.Name)
 }
 
-func (ec *executionContext) childFields_BoardSummary(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_FormalRosters(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "cells":
-		return ec.fieldContext_BoardSummary_cells(ctx, field)
+	case "red":
+		return ec.fieldContext_FormalRosters_red(ctx, field)
+	case "blue":
+		return ec.fieldContext_FormalRosters_blue(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type BoardSummary", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type FormalRosters", field.Name)
 }
 
-func (ec *executionContext) childFields_CellRender(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_FormalTimer(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "position":
-		return ec.fieldContext_CellRender_position(ctx, field)
-	case "zone":
-		return ec.fieldContext_CellRender_zone(ctx, field)
-	case "piece":
-		return ec.fieldContext_CellRender_piece(ctx, field)
+	case "startedAt":
+		return ec.fieldContext_FormalTimer_startedAt(ctx, field)
+	case "durationMilliseconds":
+		return ec.fieldContext_FormalTimer_durationMilliseconds(ctx, field)
+	case "paused":
+		return ec.fieldContext_FormalTimer_paused(ctx, field)
+	case "remainingAtPauseMilliseconds":
+		return ec.fieldContext_FormalTimer_remainingAtPauseMilliseconds(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type CellRender", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type FormalTimer", field.Name)
 }
 
-func (ec *executionContext) childFields_CellSummary(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_LegalPlacement(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "position":
-		return ec.fieldContext_CellSummary_position(ctx, field)
-	case "piece":
-		return ec.fieldContext_CellSummary_piece(ctx, field)
+	case "poolSlotID":
+		return ec.fieldContext_LegalPlacement_poolSlotID(ctx, field)
+	case "cell":
+		return ec.fieldContext_LegalPlacement_cell(ctx, field)
+	case "forceMod":
+		return ec.fieldContext_LegalPlacement_forceMod(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type CellSummary", field.Name)
-}
-
-func (ec *executionContext) childFields_ClientConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "userID":
-		return ec.fieldContext_ClientConnection_userID(ctx, field)
-	case "username":
-		return ec.fieldContext_ClientConnection_username(ctx, field)
-	case "role":
-		return ec.fieldContext_ClientConnection_role(ctx, field)
-	case "teamSide":
-		return ec.fieldContext_ClientConnection_teamSide(ctx, field)
-	case "isConnected":
-		return ec.fieldContext_ClientConnection_isConnected(ctx, field)
-	case "lastSeenAt":
-		return ec.fieldContext_ClientConnection_lastSeenAt(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type ClientConnection", field.Name)
-}
-
-func (ec *executionContext) childFields_DomainEventSnapshot(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "type":
-		return ec.fieldContext_DomainEventSnapshot_type(ctx, field)
-	case "payload":
-		return ec.fieldContext_DomainEventSnapshot_payload(ctx, field)
-	case "timestamp":
-		return ec.fieldContext_DomainEventSnapshot_timestamp(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type DomainEventSnapshot", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type LegalPlacement", field.Name)
 }
 
 func (ec *executionContext) childFields_Mappool(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -4060,34 +3804,14 @@ func (ec *executionContext) childFields_Match(ctx context.Context, field graphql
 		return ec.fieldContext_Match_roomType(ctx, field)
 	case "roomID":
 		return ec.fieldContext_Match_roomID(ctx, field)
-	case "status":
-		return ec.fieldContext_Match_status(ctx, field)
-	case "phase":
-		return ec.fieldContext_Match_phase(ctx, field)
-	case "activeTeam":
-		return ec.fieldContext_Match_activeTeam(ctx, field)
-	case "board":
-		return ec.fieldContext_Match_board(ctx, field)
-	case "pool":
-		return ec.fieldContext_Match_pool(ctx, field)
-	case "teams":
-		return ec.fieldContext_Match_teams(ctx, field)
-	case "bpOrder":
-		return ec.fieldContext_Match_bpOrder(ctx, field)
-	case "turnState":
-		return ec.fieldContext_Match_turnState(ctx, field)
-	case "timer":
-		return ec.fieldContext_Match_timer(ctx, field)
-	case "result":
-		return ec.fieldContext_Match_result(ctx, field)
-	case "moves":
-		return ec.fieldContext_Match_moves(ctx, field)
-	case "recentMove":
-		return ec.fieldContext_Match_recentMove(ctx, field)
 	case "room":
 		return ec.fieldContext_Match_room(ctx, field)
+	case "pool":
+		return ec.fieldContext_Match_pool(ctx, field)
 	case "strategistView":
 		return ec.fieldContext_Match_strategistView(ctx, field)
+	case "captainView":
+		return ec.fieldContext_Match_captainView(ctx, field)
 	case "spectatorView":
 		return ec.fieldContext_Match_spectatorView(ctx, field)
 	case "overlayView":
@@ -4096,20 +3820,64 @@ func (ec *executionContext) childFields_Match(ctx context.Context, field graphql
 		return ec.fieldContext_Match_refereeView(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_Match_createdAt(ctx, field)
-	case "startedAt":
-		return ec.fieldContext_Match_startedAt(ctx, field)
-	case "finishedAt":
-		return ec.fieldContext_Match_finishedAt(ctx, field)
-	case "updatedAt":
-		return ec.fieldContext_Match_updatedAt(ctx, field)
+	case "snapshot":
+		return ec.fieldContext_Match_snapshot(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Match", field.Name)
+}
+
+func (ec *executionContext) childFields_MatchActorAnalysis(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "allowedActions":
+		return ec.fieldContext_MatchActorAnalysis_allowedActions(ctx, field)
+	case "banPoolSlotIDs":
+		return ec.fieldContext_MatchActorAnalysis_banPoolSlotIDs(ctx, field)
+	case "legalPlacements":
+		return ec.fieldContext_MatchActorAnalysis_legalPlacements(ctx, field)
+	case "shiroCells":
+		return ec.fieldContext_MatchActorAnalysis_shiroCells(ctx, field)
+	case "robberyPlans":
+		return ec.fieldContext_MatchActorAnalysis_robberyPlans(ctx, field)
+	case "pendingTBRequestID":
+		return ec.fieldContext_MatchActorAnalysis_pendingTBRequestID(ctx, field)
+	case "canAcceptTBRequest":
+		return ec.fieldContext_MatchActorAnalysis_canAcceptTBRequest(ctx, field)
+	case "canRejectTBRequest":
+		return ec.fieldContext_MatchActorAnalysis_canRejectTBRequest(ctx, field)
+	case "tbRequestTeams":
+		return ec.fieldContext_MatchActorAnalysis_tbRequestTeams(ctx, field)
+	case "tbResponseTeams":
+		return ec.fieldContext_MatchActorAnalysis_tbResponseTeams(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchActorAnalysis", field.Name)
+}
+
+func (ec *executionContext) childFields_MatchCommandActor(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "osuID":
+		return ec.fieldContext_MatchCommandActor_osuID(ctx, field)
+	case "capability":
+		return ec.fieldContext_MatchCommandActor_capability(ctx, field)
+	case "team":
+		return ec.fieldContext_MatchCommandActor_team(ctx, field)
+	case "adminOverride":
+		return ec.fieldContext_MatchCommandActor_adminOverride(ctx, field)
+	case "refereeOverride":
+		return ec.fieldContext_MatchCommandActor_refereeOverride(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchCommandActor", field.Name)
 }
 
 func (ec *executionContext) childFields_MatchCommandEvent(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "eventId":
 		return ec.fieldContext_MatchCommandEvent_eventId(ctx, field)
+	case "schemaVersion":
+		return ec.fieldContext_MatchCommandEvent_schemaVersion(ctx, field)
+	case "aggregateId":
+		return ec.fieldContext_MatchCommandEvent_aggregateId(ctx, field)
+	case "aggregateType":
+		return ec.fieldContext_MatchCommandEvent_aggregateType(ctx, field)
 	case "sequence":
 		return ec.fieldContext_MatchCommandEvent_sequence(ctx, field)
 	case "resultingVersion":
@@ -4118,8 +3886,10 @@ func (ec *executionContext) childFields_MatchCommandEvent(ctx context.Context, f
 		return ec.fieldContext_MatchCommandEvent_type(ctx, field)
 	case "occurredAt":
 		return ec.fieldContext_MatchCommandEvent_occurredAt(ctx, field)
-	case "payload":
-		return ec.fieldContext_MatchCommandEvent_payload(ctx, field)
+	case "actor":
+		return ec.fieldContext_MatchCommandEvent_actor(ctx, field)
+	case "fact":
+		return ec.fieldContext_MatchCommandEvent_fact(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type MatchCommandEvent", field.Name)
 }
@@ -4138,8 +3908,8 @@ func (ec *executionContext) childFields_MatchCommandResult(ctx context.Context, 
 		return ec.fieldContext_MatchCommandResult_resultingVersion(ctx, field)
 	case "currentVersion":
 		return ec.fieldContext_MatchCommandResult_currentVersion(ctx, field)
-	case "state":
-		return ec.fieldContext_MatchCommandResult_state(ctx, field)
+	case "snapshot":
+		return ec.fieldContext_MatchCommandResult_snapshot(ctx, field)
 	case "events":
 		return ec.fieldContext_MatchCommandResult_events(ctx, field)
 	case "error":
@@ -4160,6 +3930,32 @@ func (ec *executionContext) childFields_MatchError(ctx context.Context, field gr
 	return nil, fmt.Errorf("no field named %q was found under type MatchError", field.Name)
 }
 
+func (ec *executionContext) childFields_MatchEventFact(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "team":
+		return ec.fieldContext_MatchEventFact_team(ctx, field)
+	case "poolSlotID":
+		return ec.fieldContext_MatchEventFact_poolSlotID(ctx, field)
+	case "boardPieceID":
+		return ec.fieldContext_MatchEventFact_boardPieceID(ctx, field)
+	case "boardPieceIDs":
+		return ec.fieldContext_MatchEventFact_boardPieceIDs(ctx, field)
+	case "cell":
+		return ec.fieldContext_MatchEventFact_cell(ctx, field)
+	case "durationMilliseconds":
+		return ec.fieldContext_MatchEventFact_durationMilliseconds(ctx, field)
+	case "reason":
+		return ec.fieldContext_MatchEventFact_reason(ctx, field)
+	case "requestID":
+		return ec.fieldContext_MatchEventFact_requestID(ctx, field)
+	case "tbBasis":
+		return ec.fieldContext_MatchEventFact_tbBasis(ctx, field)
+	case "playerIDs":
+		return ec.fieldContext_MatchEventFact_playerIDs(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchEventFact", field.Name)
+}
+
 func (ec *executionContext) childFields_MatchPage(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "items":
@@ -4176,132 +3972,92 @@ func (ec *executionContext) childFields_MatchPage(ctx context.Context, field gra
 	return nil, fmt.Errorf("no field named %q was found under type MatchPage", field.Name)
 }
 
-func (ec *executionContext) childFields_MatchResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_MatchPoolSlotMetadata(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "id":
-		return ec.fieldContext_MatchResult_id(ctx, field)
-	case "matchID":
-		return ec.fieldContext_MatchResult_matchID(ctx, field)
-	case "roomID":
-		return ec.fieldContext_MatchResult_roomID(ctx, field)
+	case "poolSlotID":
+		return ec.fieldContext_MatchPoolSlotMetadata_poolSlotID(ctx, field)
+	case "beatmapID":
+		return ec.fieldContext_MatchPoolSlotMetadata_beatmapID(ctx, field)
+	case "beatmap":
+		return ec.fieldContext_MatchPoolSlotMetadata_beatmap(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchPoolSlotMetadata", field.Name)
+}
+
+func (ec *executionContext) childFields_MatchSnapshot(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "version":
+		return ec.fieldContext_MatchSnapshot_version(ctx, field)
+	case "lifecycle":
+		return ec.fieldContext_MatchSnapshot_lifecycle(ctx, field)
+	case "phase":
+		return ec.fieldContext_MatchSnapshot_phase(ctx, field)
+	case "firstBan":
+		return ec.fieldContext_MatchSnapshot_firstBan(ctx, field)
+	case "firstPick":
+		return ec.fieldContext_MatchSnapshot_firstPick(ctx, field)
+	case "turn":
+		return ec.fieldContext_MatchSnapshot_turn(ctx, field)
+	case "activeTeam":
+		return ec.fieldContext_MatchSnapshot_activeTeam(ctx, field)
+	case "poolSlots":
+		return ec.fieldContext_MatchSnapshot_poolSlots(ctx, field)
+	case "board":
+		return ec.fieldContext_MatchSnapshot_board(ctx, field)
+	case "wonCounts":
+		return ec.fieldContext_MatchSnapshot_wonCounts(ctx, field)
+	case "timer":
+		return ec.fieldContext_MatchSnapshot_timer(ctx, field)
+	case "robberyUsed":
+		return ec.fieldContext_MatchSnapshot_robberyUsed(ctx, field)
+	case "teamPauseUsed":
+		return ec.fieldContext_MatchSnapshot_teamPauseUsed(ctx, field)
+	case "rosters":
+		return ec.fieldContext_MatchSnapshot_rosters(ctx, field)
+	case "pendingPieceID":
+		return ec.fieldContext_MatchSnapshot_pendingPieceID(ctx, field)
+	case "pendingTBRequest":
+		return ec.fieldContext_MatchSnapshot_pendingTBRequest(ctx, field)
+	case "tbEntry":
+		return ec.fieldContext_MatchSnapshot_tbEntry(ctx, field)
 	case "winner":
-		return ec.fieldContext_MatchResult_winner(ctx, field)
-	case "winReason":
-		return ec.fieldContext_MatchResult_winReason(ctx, field)
-	case "scores":
-		return ec.fieldContext_MatchResult_scores(ctx, field)
-	case "wonPieces":
-		return ec.fieldContext_MatchResult_wonPieces(ctx, field)
-	case "alignments":
-		return ec.fieldContext_MatchResult_alignments(ctx, field)
-	case "summary":
-		return ec.fieldContext_MatchResult_summary(ctx, field)
-	case "createdAt":
-		return ec.fieldContext_MatchResult_createdAt(ctx, field)
-	case "updatedAt":
-		return ec.fieldContext_MatchResult_updatedAt(ctx, field)
+		return ec.fieldContext_MatchSnapshot_winner(ctx, field)
+	case "result":
+		return ec.fieldContext_MatchSnapshot_result(ctx, field)
+	case "stalemate":
+		return ec.fieldContext_MatchSnapshot_stalemate(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type MatchResult", field.Name)
-}
-
-func (ec *executionContext) childFields_MatchTeams(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "red":
-		return ec.fieldContext_MatchTeams_red(ctx, field)
-	case "blue":
-		return ec.fieldContext_MatchTeams_blue(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type MatchTeams", field.Name)
-}
-
-func (ec *executionContext) childFields_Move(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "id":
-		return ec.fieldContext_Move_id(ctx, field)
-	case "matchID":
-		return ec.fieldContext_Move_matchID(ctx, field)
-	case "roomID":
-		return ec.fieldContext_Move_roomID(ctx, field)
-	case "type":
-		return ec.fieldContext_Move_type(ctx, field)
-	case "teamSide":
-		return ec.fieldContext_Move_teamSide(ctx, field)
-	case "operatorID":
-		return ec.fieldContext_Move_operatorID(ctx, field)
-	case "operator":
-		return ec.fieldContext_Move_operator(ctx, field)
-	case "slot":
-		return ec.fieldContext_Move_slot(ctx, field)
-	case "from":
-		return ec.fieldContext_Move_from(ctx, field)
-	case "to":
-		return ec.fieldContext_Move_to(ctx, field)
-	case "forceMod":
-		return ec.fieldContext_Move_forceMod(ctx, field)
-	case "redScore":
-		return ec.fieldContext_Move_redScore(ctx, field)
-	case "blueScore":
-		return ec.fieldContext_Move_blueScore(ctx, field)
-	case "comment":
-		return ec.fieldContext_Move_comment(ctx, field)
-	case "createdAt":
-		return ec.fieldContext_Move_createdAt(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type Move", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type MatchSnapshot", field.Name)
 }
 
 func (ec *executionContext) childFields_OverlayView(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "board":
 		return ec.fieldContext_OverlayView_board(ctx, field)
-	case "scores":
-		return ec.fieldContext_OverlayView_scores(ctx, field)
+	case "wonCounts":
+		return ec.fieldContext_OverlayView_wonCounts(ctx, field)
 	case "timer":
 		return ec.fieldContext_OverlayView_timer(ctx, field)
-	case "lastEvent":
-		return ec.fieldContext_OverlayView_lastEvent(ctx, field)
+	case "lifecycle":
+		return ec.fieldContext_OverlayView_lifecycle(ctx, field)
+	case "phase":
+		return ec.fieldContext_OverlayView_phase(ctx, field)
+	case "activeTeam":
+		return ec.fieldContext_OverlayView_activeTeam(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type OverlayView", field.Name)
 }
 
-func (ec *executionContext) childFields_PieceRender(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_PendingTBRequest(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "mod":
-		return ec.fieldContext_PieceRender_mod(ctx, field)
-	case "state":
-		return ec.fieldContext_PieceRender_state(ctx, field)
-	case "owner":
-		return ec.fieldContext_PieceRender_owner(ctx, field)
-	case "beatmapCover":
-		return ec.fieldContext_PieceRender_beatmapCover(ctx, field)
+	case "id":
+		return ec.fieldContext_PendingTBRequest_id(ctx, field)
+	case "requestedBy":
+		return ec.fieldContext_PendingTBRequest_requestedBy(ctx, field)
+	case "basis":
+		return ec.fieldContext_PendingTBRequest_basis(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type PieceRender", field.Name)
-}
-
-func (ec *executionContext) childFields_PieceSummary(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "mod":
-		return ec.fieldContext_PieceSummary_mod(ctx, field)
-	case "state":
-		return ec.fieldContext_PieceSummary_state(ctx, field)
-	case "owner":
-		return ec.fieldContext_PieceSummary_owner(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type PieceSummary", field.Name)
-}
-
-func (ec *executionContext) childFields_PlayerScore(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "userID":
-		return ec.fieldContext_PlayerScore_userID(ctx, field)
-	case "score":
-		return ec.fieldContext_PlayerScore_score(ctx, field)
-	case "accuracy":
-		return ec.fieldContext_PlayerScore_accuracy(ctx, field)
-	case "combo":
-		return ec.fieldContext_PlayerScore_combo(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type PlayerScore", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type PendingTBRequest", field.Name)
 }
 
 func (ec *executionContext) childFields_PoolSlot(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -4348,22 +4104,30 @@ func (ec *executionContext) childFields_Position(ctx context.Context, field grap
 
 func (ec *executionContext) childFields_RefereeView(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "board":
-		return ec.fieldContext_RefereeView_board(ctx, field)
-	case "pool":
-		return ec.fieldContext_RefereeView_pool(ctx, field)
-	case "teams":
-		return ec.fieldContext_RefereeView_teams(ctx, field)
-	case "turnState":
-		return ec.fieldContext_RefereeView_turnState(ctx, field)
-	case "timer":
-		return ec.fieldContext_RefereeView_timer(ctx, field)
+	case "matchID":
+		return ec.fieldContext_RefereeView_matchID(ctx, field)
+	case "snapshot":
+		return ec.fieldContext_RefereeView_snapshot(ctx, field)
+	case "analysis":
+		return ec.fieldContext_RefereeView_analysis(ctx, field)
+	case "suspensionReason":
+		return ec.fieldContext_RefereeView_suspensionReason(ctx, field)
+	case "abortReason":
+		return ec.fieldContext_RefereeView_abortReason(ctx, field)
 	case "auditLog":
 		return ec.fieldContext_RefereeView_auditLog(ctx, field)
-	case "connectionStatus":
-		return ec.fieldContext_RefereeView_connectionStatus(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type RefereeView", field.Name)
+}
+
+func (ec *executionContext) childFields_RobberyPlan(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "targetPieceID":
+		return ec.fieldContext_RobberyPlan_targetPieceID(ctx, field)
+	case "sacrificeSets":
+		return ec.fieldContext_RobberyPlan_sacrificeSets(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type RobberyPlan", field.Name)
 }
 
 func (ec *executionContext) childFields_Room(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -4450,18 +4214,26 @@ func (ec *executionContext) childFields_SpectatorView(ctx context.Context, field
 	switch field.Name {
 	case "board":
 		return ec.fieldContext_SpectatorView_board(ctx, field)
-	case "scores":
-		return ec.fieldContext_SpectatorView_scores(ctx, field)
+	case "wonCounts":
+		return ec.fieldContext_SpectatorView_wonCounts(ctx, field)
 	case "currentPhase":
 		return ec.fieldContext_SpectatorView_currentPhase(ctx, field)
 	case "activeTeam":
 		return ec.fieldContext_SpectatorView_activeTeam(ctx, field)
 	case "turnNumber":
 		return ec.fieldContext_SpectatorView_turnNumber(ctx, field)
-	case "recentMoves":
-		return ec.fieldContext_SpectatorView_recentMoves(ctx, field)
+	case "lifecycle":
+		return ec.fieldContext_SpectatorView_lifecycle(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type SpectatorView", field.Name)
+}
+
+func (ec *executionContext) childFields_StalemateEvidence(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "wonCounts":
+		return ec.fieldContext_StalemateEvidence_wonCounts(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type StalemateEvidence", field.Name)
 }
 
 func (ec *executionContext) childFields_StrategistView(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -4470,138 +4242,42 @@ func (ec *executionContext) childFields_StrategistView(ctx context.Context, fiel
 		return ec.fieldContext_StrategistView_isMyTurn(ctx, field)
 	case "myTeam":
 		return ec.fieldContext_StrategistView_myTeam(ctx, field)
-	case "allowedActions":
-		return ec.fieldContext_StrategistView_allowedActions(ctx, field)
-	case "disallowedActions":
-		return ec.fieldContext_StrategistView_disallowedActions(ctx, field)
-	case "selectablePoolSlots":
-		return ec.fieldContext_StrategistView_selectablePoolSlots(ctx, field)
-	case "selectableBoardCells":
-		return ec.fieldContext_StrategistView_selectableBoardCells(ctx, field)
-	case "timer":
-		return ec.fieldContext_StrategistView_timer(ctx, field)
-	case "robberyInProgress":
-		return ec.fieldContext_StrategistView_robberyInProgress(ctx, field)
+	case "analysis":
+		return ec.fieldContext_StrategistView_analysis(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type StrategistView", field.Name)
 }
 
-func (ec *executionContext) childFields_Team(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_TBEntry(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "id":
-		return ec.fieldContext_Team_id(ctx, field)
-	case "side":
-		return ec.fieldContext_Team_side(ctx, field)
-	case "name":
-		return ec.fieldContext_Team_name(ctx, field)
-	case "description":
-		return ec.fieldContext_Team_description(ctx, field)
-	case "seed":
-		return ec.fieldContext_Team_seed(ctx, field)
-	case "color":
-		return ec.fieldContext_Team_color(ctx, field)
-	case "leaderID":
-		return ec.fieldContext_Team_leaderID(ctx, field)
-	case "leader":
-		return ec.fieldContext_Team_leader(ctx, field)
-	case "strategistID":
-		return ec.fieldContext_Team_strategistID(ctx, field)
-	case "strategist":
-		return ec.fieldContext_Team_strategist(ctx, field)
-	case "players":
-		return ec.fieldContext_Team_players(ctx, field)
-	case "playerUsers":
-		return ec.fieldContext_Team_playerUsers(ctx, field)
+	case "basis":
+		return ec.fieldContext_TBEntry_basis(ctx, field)
+	case "requestID":
+		return ec.fieldContext_TBEntry_requestID(ctx, field)
+	case "requestedBy":
+		return ec.fieldContext_TBEntry_requestedBy(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type Team", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type TBEntry", field.Name)
 }
 
-func (ec *executionContext) childFields_TeamScore(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "teamSide":
-		return ec.fieldContext_TeamScore_teamSide(ctx, field)
-	case "score":
-		return ec.fieldContext_TeamScore_score(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type TeamScore", field.Name)
-}
-
-func (ec *executionContext) childFields_TeamScores(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_TeamCounts(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "red":
-		return ec.fieldContext_TeamScores_red(ctx, field)
+		return ec.fieldContext_TeamCounts_red(ctx, field)
 	case "blue":
-		return ec.fieldContext_TeamScores_blue(ctx, field)
+		return ec.fieldContext_TeamCounts_blue(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type TeamScores", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type TeamCounts", field.Name)
 }
 
-func (ec *executionContext) childFields_TimerDisplay(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+func (ec *executionContext) childFields_TeamFlags(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "remainingSeconds":
-		return ec.fieldContext_TimerDisplay_remainingSeconds(ctx, field)
-	case "isPaused":
-		return ec.fieldContext_TimerDisplay_isPaused(ctx, field)
-	case "isWarning":
-		return ec.fieldContext_TimerDisplay_isWarning(ctx, field)
+	case "red":
+		return ec.fieldContext_TeamFlags_red(ctx, field)
+	case "blue":
+		return ec.fieldContext_TeamFlags_blue(ctx, field)
 	}
-	return nil, fmt.Errorf("no field named %q was found under type TimerDisplay", field.Name)
-}
-
-func (ec *executionContext) childFields_TimerInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "startedAt":
-		return ec.fieldContext_TimerInfo_startedAt(ctx, field)
-	case "durationSeconds":
-		return ec.fieldContext_TimerInfo_durationSeconds(ctx, field)
-	case "remainingSeconds":
-		return ec.fieldContext_TimerInfo_remainingSeconds(ctx, field)
-	case "isPaused":
-		return ec.fieldContext_TimerInfo_isPaused(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type TimerInfo", field.Name)
-}
-
-func (ec *executionContext) childFields_TimerState(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "startedAt":
-		return ec.fieldContext_TimerState_startedAt(ctx, field)
-	case "timeLimit":
-		return ec.fieldContext_TimerState_timeLimit(ctx, field)
-	case "bonusTime":
-		return ec.fieldContext_TimerState_bonusTime(ctx, field)
-	case "bonusUsed":
-		return ec.fieldContext_TimerState_bonusUsed(ctx, field)
-	case "isPaused":
-		return ec.fieldContext_TimerState_isPaused(ctx, field)
-	case "pausedAt":
-		return ec.fieldContext_TimerState_pausedAt(ctx, field)
-	case "remainingAtPause":
-		return ec.fieldContext_TimerState_remainingAtPause(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type TimerState", field.Name)
-}
-
-func (ec *executionContext) childFields_TurnState(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "phase":
-		return ec.fieldContext_TurnState_phase(ctx, field)
-	case "counter":
-		return ec.fieldContext_TurnState_counter(ctx, field)
-	case "activeTeam":
-		return ec.fieldContext_TurnState_activeTeam(ctx, field)
-	case "action":
-		return ec.fieldContext_TurnState_action(ctx, field)
-	case "startedAt":
-		return ec.fieldContext_TurnState_startedAt(ctx, field)
-	case "timeLimit":
-		return ec.fieldContext_TurnState_timeLimit(ctx, field)
-	case "bonusTime":
-		return ec.fieldContext_TurnState_bonusTime(ctx, field)
-	case "bonusUsed":
-		return ec.fieldContext_TurnState_bonusUsed(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type TurnState", field.Name)
+	return nil, fmt.Errorf("no field named %q was found under type TeamFlags", field.Name)
 }
 
 func (ec *executionContext) childFields_User(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -4648,18 +4324,6 @@ func (ec *executionContext) childFields_UserPage(ctx context.Context, field grap
 		return ec.fieldContext_UserPage_totalPages(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type UserPage", field.Name)
-}
-
-func (ec *executionContext) childFields_WinningAlignment(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "length":
-		return ec.fieldContext_WinningAlignment_length(ctx, field)
-	case "positions":
-		return ec.fieldContext_WinningAlignment_positions(ctx, field)
-	case "teamID":
-		return ec.fieldContext_WinningAlignment_teamID(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type WinningAlignment", field.Name)
 }
 
 func (ec *executionContext) childFields___Directive(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -4777,50 +4441,6 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 // endregion ************************** internal!.gotpl ***************************
 
 // region    ***************************** args.gotpl *****************************
-
-func (ec *executionContext) dir_requireRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "role",
-		func(ctx context.Context, v any) (UserRole, error) {
-			return ec.unmarshalNUserRole2rctHubBackendᚋinternalᚋgraphqlᚐUserRole(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["role"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "admin",
-		func(ctx context.Context, v any) (*bool, error) {
-			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["admin"] = arg1
-	return args, nil
-}
-
-func (ec *executionContext) field_Match_moves_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "limit",
-		func(ctx context.Context, v any) (*int, error) {
-			return ec.unmarshalOInt2ᚖint(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["limit"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "offset",
-		func(ctx context.Context, v any) (*int, error) {
-			return ec.unmarshalOInt2ᚖint(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["offset"] = arg1
-	return args, nil
-}
 
 func (ec *executionContext) field_Mutation_abortMatch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
@@ -5226,8 +4846,8 @@ func (ec *executionContext) field_Query_beatmapByOsuId_args(ctx context.Context,
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "osuId",
-		func(ctx context.Context, v any) (int, error) {
-			return ec.unmarshalNInt2int(ctx, v)
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -5303,30 +4923,22 @@ func (ec *executionContext) field_Query_match_args(ctx context.Context, rawArgs 
 func (ec *executionContext) field_Query_matches_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "status",
-		func(ctx context.Context, v any) (*MatchStatus, error) {
-			return ec.unmarshalOMatchStatus2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchStatus(ctx, v)
-		})
-	if err != nil {
-		return nil, err
-	}
-	args["status"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "page",
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "page",
 		func(ctx context.Context, v any) (*int, error) {
 			return ec.unmarshalOInt2ᚖint(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["page"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "perPage",
+	args["page"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "perPage",
 		func(ctx context.Context, v any) (*int, error) {
 			return ec.unmarshalOInt2ᚖint(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["perPage"] = arg2
+	args["perPage"] = arg1
 	return args, nil
 }
 
@@ -5625,15 +5237,15 @@ func (ec *executionContext) _Announcement_authorID(ctx context.Context, field gr
 			return obj.AuthorID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Announcement_authorID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Announcement", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("Announcement", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _Announcement_author(ctx context.Context, field graphql.CollectedField, obj *Announcement) (ret graphql.Marshaler) {
@@ -5919,61 +5531,47 @@ func (ec *executionContext) _AuditEntry_sequence(ctx context.Context, field grap
 			return obj.Sequence, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNUInt642string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_AuditEntry_sequence(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type UInt64 does not have child fields"))
 }
 
-func (ec *executionContext) _AuditEntry_actorId(ctx context.Context, field graphql.CollectedField, obj *AuditEntry) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditEntry_actor(ctx context.Context, field graphql.CollectedField, obj *AuditEntry) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_AuditEntry_actorId(ctx, field)
+			return ec.fieldContext_AuditEntry_actor(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.ActorID, nil
+			return obj.Actor, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchCommandActor) graphql.Marshaler {
+			return ec.marshalNMatchCommandActor2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchCommandActor(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_AuditEntry_actorId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _AuditEntry_actorRole(ctx context.Context, field graphql.CollectedField, obj *AuditEntry) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_AuditEntry_actorRole(ctx, field)
+func (ec *executionContext) fieldContext_AuditEntry_actor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AuditEntry",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchCommandActor(ctx, field)
 		},
-		func(ctx context.Context) (any, error) {
-			return obj.ActorRole, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v UserRole) graphql.Marshaler {
-			return ec.marshalNUserRole2rctHubBackendᚋinternalᚋgraphqlᚐUserRole(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_AuditEntry_actorRole(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type UserRole does not have child fields"))
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _AuditEntry_commandType(ctx context.Context, field graphql.CollectedField, obj *AuditEntry) (ret graphql.Marshaler) {
@@ -6011,15 +5609,15 @@ func (ec *executionContext) _AuditEntry_previousVersion(ctx context.Context, fie
 			return obj.PreviousVersion, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNUInt642string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_AuditEntry_previousVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type UInt64 does not have child fields"))
 }
 
 func (ec *executionContext) _AuditEntry_resultingVersion(ctx context.Context, field graphql.CollectedField, obj *AuditEntry) (ret graphql.Marshaler) {
@@ -6034,15 +5632,15 @@ func (ec *executionContext) _AuditEntry_resultingVersion(ctx context.Context, fi
 			return obj.ResultingVersion, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNUInt642string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_AuditEntry_resultingVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type UInt64 does not have child fields"))
 }
 
 func (ec *executionContext) _AuditEntry_timestamp(ctx context.Context, field graphql.CollectedField, obj *AuditEntry) (ret graphql.Marshaler) {
@@ -6068,29 +5666,6 @@ func (ec *executionContext) fieldContext_AuditEntry_timestamp(_ context.Context,
 	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _AuditEntry_isAdminOverride(ctx context.Context, field graphql.CollectedField, obj *AuditEntry) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_AuditEntry_isAdminOverride(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.IsAdminOverride, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_AuditEntry_isAdminOverride(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type Boolean does not have child fields"))
-}
-
 func (ec *executionContext) _AuditEntry_reason(ctx context.Context, field graphql.CollectedField, obj *AuditEntry) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6112,52 +5687,6 @@ func (ec *executionContext) _AuditEntry_reason(ctx context.Context, field graphq
 }
 func (ec *executionContext) fieldContext_AuditEntry_reason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("AuditEntry", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _BPOrder_firstPick(ctx context.Context, field graphql.CollectedField, obj *BPOrder) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BPOrder_firstPick(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.FirstPick, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
-			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BPOrder_firstPick(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BPOrder", field, false, false, errors.New("field of type TeamSide does not have child fields"))
-}
-
-func (ec *executionContext) _BPOrder_firstBan(ctx context.Context, field graphql.CollectedField, obj *BPOrder) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BPOrder_firstBan(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.FirstBan, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
-			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BPOrder_firstBan(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BPOrder", field, false, false, errors.New("field of type TeamSide does not have child fields"))
 }
 
 func (ec *executionContext) _Beatmap_id(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
@@ -6195,15 +5724,15 @@ func (ec *executionContext) _Beatmap_onlineID(ctx context.Context, field graphql
 			return obj.OnlineID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Beatmap_onlineID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _Beatmap_beatmapsetID(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
@@ -6218,15 +5747,15 @@ func (ec *executionContext) _Beatmap_beatmapsetID(ctx context.Context, field gra
 			return obj.BeatmapsetID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Beatmap_beatmapsetID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _Beatmap_title(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
@@ -6333,15 +5862,15 @@ func (ec *executionContext) _Beatmap_authorID(ctx context.Context, field graphql
 			return obj.AuthorID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Beatmap_authorID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _Beatmap_author(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
@@ -6641,15 +6170,15 @@ func (ec *executionContext) _Beatmap_selectorID(ctx context.Context, field graph
 			return obj.SelectorID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_Beatmap_selectorID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _Beatmap_selector(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
@@ -6696,15 +6225,15 @@ func (ec *executionContext) _Beatmap_creditUserIDs(ctx context.Context, field gr
 			return obj.CreditUserIDs, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []int) graphql.Marshaler {
-			return ec.marshalNInt2ᚕintᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Beatmap_creditUserIDs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _Beatmap_credits(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
@@ -6978,534 +6507,342 @@ func (ec *executionContext) fieldContext_BeatmapPage_totalPages(_ context.Contex
 	return graphql.NewScalarFieldContext("BeatmapPage", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
-func (ec *executionContext) _Board_rows(ctx context.Context, field graphql.CollectedField, obj *Board) (ret graphql.Marshaler) {
+func (ec *executionContext) _CaptainView_myTeam(ctx context.Context, field graphql.CollectedField, obj *CaptainView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Board_rows(ctx, field)
+			return ec.fieldContext_CaptainView_myTeam(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Rows, nil
+			return obj.MyTeam, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
+			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Board_rows(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Board", field, false, false, errors.New("field of type Int does not have child fields"))
+func (ec *executionContext) fieldContext_CaptainView_myTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CaptainView", field, false, false, errors.New("field of type TeamSide does not have child fields"))
 }
 
-func (ec *executionContext) _Board_cols(ctx context.Context, field graphql.CollectedField, obj *Board) (ret graphql.Marshaler) {
+func (ec *executionContext) _CaptainView_analysis(ctx context.Context, field graphql.CollectedField, obj *CaptainView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Board_cols(ctx, field)
+			return ec.fieldContext_CaptainView_analysis(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Cols, nil
+			return obj.Analysis, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchActorAnalysis) graphql.Marshaler {
+			return ec.marshalNMatchActorAnalysis2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchActorAnalysis(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Board_cols(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Board", field, false, false, errors.New("field of type Int does not have child fields"))
+func (ec *executionContext) fieldContext_CaptainView_analysis(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CaptainView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchActorAnalysis(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
-func (ec *executionContext) _Board_cells(ctx context.Context, field graphql.CollectedField, obj *Board) (ret graphql.Marshaler) {
+func (ec *executionContext) _FormalBoard_cells(ctx context.Context, field graphql.CollectedField, obj *FormalBoard) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Board_cells(ctx, field)
+			return ec.fieldContext_FormalBoard_cells(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Cells, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v [][]*BoardCell) graphql.Marshaler {
-			return ec.marshalNBoardCell2ᚕᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐBoardCellᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []*FormalBoardCell) graphql.Marshaler {
+			return ec.marshalNFormalBoardCell2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalBoardCellᚄ(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Board_cells(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_FormalBoard_cells(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "Board",
+		Object:     "FormalBoard",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_BoardCell(ctx, field)
+			return ec.childFields_FormalBoardCell(ctx, field)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _BoardCell_position(ctx context.Context, field graphql.CollectedField, obj *BoardCell) (ret graphql.Marshaler) {
+func (ec *executionContext) _FormalBoardCell_cell(ctx context.Context, field graphql.CollectedField, obj *FormalBoardCell) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardCell_position(ctx, field)
+			return ec.fieldContext_FormalBoardCell_cell(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Position, nil
+			return obj.Cell, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Position) graphql.Marshaler {
-			return ec.marshalNPosition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPosition(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_BoardCell_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BoardCell",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Position(ctx, field)
-		},
-	}
-	return fc, nil
+func (ec *executionContext) fieldContext_FormalBoardCell_cell(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardCell", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _BoardCell_zone(ctx context.Context, field graphql.CollectedField, obj *BoardCell) (ret graphql.Marshaler) {
+func (ec *executionContext) _FormalBoardCell_row(ctx context.Context, field graphql.CollectedField, obj *FormalBoardCell) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardCell_zone(ctx, field)
+			return ec.fieldContext_FormalBoardCell_row(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Row, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalBoardCell_row(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardCell", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _FormalBoardCell_col(ctx context.Context, field graphql.CollectedField, obj *FormalBoardCell) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalBoardCell_col(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Col, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalBoardCell_col(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardCell", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _FormalBoardCell_zone(ctx context.Context, field graphql.CollectedField, obj *FormalBoardCell) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalBoardCell_zone(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Zone, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v BoardZone) graphql.Marshaler {
-			return ec.marshalNBoardZone2rctHubBackendᚋinternalᚋgraphqlᚐBoardZone(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v FormalBoardZone) graphql.Marshaler {
+			return ec.marshalNFormalBoardZone2rctHubBackendᚋinternalᚋgraphqlᚐFormalBoardZone(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_BoardCell_zone(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BoardCell", field, false, false, errors.New("field of type BoardZone does not have child fields"))
+func (ec *executionContext) fieldContext_FormalBoardCell_zone(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardCell", field, false, false, errors.New("field of type FormalBoardZone does not have child fields"))
 }
 
-func (ec *executionContext) _BoardCell_state(ctx context.Context, field graphql.CollectedField, obj *BoardCell) (ret graphql.Marshaler) {
+func (ec *executionContext) _FormalBoardCell_piece(ctx context.Context, field graphql.CollectedField, obj *FormalBoardCell) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardCell_state(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.State, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BoardCell_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BoardCell", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _BoardCell_pieceID(ctx context.Context, field graphql.CollectedField, obj *BoardCell) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardCell_pieceID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.PieceID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_BoardCell_pieceID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BoardCell", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _BoardCell_teamID(ctx context.Context, field graphql.CollectedField, obj *BoardCell) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardCell_teamID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.TeamID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_BoardCell_teamID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("BoardCell", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _BoardRenderData_cells(ctx context.Context, field graphql.CollectedField, obj *BoardRenderData) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardRenderData_cells(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Cells, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v [][]*CellRender) graphql.Marshaler {
-			return ec.marshalNCellRender2ᚕᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐCellRenderᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BoardRenderData_cells(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BoardRenderData",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_CellRender(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BoardRenderData_lastChangedCells(ctx context.Context, field graphql.CollectedField, obj *BoardRenderData) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardRenderData_lastChangedCells(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.LastChangedCells, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*Position) graphql.Marshaler {
-			return ec.marshalNPosition2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐPositionᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BoardRenderData_lastChangedCells(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BoardRenderData",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Position(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _BoardSummary_cells(ctx context.Context, field graphql.CollectedField, obj *BoardSummary) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_BoardSummary_cells(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Cells, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v [][]*CellSummary) graphql.Marshaler {
-			return ec.marshalNCellSummary2ᚕᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐCellSummaryᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_BoardSummary_cells(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "BoardSummary",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_CellSummary(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _CellRender_position(ctx context.Context, field graphql.CollectedField, obj *CellRender) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CellRender_position(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Position, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Position) graphql.Marshaler {
-			return ec.marshalNPosition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPosition(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CellRender_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "CellRender",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Position(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _CellRender_zone(ctx context.Context, field graphql.CollectedField, obj *CellRender) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CellRender_zone(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Zone, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v BoardZone) graphql.Marshaler {
-			return ec.marshalNBoardZone2rctHubBackendᚋinternalᚋgraphqlᚐBoardZone(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CellRender_zone(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("CellRender", field, false, false, errors.New("field of type BoardZone does not have child fields"))
-}
-
-func (ec *executionContext) _CellRender_piece(ctx context.Context, field graphql.CollectedField, obj *CellRender) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CellRender_piece(ctx, field)
+			return ec.fieldContext_FormalBoardCell_piece(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Piece, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *PieceRender) graphql.Marshaler {
-			return ec.marshalOPieceRender2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPieceRender(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *FormalBoardPiece) graphql.Marshaler {
+			return ec.marshalOFormalBoardPiece2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalBoardPiece(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_CellRender_piece(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_FormalBoardCell_piece(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "CellRender",
+		Object:     "FormalBoardCell",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_PieceRender(ctx, field)
+			return ec.childFields_FormalBoardPiece(ctx, field)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _CellSummary_position(ctx context.Context, field graphql.CollectedField, obj *CellSummary) (ret graphql.Marshaler) {
+func (ec *executionContext) _FormalBoardPiece_id(ctx context.Context, field graphql.CollectedField, obj *FormalBoardPiece) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CellSummary_position(ctx, field)
+			return ec.fieldContext_FormalBoardPiece_id(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Position, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Position) graphql.Marshaler {
-			return ec.marshalNPosition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPosition(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_CellSummary_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "CellSummary",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Position(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _CellSummary_piece(ctx context.Context, field graphql.CollectedField, obj *CellSummary) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_CellSummary_piece(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Piece, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *PieceSummary) graphql.Marshaler {
-			return ec.marshalOPieceSummary2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPieceSummary(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_CellSummary_piece(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "CellSummary",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_PieceSummary(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _ClientConnection_userID(ctx context.Context, field graphql.CollectedField, obj *ClientConnection) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ClientConnection_userID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.UserID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_ClientConnection_userID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ClientConnection", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _ClientConnection_username(ctx context.Context, field graphql.CollectedField, obj *ClientConnection) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ClientConnection_username(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Username, nil
+			return obj.ID, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_ClientConnection_username(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ClientConnection", field, false, false, errors.New("field of type String does not have child fields"))
+func (ec *executionContext) fieldContext_FormalBoardPiece_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardPiece", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _ClientConnection_role(ctx context.Context, field graphql.CollectedField, obj *ClientConnection) (ret graphql.Marshaler) {
+func (ec *executionContext) _FormalBoardPiece_sourcePoolSlotID(ctx context.Context, field graphql.CollectedField, obj *FormalBoardPiece) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ClientConnection_role(ctx, field)
+			return ec.fieldContext_FormalBoardPiece_sourcePoolSlotID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Role, nil
+			return obj.SourcePoolSlotID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v UserRole) graphql.Marshaler {
-			return ec.marshalNUserRole2rctHubBackendᚋinternalᚋgraphqlᚐUserRole(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_ClientConnection_role(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ClientConnection", field, false, false, errors.New("field of type UserRole does not have child fields"))
+func (ec *executionContext) fieldContext_FormalBoardPiece_sourcePoolSlotID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardPiece", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _ClientConnection_teamSide(ctx context.Context, field graphql.CollectedField, obj *ClientConnection) (ret graphql.Marshaler) {
+func (ec *executionContext) _FormalBoardPiece_mod(ctx context.Context, field graphql.CollectedField, obj *FormalBoardPiece) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ClientConnection_teamSide(ctx, field)
+			return ec.fieldContext_FormalBoardPiece_mod(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.TeamSide, nil
+			return obj.Mod, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v PieceMod) graphql.Marshaler {
+			return ec.marshalNPieceMod2rctHubBackendᚋinternalᚋgraphqlᚐPieceMod(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalBoardPiece_mod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardPiece", field, false, false, errors.New("field of type PieceMod does not have child fields"))
+}
+
+func (ec *executionContext) _FormalBoardPiece_forceMod(ctx context.Context, field graphql.CollectedField, obj *FormalBoardPiece) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalBoardPiece_forceMod(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ForceMod, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *ForceMod) graphql.Marshaler {
+			return ec.marshalOForceMod2ᚖrctHubBackendᚋinternalᚋgraphqlᚐForceMod(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FormalBoardPiece_forceMod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardPiece", field, false, false, errors.New("field of type ForceMod does not have child fields"))
+}
+
+func (ec *executionContext) _FormalBoardPiece_selectedBy(ctx context.Context, field graphql.CollectedField, obj *FormalBoardPiece) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalBoardPiece_selectedBy(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SelectedBy, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
+			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalBoardPiece_selectedBy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardPiece", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _FormalBoardPiece_owner(ctx context.Context, field graphql.CollectedField, obj *FormalBoardPiece) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalBoardPiece_owner(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Owner, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
@@ -7515,43 +6852,346 @@ func (ec *executionContext) _ClientConnection_teamSide(ctx context.Context, fiel
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_ClientConnection_teamSide(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ClientConnection", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+func (ec *executionContext) fieldContext_FormalBoardPiece_owner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardPiece", field, false, false, errors.New("field of type TeamSide does not have child fields"))
 }
 
-func (ec *executionContext) _ClientConnection_isConnected(ctx context.Context, field graphql.CollectedField, obj *ClientConnection) (ret graphql.Marshaler) {
+func (ec *executionContext) _FormalBoardPiece_outcome(ctx context.Context, field graphql.CollectedField, obj *FormalBoardPiece) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ClientConnection_isConnected(ctx, field)
+			return ec.fieldContext_FormalBoardPiece_outcome(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.IsConnected, nil
+			return obj.Outcome, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v BoardPieceOutcome) graphql.Marshaler {
+			return ec.marshalNBoardPieceOutcome2rctHubBackendᚋinternalᚋgraphqlᚐBoardPieceOutcome(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_ClientConnection_isConnected(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ClientConnection", field, false, false, errors.New("field of type Boolean does not have child fields"))
+func (ec *executionContext) fieldContext_FormalBoardPiece_outcome(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalBoardPiece", field, false, false, errors.New("field of type BoardPieceOutcome does not have child fields"))
 }
 
-func (ec *executionContext) _ClientConnection_lastSeenAt(ctx context.Context, field graphql.CollectedField, obj *ClientConnection) (ret graphql.Marshaler) {
+func (ec *executionContext) _FormalMatchResult_winner(ctx context.Context, field graphql.CollectedField, obj *FormalMatchResult) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_ClientConnection_lastSeenAt(ctx, field)
+			return ec.fieldContext_FormalMatchResult_winner(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.LastSeenAt, nil
+			return obj.Winner, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
+			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalMatchResult_winner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalMatchResult", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _FormalMatchResult_reason(ctx context.Context, field graphql.CollectedField, obj *FormalMatchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalMatchResult_reason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Reason, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v MatchResultReason) graphql.Marshaler {
+			return ec.marshalNMatchResultReason2rctHubBackendᚋinternalᚋgraphqlᚐMatchResultReason(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalMatchResult_reason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalMatchResult", field, false, false, errors.New("field of type MatchResultReason does not have child fields"))
+}
+
+func (ec *executionContext) _FormalMatchResult_surrenderingTeam(ctx context.Context, field graphql.CollectedField, obj *FormalMatchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalMatchResult_surrenderingTeam(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SurrenderingTeam, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
+			return ec.marshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FormalMatchResult_surrenderingTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalMatchResult", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _FormalMatchResult_confirmingPlayerIDs(ctx context.Context, field graphql.CollectedField, obj *FormalMatchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalMatchResult_confirmingPlayerIDs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ConfirmingPlayerIDs, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalMatchResult_confirmingPlayerIDs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalMatchResult", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _FormalMatchResult_wonCounts(ctx context.Context, field graphql.CollectedField, obj *FormalMatchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalMatchResult_wonCounts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.WonCounts, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamCounts) graphql.Marshaler {
+			return ec.marshalNTeamCounts2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamCounts(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalMatchResult_wonCounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FormalMatchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TeamCounts(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FormalPoolSlot_id(ctx context.Context, field graphql.CollectedField, obj *FormalPoolSlot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalPoolSlot_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalPoolSlot_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalPoolSlot", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _FormalPoolSlot_mod(ctx context.Context, field graphql.CollectedField, obj *FormalPoolSlot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalPoolSlot_mod(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Mod, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v PieceMod) graphql.Marshaler {
+			return ec.marshalNPieceMod2rctHubBackendᚋinternalᚋgraphqlᚐPieceMod(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalPoolSlot_mod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalPoolSlot", field, false, false, errors.New("field of type PieceMod does not have child fields"))
+}
+
+func (ec *executionContext) _FormalPoolSlot_state(ctx context.Context, field graphql.CollectedField, obj *FormalPoolSlot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalPoolSlot_state(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.State, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v PoolSlotState) graphql.Marshaler {
+			return ec.marshalNPoolSlotState2rctHubBackendᚋinternalᚋgraphqlᚐPoolSlotState(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalPoolSlot_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalPoolSlot", field, false, false, errors.New("field of type PoolSlotState does not have child fields"))
+}
+
+func (ec *executionContext) _FormalRoster_leaderID(ctx context.Context, field graphql.CollectedField, obj *FormalRoster) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalRoster_leaderID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LeaderID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalRoster_leaderID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalRoster", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _FormalRoster_playerIDs(ctx context.Context, field graphql.CollectedField, obj *FormalRoster) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalRoster_playerIDs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PlayerIDs, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalRoster_playerIDs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalRoster", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _FormalRosters_red(ctx context.Context, field graphql.CollectedField, obj *FormalRosters) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalRosters_red(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Red, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *FormalRoster) graphql.Marshaler {
+			return ec.marshalNFormalRoster2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalRoster(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalRosters_red(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FormalRosters",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_FormalRoster(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FormalRosters_blue(ctx context.Context, field graphql.CollectedField, obj *FormalRosters) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalRosters_blue(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Blue, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *FormalRoster) graphql.Marshaler {
+			return ec.marshalNFormalRoster2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalRoster(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalRosters_blue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FormalRosters",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_FormalRoster(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FormalTimer_startedAt(ctx context.Context, field graphql.CollectedField, obj *FormalTimer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalTimer_startedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.StartedAt, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
@@ -7561,77 +7201,146 @@ func (ec *executionContext) _ClientConnection_lastSeenAt(ctx context.Context, fi
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_ClientConnection_lastSeenAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ClientConnection", field, false, false, errors.New("field of type Time does not have child fields"))
+func (ec *executionContext) fieldContext_FormalTimer_startedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalTimer", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _DomainEventSnapshot_type(ctx context.Context, field graphql.CollectedField, obj *DomainEventSnapshot) (ret graphql.Marshaler) {
+func (ec *executionContext) _FormalTimer_durationMilliseconds(ctx context.Context, field graphql.CollectedField, obj *FormalTimer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_DomainEventSnapshot_type(ctx, field)
+			return ec.fieldContext_FormalTimer_durationMilliseconds(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Type, nil
+			return obj.DurationMilliseconds, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalTimer_durationMilliseconds(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalTimer", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _FormalTimer_paused(ctx context.Context, field graphql.CollectedField, obj *FormalTimer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalTimer_paused(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Paused, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_FormalTimer_paused(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalTimer", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _FormalTimer_remainingAtPauseMilliseconds(ctx context.Context, field graphql.CollectedField, obj *FormalTimer) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FormalTimer_remainingAtPauseMilliseconds(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RemainingAtPauseMilliseconds, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FormalTimer_remainingAtPauseMilliseconds(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FormalTimer", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _LegalPlacement_poolSlotID(ctx context.Context, field graphql.CollectedField, obj *LegalPlacement) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LegalPlacement_poolSlotID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PoolSlotID, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_DomainEventSnapshot_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("DomainEventSnapshot", field, false, false, errors.New("field of type String does not have child fields"))
+func (ec *executionContext) fieldContext_LegalPlacement_poolSlotID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LegalPlacement", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _DomainEventSnapshot_payload(ctx context.Context, field graphql.CollectedField, obj *DomainEventSnapshot) (ret graphql.Marshaler) {
+func (ec *executionContext) _LegalPlacement_cell(ctx context.Context, field graphql.CollectedField, obj *LegalPlacement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_DomainEventSnapshot_payload(ctx, field)
+			return ec.fieldContext_LegalPlacement_cell(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Payload, nil
+			return obj.Cell, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v map[string]any) graphql.Marshaler {
-			return ec.marshalNJSON2map(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_DomainEventSnapshot_payload(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("DomainEventSnapshot", field, false, false, errors.New("field of type JSON does not have child fields"))
+func (ec *executionContext) fieldContext_LegalPlacement_cell(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LegalPlacement", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _DomainEventSnapshot_timestamp(ctx context.Context, field graphql.CollectedField, obj *DomainEventSnapshot) (ret graphql.Marshaler) {
+func (ec *executionContext) _LegalPlacement_forceMod(ctx context.Context, field graphql.CollectedField, obj *LegalPlacement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_DomainEventSnapshot_timestamp(ctx, field)
+			return ec.fieldContext_LegalPlacement_forceMod(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Timestamp, nil
+			return obj.ForceMod, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
-			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *ForceMod) graphql.Marshaler {
+			return ec.marshalOForceMod2ᚖrctHubBackendᚋinternalᚋgraphqlᚐForceMod(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
-func (ec *executionContext) fieldContext_DomainEventSnapshot_timestamp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("DomainEventSnapshot", field, false, false, errors.New("field of type Time does not have child fields"))
+func (ec *executionContext) fieldContext_LegalPlacement_forceMod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LegalPlacement", field, false, false, errors.New("field of type ForceMod does not have child fields"))
 }
 
 func (ec *executionContext) _Mappool_slots(ctx context.Context, field graphql.CollectedField, obj *Mappool) (ret graphql.Marshaler) {
@@ -7781,375 +7490,6 @@ func (ec *executionContext) fieldContext_Match_roomID(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Match", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _Match_status(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_status(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Status, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v MatchStatus) graphql.Marshaler {
-			return ec.marshalNMatchStatus2rctHubBackendᚋinternalᚋgraphqlᚐMatchStatus(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Match_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Match", field, false, false, errors.New("field of type MatchStatus does not have child fields"))
-}
-
-func (ec *executionContext) _Match_phase(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_phase(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Phase, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *MatchPhase) graphql.Marshaler {
-			return ec.marshalOMatchPhase2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchPhase(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Match_phase(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Match", field, false, false, errors.New("field of type MatchPhase does not have child fields"))
-}
-
-func (ec *executionContext) _Match_activeTeam(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_activeTeam(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ActiveTeam, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
-			return ec.marshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Match_activeTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Match", field, false, false, errors.New("field of type TeamSide does not have child fields"))
-}
-
-func (ec *executionContext) _Match_board(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_board(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Board, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Board) graphql.Marshaler {
-			return ec.marshalOBoard2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBoard(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Match_board(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Match",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Board(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Match_pool(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_pool(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Pool, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Mappool) graphql.Marshaler {
-			return ec.marshalOMappool2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMappool(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Match_pool(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Match",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Mappool(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Match_teams(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_teams(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Teams, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *MatchTeams) graphql.Marshaler {
-			return ec.marshalNMatchTeams2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchTeams(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Match_teams(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Match",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_MatchTeams(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Match_bpOrder(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_bpOrder(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BpOrder, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *BPOrder) graphql.Marshaler {
-			return ec.marshalOBPOrder2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBPOrder(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Match_bpOrder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Match",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_BPOrder(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Match_turnState(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_turnState(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.TurnState, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TurnState) graphql.Marshaler {
-			return ec.marshalOTurnState2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTurnState(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Match_turnState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Match",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TurnState(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Match_timer(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_timer(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Timer, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TimerState) graphql.Marshaler {
-			return ec.marshalOTimerState2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTimerState(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Match_timer(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Match",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TimerState(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Match_result(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_result(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Match().Result(ctx, obj)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *MatchResult) graphql.Marshaler {
-			return ec.marshalOMatchResult2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchResult(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Match_result(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Match",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_MatchResult(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Match_moves(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_moves(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Match().Moves(ctx, obj, fc.Args["limit"].(*int), fc.Args["offset"].(*int))
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*Move) graphql.Marshaler {
-			return ec.marshalNMove2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐMoveᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Match_moves(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Match",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Move(ctx, field)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Match_moves_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Match_recentMove(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_recentMove(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Match().RecentMove(ctx, obj)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Move) graphql.Marshaler {
-			return ec.marshalOMove2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMove(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Match_recentMove(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Match",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Move(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Match_room(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8182,6 +7522,38 @@ func (ec *executionContext) fieldContext_Match_room(_ context.Context, field gra
 	return fc, nil
 }
 
+func (ec *executionContext) _Match_pool(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Match_pool(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Pool, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*MatchPoolSlotMetadata) graphql.Marshaler {
+			return ec.marshalNMatchPoolSlotMetadata2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchPoolSlotMetadataᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Match_pool(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Match",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchPoolSlotMetadata(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Match_strategistView(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8193,35 +7565,12 @@ func (ec *executionContext) _Match_strategistView(ctx context.Context, field gra
 		func(ctx context.Context) (any, error) {
 			return ec.Resolvers.Match().StrategistView(ctx, obj)
 		},
-		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
-			directive0 := next
-
-			directive1 := func(ctx context.Context) (any, error) {
-				role, err := ec.unmarshalNUserRole2rctHubBackendᚋinternalᚋgraphqlᚐUserRole(ctx, "STRATEGIST")
-				if err != nil {
-					var zeroVal *StrategistView
-					return zeroVal, err
-				}
-				admin, err := ec.unmarshalOBoolean2ᚖbool(ctx, false)
-				if err != nil {
-					var zeroVal *StrategistView
-					return zeroVal, err
-				}
-				if ec.Directives.RequireRole == nil {
-					var zeroVal *StrategistView
-					return zeroVal, errors.New("directive requireRole is not implemented")
-				}
-				return ec.Directives.RequireRole(ctx, obj, directive0, role, admin)
-			}
-
-			next = directive1
-			return next
-		},
+		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *StrategistView) graphql.Marshaler {
-			return ec.marshalNStrategistView2ᚖrctHubBackendᚋinternalᚋgraphqlᚐStrategistView(ctx, selections, v)
+			return ec.marshalOStrategistView2ᚖrctHubBackendᚋinternalᚋgraphqlᚐStrategistView(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Match_strategistView(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -8232,6 +7581,38 @@ func (ec *executionContext) fieldContext_Match_strategistView(_ context.Context,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_StrategistView(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Match_captainView(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Match_captainView(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Match().CaptainView(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *CaptainView) graphql.Marshaler {
+			return ec.marshalOCaptainView2ᚖrctHubBackendᚋinternalᚋgraphqlᚐCaptainView(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Match_captainView(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Match",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CaptainView(ctx, field)
 		},
 	}
 	return fc, nil
@@ -8312,35 +7693,12 @@ func (ec *executionContext) _Match_refereeView(ctx context.Context, field graphq
 		func(ctx context.Context) (any, error) {
 			return ec.Resolvers.Match().RefereeView(ctx, obj)
 		},
-		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
-			directive0 := next
-
-			directive1 := func(ctx context.Context) (any, error) {
-				role, err := ec.unmarshalNUserRole2rctHubBackendᚋinternalᚋgraphqlᚐUserRole(ctx, "REFEREE")
-				if err != nil {
-					var zeroVal *RefereeView
-					return zeroVal, err
-				}
-				admin, err := ec.unmarshalOBoolean2ᚖbool(ctx, true)
-				if err != nil {
-					var zeroVal *RefereeView
-					return zeroVal, err
-				}
-				if ec.Directives.RequireRole == nil {
-					var zeroVal *RefereeView
-					return zeroVal, errors.New("directive requireRole is not implemented")
-				}
-				return ec.Directives.RequireRole(ctx, obj, directive0, role, admin)
-			}
-
-			next = directive1
-			return next
-		},
+		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *RefereeView) graphql.Marshaler {
-			return ec.marshalNRefereeView2ᚖrctHubBackendᚋinternalᚋgraphqlᚐRefereeView(ctx, selections, v)
+			return ec.marshalORefereeView2ᚖrctHubBackendᚋinternalᚋgraphqlᚐRefereeView(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Match_refereeView(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -8379,73 +7737,399 @@ func (ec *executionContext) fieldContext_Match_createdAt(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("Match", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _Match_startedAt(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
+func (ec *executionContext) _Match_snapshot(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_startedAt(ctx, field)
+			return ec.fieldContext_Match_snapshot(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.StartedAt, nil
+			return obj.Snapshot, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
-			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchSnapshot) graphql.Marshaler {
+			return ec.marshalNMatchSnapshot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchSnapshot(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Match_snapshot(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Match",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchSnapshot(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchActorAnalysis_allowedActions(ctx context.Context, field graphql.CollectedField, obj *MatchActorAnalysis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchActorAnalysis_allowedActions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AllowedActions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []MatchAction) graphql.Marshaler {
+			return ec.marshalNMatchAction2ᚕrctHubBackendᚋinternalᚋgraphqlᚐMatchActionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchActorAnalysis_allowedActions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchActorAnalysis", field, false, false, errors.New("field of type MatchAction does not have child fields"))
+}
+
+func (ec *executionContext) _MatchActorAnalysis_banPoolSlotIDs(ctx context.Context, field graphql.CollectedField, obj *MatchActorAnalysis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchActorAnalysis_banPoolSlotIDs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BanPoolSlotIDs, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchActorAnalysis_banPoolSlotIDs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchActorAnalysis", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchActorAnalysis_legalPlacements(ctx context.Context, field graphql.CollectedField, obj *MatchActorAnalysis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchActorAnalysis_legalPlacements(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LegalPlacements, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*LegalPlacement) graphql.Marshaler {
+			return ec.marshalNLegalPlacement2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐLegalPlacementᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchActorAnalysis_legalPlacements(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchActorAnalysis",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_LegalPlacement(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchActorAnalysis_shiroCells(ctx context.Context, field graphql.CollectedField, obj *MatchActorAnalysis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchActorAnalysis_shiroCells(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ShiroCells, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchActorAnalysis_shiroCells(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchActorAnalysis", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchActorAnalysis_robberyPlans(ctx context.Context, field graphql.CollectedField, obj *MatchActorAnalysis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchActorAnalysis_robberyPlans(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RobberyPlans, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*RobberyPlan) graphql.Marshaler {
+			return ec.marshalNRobberyPlan2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐRobberyPlanᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchActorAnalysis_robberyPlans(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchActorAnalysis",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_RobberyPlan(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchActorAnalysis_pendingTBRequestID(ctx context.Context, field graphql.CollectedField, obj *MatchActorAnalysis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchActorAnalysis_pendingTBRequestID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PendingTBRequestID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_Match_startedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Match", field, false, false, errors.New("field of type Time does not have child fields"))
+func (ec *executionContext) fieldContext_MatchActorAnalysis_pendingTBRequestID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchActorAnalysis", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _Match_finishedAt(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchActorAnalysis_canAcceptTBRequest(ctx context.Context, field graphql.CollectedField, obj *MatchActorAnalysis) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_finishedAt(ctx, field)
+			return ec.fieldContext_MatchActorAnalysis_canAcceptTBRequest(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.FinishedAt, nil
+			return obj.CanAcceptTBRequest, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
-			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchActorAnalysis_canAcceptTBRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchActorAnalysis", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _MatchActorAnalysis_canRejectTBRequest(ctx context.Context, field graphql.CollectedField, obj *MatchActorAnalysis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchActorAnalysis_canRejectTBRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CanRejectTBRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchActorAnalysis_canRejectTBRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchActorAnalysis", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _MatchActorAnalysis_tbRequestTeams(ctx context.Context, field graphql.CollectedField, obj *MatchActorAnalysis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchActorAnalysis_tbRequestTeams(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TbRequestTeams, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []TeamSide) graphql.Marshaler {
+			return ec.marshalNTeamSide2ᚕrctHubBackendᚋinternalᚋgraphqlᚐTeamSideᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchActorAnalysis_tbRequestTeams(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchActorAnalysis", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _MatchActorAnalysis_tbResponseTeams(ctx context.Context, field graphql.CollectedField, obj *MatchActorAnalysis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchActorAnalysis_tbResponseTeams(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TbResponseTeams, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []TeamSide) graphql.Marshaler {
+			return ec.marshalNTeamSide2ᚕrctHubBackendᚋinternalᚋgraphqlᚐTeamSideᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchActorAnalysis_tbResponseTeams(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchActorAnalysis", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _MatchCommandActor_osuID(ctx context.Context, field graphql.CollectedField, obj *MatchCommandActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCommandActor_osuID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OsuID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCommandActor_osuID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCommandActor", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchCommandActor_capability(ctx context.Context, field graphql.CollectedField, obj *MatchCommandActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCommandActor_capability(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Capability, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v MatchActorCapability) graphql.Marshaler {
+			return ec.marshalNMatchActorCapability2rctHubBackendᚋinternalᚋgraphqlᚐMatchActorCapability(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCommandActor_capability(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCommandActor", field, false, false, errors.New("field of type MatchActorCapability does not have child fields"))
+}
+
+func (ec *executionContext) _MatchCommandActor_team(ctx context.Context, field graphql.CollectedField, obj *MatchCommandActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCommandActor_team(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Team, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
+			return ec.marshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_Match_finishedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Match", field, false, false, errors.New("field of type Time does not have child fields"))
+func (ec *executionContext) fieldContext_MatchCommandActor_team(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCommandActor", field, false, false, errors.New("field of type TeamSide does not have child fields"))
 }
 
-func (ec *executionContext) _Match_updatedAt(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchCommandActor_adminOverride(ctx context.Context, field graphql.CollectedField, obj *MatchCommandActor) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Match_updatedAt(ctx, field)
+			return ec.fieldContext_MatchCommandActor_adminOverride(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.UpdatedAt, nil
+			return obj.AdminOverride, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
-			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Match_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Match", field, false, false, errors.New("field of type Time does not have child fields"))
+func (ec *executionContext) fieldContext_MatchCommandActor_adminOverride(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCommandActor", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _MatchCommandActor_refereeOverride(ctx context.Context, field graphql.CollectedField, obj *MatchCommandActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCommandActor_refereeOverride(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RefereeOverride, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCommandActor_refereeOverride(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCommandActor", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _MatchCommandEvent_eventId(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
@@ -8471,6 +8155,75 @@ func (ec *executionContext) fieldContext_MatchCommandEvent_eventId(_ context.Con
 	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
+func (ec *executionContext) _MatchCommandEvent_schemaVersion(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCommandEvent_schemaVersion(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SchemaVersion, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCommandEvent_schemaVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _MatchCommandEvent_aggregateId(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCommandEvent_aggregateId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AggregateID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCommandEvent_aggregateId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchCommandEvent_aggregateType(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCommandEvent_aggregateType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AggregateType, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCommandEvent_aggregateType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _MatchCommandEvent_sequence(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8483,15 +8236,15 @@ func (ec *executionContext) _MatchCommandEvent_sequence(ctx context.Context, fie
 			return obj.Sequence, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNUInt642string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_MatchCommandEvent_sequence(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type UInt64 does not have child fields"))
 }
 
 func (ec *executionContext) _MatchCommandEvent_resultingVersion(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
@@ -8506,15 +8259,15 @@ func (ec *executionContext) _MatchCommandEvent_resultingVersion(ctx context.Cont
 			return obj.ResultingVersion, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNUInt642string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_MatchCommandEvent_resultingVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type UInt64 does not have child fields"))
 }
 
 func (ec *executionContext) _MatchCommandEvent_type(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
@@ -8529,15 +8282,15 @@ func (ec *executionContext) _MatchCommandEvent_type(ctx context.Context, field g
 			return obj.Type, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v MatchEventType) graphql.Marshaler {
+			return ec.marshalNMatchEventType2rctHubBackendᚋinternalᚋgraphqlᚐMatchEventType(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_MatchCommandEvent_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type MatchEventType does not have child fields"))
 }
 
 func (ec *executionContext) _MatchCommandEvent_occurredAt(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
@@ -8563,27 +8316,68 @@ func (ec *executionContext) fieldContext_MatchCommandEvent_occurredAt(_ context.
 	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _MatchCommandEvent_payload(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchCommandEvent_actor(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchCommandEvent_payload(ctx, field)
+			return ec.fieldContext_MatchCommandEvent_actor(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Payload, nil
+			return obj.Actor, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v map[string]any) graphql.Marshaler {
-			return ec.marshalNJSON2map(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchCommandActor) graphql.Marshaler {
+			return ec.marshalNMatchCommandActor2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchCommandActor(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_MatchCommandEvent_payload(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchCommandEvent", field, false, false, errors.New("field of type JSON does not have child fields"))
+func (ec *executionContext) fieldContext_MatchCommandEvent_actor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchCommandEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchCommandActor(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchCommandEvent_fact(ctx context.Context, field graphql.CollectedField, obj *MatchCommandEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchCommandEvent_fact(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Fact, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchEventFact) graphql.Marshaler {
+			return ec.marshalNMatchEventFact2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchEventFact(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchCommandEvent_fact(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchCommandEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchEventFact(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _MatchCommandResult_success(ctx context.Context, field graphql.CollectedField, obj *MatchCommandResult) (ret graphql.Marshaler) {
@@ -8644,15 +8438,15 @@ func (ec *executionContext) _MatchCommandResult_disposition(ctx context.Context,
 			return obj.Disposition, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchCommandDisposition) graphql.Marshaler {
+			return ec.marshalOMatchCommandDisposition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchCommandDisposition(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_MatchCommandResult_disposition(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchCommandResult", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("MatchCommandResult", field, false, false, errors.New("field of type MatchCommandDisposition does not have child fields"))
 }
 
 func (ec *executionContext) _MatchCommandResult_previousVersion(ctx context.Context, field graphql.CollectedField, obj *MatchCommandResult) (ret graphql.Marshaler) {
@@ -8667,15 +8461,15 @@ func (ec *executionContext) _MatchCommandResult_previousVersion(ctx context.Cont
 			return obj.PreviousVersion, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOUInt642ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_MatchCommandResult_previousVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchCommandResult", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("MatchCommandResult", field, false, false, errors.New("field of type UInt64 does not have child fields"))
 }
 
 func (ec *executionContext) _MatchCommandResult_resultingVersion(ctx context.Context, field graphql.CollectedField, obj *MatchCommandResult) (ret graphql.Marshaler) {
@@ -8690,15 +8484,15 @@ func (ec *executionContext) _MatchCommandResult_resultingVersion(ctx context.Con
 			return obj.ResultingVersion, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOUInt642ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_MatchCommandResult_resultingVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchCommandResult", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("MatchCommandResult", field, false, false, errors.New("field of type UInt64 does not have child fields"))
 }
 
 func (ec *executionContext) _MatchCommandResult_currentVersion(ctx context.Context, field graphql.CollectedField, obj *MatchCommandResult) (ret graphql.Marshaler) {
@@ -8713,38 +8507,47 @@ func (ec *executionContext) _MatchCommandResult_currentVersion(ctx context.Conte
 			return obj.CurrentVersion, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOUInt642ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_MatchCommandResult_currentVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchCommandResult", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("MatchCommandResult", field, false, false, errors.New("field of type UInt64 does not have child fields"))
 }
 
-func (ec *executionContext) _MatchCommandResult_state(ctx context.Context, field graphql.CollectedField, obj *MatchCommandResult) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchCommandResult_snapshot(ctx context.Context, field graphql.CollectedField, obj *MatchCommandResult) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchCommandResult_state(ctx, field)
+			return ec.fieldContext_MatchCommandResult_snapshot(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.State, nil
+			return obj.Snapshot, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v map[string]any) graphql.Marshaler {
-			return ec.marshalOJSON2map(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchSnapshot) graphql.Marshaler {
+			return ec.marshalOMatchSnapshot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchSnapshot(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_MatchCommandResult_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchCommandResult", field, false, false, errors.New("field of type JSON does not have child fields"))
+func (ec *executionContext) fieldContext_MatchCommandResult_snapshot(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchCommandResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchSnapshot(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _MatchCommandResult_events(ctx context.Context, field graphql.CollectedField, obj *MatchCommandResult) (ret graphql.Marshaler) {
@@ -8823,15 +8626,15 @@ func (ec *executionContext) _MatchError_code(ctx context.Context, field graphql.
 			return obj.Code, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v MatchErrorCode) graphql.Marshaler {
+			return ec.marshalNMatchErrorCode2rctHubBackendᚋinternalᚋgraphqlᚐMatchErrorCode(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_MatchError_code(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchError", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("MatchError", field, false, false, errors.New("field of type MatchErrorCode does not have child fields"))
 }
 
 func (ec *executionContext) _MatchError_message(ctx context.Context, field graphql.CollectedField, obj *MatchError) (ret graphql.Marshaler) {
@@ -8869,6 +8672,144 @@ func (ec *executionContext) _MatchError_currentVersion(ctx context.Context, fiel
 			return obj.CurrentVersion, nil
 		},
 		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOUInt642ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchError_currentVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchError", field, false, false, errors.New("field of type UInt64 does not have child fields"))
+}
+
+func (ec *executionContext) _MatchEventFact_team(ctx context.Context, field graphql.CollectedField, obj *MatchEventFact) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEventFact_team(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Team, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
+			return ec.marshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchEventFact_team(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEventFact", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _MatchEventFact_poolSlotID(ctx context.Context, field graphql.CollectedField, obj *MatchEventFact) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEventFact_poolSlotID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PoolSlotID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchEventFact_poolSlotID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEventFact", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchEventFact_boardPieceID(ctx context.Context, field graphql.CollectedField, obj *MatchEventFact) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEventFact_boardPieceID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BoardPieceID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchEventFact_boardPieceID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEventFact", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchEventFact_boardPieceIDs(ctx context.Context, field graphql.CollectedField, obj *MatchEventFact) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEventFact_boardPieceIDs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BoardPieceIDs, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchEventFact_boardPieceIDs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEventFact", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchEventFact_cell(ctx context.Context, field graphql.CollectedField, obj *MatchEventFact) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEventFact_cell(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cell, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchEventFact_cell(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEventFact", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchEventFact_durationMilliseconds(ctx context.Context, field graphql.CollectedField, obj *MatchEventFact) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEventFact_durationMilliseconds(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DurationMilliseconds, nil
+		},
+		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
 			return ec.marshalOInt2ᚖint(ctx, selections, v)
 		},
@@ -8876,8 +8817,100 @@ func (ec *executionContext) _MatchError_currentVersion(ctx context.Context, fiel
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_MatchError_currentVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchError", field, false, false, errors.New("field of type Int does not have child fields"))
+func (ec *executionContext) fieldContext_MatchEventFact_durationMilliseconds(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEventFact", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _MatchEventFact_reason(ctx context.Context, field graphql.CollectedField, obj *MatchEventFact) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEventFact_reason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Reason, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchEventFact_reason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEventFact", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _MatchEventFact_requestID(ctx context.Context, field graphql.CollectedField, obj *MatchEventFact) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEventFact_requestID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequestID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchEventFact_requestID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEventFact", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchEventFact_tbBasis(ctx context.Context, field graphql.CollectedField, obj *MatchEventFact) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEventFact_tbBasis(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TbBasis, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TBBasis) graphql.Marshaler {
+			return ec.marshalOTBBasis2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTBBasis(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchEventFact_tbBasis(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEventFact", field, false, false, errors.New("field of type TBBasis does not have child fields"))
+}
+
+func (ec *executionContext) _MatchEventFact_playerIDs(ctx context.Context, field graphql.CollectedField, obj *MatchEventFact) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchEventFact_playerIDs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PlayerIDs, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchEventFact_playerIDs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchEventFact", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _MatchPage_items(ctx context.Context, field graphql.CollectedField, obj *MatchPage) (ret graphql.Marshaler) {
@@ -9004,82 +9037,563 @@ func (ec *executionContext) fieldContext_MatchPage_totalPages(_ context.Context,
 	return graphql.NewScalarFieldContext("MatchPage", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
-func (ec *executionContext) _MatchResult_id(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchPoolSlotMetadata_poolSlotID(ctx context.Context, field graphql.CollectedField, obj *MatchPoolSlotMetadata) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_id(ctx, field)
+			return ec.fieldContext_MatchPoolSlotMetadata_poolSlotID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
+			return obj.PoolSlotID, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNObjectID2string(ctx, selections, v)
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_MatchResult_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchResult", field, false, false, errors.New("field of type ObjectID does not have child fields"))
+func (ec *executionContext) fieldContext_MatchPoolSlotMetadata_poolSlotID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchPoolSlotMetadata", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _MatchResult_matchID(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchPoolSlotMetadata_beatmapID(ctx context.Context, field graphql.CollectedField, obj *MatchPoolSlotMetadata) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_matchID(ctx, field)
+			return ec.fieldContext_MatchPoolSlotMetadata_beatmapID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.MatchID, nil
+			return obj.BeatmapID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchPoolSlotMetadata_beatmapID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchPoolSlotMetadata", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchPoolSlotMetadata_beatmap(ctx context.Context, field graphql.CollectedField, obj *MatchPoolSlotMetadata) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchPoolSlotMetadata_beatmap(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MatchPoolSlotMetadata().Beatmap(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Beatmap) graphql.Marshaler {
+			return ec.marshalOBeatmap2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBeatmap(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchPoolSlotMetadata_beatmap(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchPoolSlotMetadata",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Beatmap(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchSnapshot_version(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_version(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Version, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNObjectID2string(ctx, selections, v)
+			return ec.marshalNUInt642string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_MatchResult_matchID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchResult", field, false, false, errors.New("field of type ObjectID does not have child fields"))
+func (ec *executionContext) fieldContext_MatchSnapshot_version(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSnapshot", field, false, false, errors.New("field of type UInt64 does not have child fields"))
 }
 
-func (ec *executionContext) _MatchResult_roomID(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchSnapshot_lifecycle(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_roomID(ctx, field)
+			return ec.fieldContext_MatchSnapshot_lifecycle(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.RoomID, nil
+			return obj.Lifecycle, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNObjectID2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v MatchLifecycle) graphql.Marshaler {
+			return ec.marshalNMatchLifecycle2rctHubBackendᚋinternalᚋgraphqlᚐMatchLifecycle(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_MatchResult_roomID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchResult", field, false, false, errors.New("field of type ObjectID does not have child fields"))
+func (ec *executionContext) fieldContext_MatchSnapshot_lifecycle(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSnapshot", field, false, false, errors.New("field of type MatchLifecycle does not have child fields"))
 }
 
-func (ec *executionContext) _MatchResult_winner(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchSnapshot_phase(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_winner(ctx, field)
+			return ec.fieldContext_MatchSnapshot_phase(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Phase, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v FormalMatchPhase) graphql.Marshaler {
+			return ec.marshalNFormalMatchPhase2rctHubBackendᚋinternalᚋgraphqlᚐFormalMatchPhase(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_phase(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSnapshot", field, false, false, errors.New("field of type FormalMatchPhase does not have child fields"))
+}
+
+func (ec *executionContext) _MatchSnapshot_firstBan(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_firstBan(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.FirstBan, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
+			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_firstBan(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSnapshot", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _MatchSnapshot_firstPick(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_firstPick(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.FirstPick, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
+			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_firstPick(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSnapshot", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _MatchSnapshot_turn(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_turn(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Turn, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_turn(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSnapshot", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _MatchSnapshot_activeTeam(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_activeTeam(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ActiveTeam, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
+			return ec.marshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_activeTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSnapshot", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _MatchSnapshot_poolSlots(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_poolSlots(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PoolSlots, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*FormalPoolSlot) graphql.Marshaler {
+			return ec.marshalNFormalPoolSlot2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalPoolSlotᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_poolSlots(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchSnapshot",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_FormalPoolSlot(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchSnapshot_board(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_board(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Board, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *FormalBoard) graphql.Marshaler {
+			return ec.marshalNFormalBoard2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalBoard(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_board(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchSnapshot",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_FormalBoard(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchSnapshot_wonCounts(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_wonCounts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.WonCounts, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamCounts) graphql.Marshaler {
+			return ec.marshalNTeamCounts2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamCounts(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_wonCounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchSnapshot",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TeamCounts(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchSnapshot_timer(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_timer(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Timer, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *FormalTimer) graphql.Marshaler {
+			return ec.marshalNFormalTimer2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalTimer(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_timer(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchSnapshot",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_FormalTimer(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchSnapshot_robberyUsed(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_robberyUsed(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RobberyUsed, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamFlags) graphql.Marshaler {
+			return ec.marshalNTeamFlags2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamFlags(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_robberyUsed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchSnapshot",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TeamFlags(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchSnapshot_teamPauseUsed(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_teamPauseUsed(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TeamPauseUsed, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamFlags) graphql.Marshaler {
+			return ec.marshalNTeamFlags2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamFlags(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_teamPauseUsed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchSnapshot",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TeamFlags(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchSnapshot_rosters(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_rosters(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Rosters, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *FormalRosters) graphql.Marshaler {
+			return ec.marshalNFormalRosters2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalRosters(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_rosters(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchSnapshot",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_FormalRosters(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchSnapshot_pendingPieceID(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_pendingPieceID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PendingPieceID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_pendingPieceID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSnapshot", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchSnapshot_pendingTBRequest(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_pendingTBRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PendingTBRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PendingTBRequest) graphql.Marshaler {
+			return ec.marshalOPendingTBRequest2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPendingTBRequest(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_pendingTBRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchSnapshot",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PendingTBRequest(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchSnapshot_tbEntry(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_tbEntry(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TbEntry, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TBEntry) graphql.Marshaler {
+			return ec.marshalOTBEntry2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTBEntry(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchSnapshot_tbEntry(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MatchSnapshot",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TBEntry(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MatchSnapshot_winner(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchSnapshot_winner(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Winner, nil
@@ -9092,650 +9606,72 @@ func (ec *executionContext) _MatchResult_winner(ctx context.Context, field graph
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_MatchResult_winner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchResult", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+func (ec *executionContext) fieldContext_MatchSnapshot_winner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchSnapshot", field, false, false, errors.New("field of type TeamSide does not have child fields"))
 }
 
-func (ec *executionContext) _MatchResult_winReason(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchSnapshot_result(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_winReason(ctx, field)
+			return ec.fieldContext_MatchSnapshot_result(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.WinReason, nil
+			return obj.Result, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v WinReason) graphql.Marshaler {
-			return ec.marshalNWinReason2rctHubBackendᚋinternalᚋgraphqlᚐWinReason(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *FormalMatchResult) graphql.Marshaler {
+			return ec.marshalOFormalMatchResult2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalMatchResult(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
-func (ec *executionContext) fieldContext_MatchResult_winReason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchResult", field, false, false, errors.New("field of type WinReason does not have child fields"))
-}
-
-func (ec *executionContext) _MatchResult_scores(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_scores(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Scores, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*TeamScore) graphql.Marshaler {
-			return ec.marshalNTeamScore2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamScoreᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchResult_scores(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_MatchSnapshot_result(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "MatchResult",
+		Object:     "MatchSnapshot",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TeamScore(ctx, field)
+			return ec.childFields_FormalMatchResult(ctx, field)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _MatchResult_wonPieces(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
+func (ec *executionContext) _MatchSnapshot_stalemate(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_wonPieces(ctx, field)
+			return ec.fieldContext_MatchSnapshot_stalemate(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.WonPieces, nil
+			return obj.Stalemate, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v map[string]any) graphql.Marshaler {
-			return ec.marshalOJSON2map(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *StalemateEvidence) graphql.Marshaler {
+			return ec.marshalOStalemateEvidence2ᚖrctHubBackendᚋinternalᚋgraphqlᚐStalemateEvidence(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_MatchResult_wonPieces(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchResult", field, false, false, errors.New("field of type JSON does not have child fields"))
-}
-
-func (ec *executionContext) _MatchResult_alignments(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_alignments(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Alignments, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*WinningAlignment) graphql.Marshaler {
-			return ec.marshalNWinningAlignment2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐWinningAlignmentᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchResult_alignments(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_MatchSnapshot_stalemate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "MatchResult",
+		Object:     "MatchSnapshot",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_WinningAlignment(ctx, field)
+			return ec.childFields_StalemateEvidence(ctx, field)
 		},
 	}
 	return fc, nil
-}
-
-func (ec *executionContext) _MatchResult_summary(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_summary(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Summary, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_MatchResult_summary(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchResult", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _MatchResult_createdAt(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_createdAt(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.CreatedAt, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
-			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchResult_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchResult", field, false, false, errors.New("field of type Time does not have child fields"))
-}
-
-func (ec *executionContext) _MatchResult_updatedAt(ctx context.Context, field graphql.CollectedField, obj *MatchResult) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchResult_updatedAt(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.UpdatedAt, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
-			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchResult_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MatchResult", field, false, false, errors.New("field of type Time does not have child fields"))
-}
-
-func (ec *executionContext) _MatchTeams_red(ctx context.Context, field graphql.CollectedField, obj *MatchTeams) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTeams_red(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Red, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Team) graphql.Marshaler {
-			return ec.marshalNTeam2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeam(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTeams_red(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MatchTeams",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Team(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _MatchTeams_blue(ctx context.Context, field graphql.CollectedField, obj *MatchTeams) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MatchTeams_blue(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Blue, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Team) graphql.Marshaler {
-			return ec.marshalNTeam2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeam(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MatchTeams_blue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MatchTeams",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Team(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Move_id(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNObjectID2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Move_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Move", field, false, false, errors.New("field of type ObjectID does not have child fields"))
-}
-
-func (ec *executionContext) _Move_matchID(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_matchID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.MatchID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNObjectID2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Move_matchID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Move", field, false, false, errors.New("field of type ObjectID does not have child fields"))
-}
-
-func (ec *executionContext) _Move_roomID(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_roomID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.RoomID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNObjectID2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Move_roomID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Move", field, false, false, errors.New("field of type ObjectID does not have child fields"))
-}
-
-func (ec *executionContext) _Move_type(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_type(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Type, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v MoveType) graphql.Marshaler {
-			return ec.marshalNMoveType2rctHubBackendᚋinternalᚋgraphqlᚐMoveType(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Move_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Move", field, false, false, errors.New("field of type MoveType does not have child fields"))
-}
-
-func (ec *executionContext) _Move_teamSide(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_teamSide(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.TeamSide, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
-			return ec.marshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Move_teamSide(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Move", field, false, false, errors.New("field of type TeamSide does not have child fields"))
-}
-
-func (ec *executionContext) _Move_operatorID(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_operatorID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.OperatorID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Move_operatorID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Move", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _Move_operator(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_operator(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Move().Operator(ctx, obj)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
-			return ec.marshalOUser2ᚖrctHubBackendᚋinternalᚋgraphqlᚐUser(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Move_operator(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Move",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_User(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Move_slot(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_slot(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Slot, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *PoolSlot) graphql.Marshaler {
-			return ec.marshalOPoolSlot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPoolSlot(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Move_slot(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Move",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_PoolSlot(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Move_from(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_from(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.From, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Position) graphql.Marshaler {
-			return ec.marshalOPosition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPosition(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Move_from(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Move",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Position(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Move_to(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_to(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.To, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Position) graphql.Marshaler {
-			return ec.marshalOPosition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPosition(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Move_to(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Move",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Position(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Move_forceMod(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_forceMod(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ForceMod, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Move_forceMod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Move", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Move_redScore(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_redScore(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.RedScore, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *PlayerScore) graphql.Marshaler {
-			return ec.marshalOPlayerScore2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPlayerScore(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Move_redScore(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Move",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_PlayerScore(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Move_blueScore(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_blueScore(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BlueScore, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *PlayerScore) graphql.Marshaler {
-			return ec.marshalOPlayerScore2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPlayerScore(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Move_blueScore(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Move",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_PlayerScore(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Move_comment(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_comment(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Comment, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Move_comment(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Move", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Move_createdAt(ctx context.Context, field graphql.CollectedField, obj *Move) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Move_createdAt(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.CreatedAt, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
-			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Move_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Move", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
 func (ec *executionContext) _Mutation_startMatch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -10850,8 +10786,8 @@ func (ec *executionContext) _OverlayView_board(ctx context.Context, field graphq
 			return obj.Board, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *BoardRenderData) graphql.Marshaler {
-			return ec.marshalNBoardRenderData2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBoardRenderData(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *FormalBoard) graphql.Marshaler {
+			return ec.marshalNFormalBoard2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalBoard(ctx, selections, v)
 		},
 		true,
 		true,
@@ -10864,39 +10800,39 @@ func (ec *executionContext) fieldContext_OverlayView_board(_ context.Context, fi
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_BoardRenderData(ctx, field)
+			return ec.childFields_FormalBoard(ctx, field)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _OverlayView_scores(ctx context.Context, field graphql.CollectedField, obj *OverlayView) (ret graphql.Marshaler) {
+func (ec *executionContext) _OverlayView_wonCounts(ctx context.Context, field graphql.CollectedField, obj *OverlayView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_OverlayView_scores(ctx, field)
+			return ec.fieldContext_OverlayView_wonCounts(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Scores, nil
+			return obj.WonCounts, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TeamScores) graphql.Marshaler {
-			return ec.marshalNTeamScores2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamScores(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamCounts) graphql.Marshaler {
+			return ec.marshalNTeamCounts2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamCounts(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_OverlayView_scores(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_OverlayView_wonCounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "OverlayView",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TeamScores(ctx, field)
+			return ec.childFields_TeamCounts(ctx, field)
 		},
 	}
 	return fc, nil
@@ -10914,8 +10850,8 @@ func (ec *executionContext) _OverlayView_timer(ctx context.Context, field graphq
 			return obj.Timer, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TimerDisplay) graphql.Marshaler {
-			return ec.marshalNTimerDisplay2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTimerDisplay(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *FormalTimer) graphql.Marshaler {
+			return ec.marshalNFormalTimer2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalTimer(ctx, selections, v)
 		},
 		true,
 		true,
@@ -10928,224 +10864,68 @@ func (ec *executionContext) fieldContext_OverlayView_timer(_ context.Context, fi
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TimerDisplay(ctx, field)
+			return ec.childFields_FormalTimer(ctx, field)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _OverlayView_lastEvent(ctx context.Context, field graphql.CollectedField, obj *OverlayView) (ret graphql.Marshaler) {
+func (ec *executionContext) _OverlayView_lifecycle(ctx context.Context, field graphql.CollectedField, obj *OverlayView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_OverlayView_lastEvent(ctx, field)
+			return ec.fieldContext_OverlayView_lifecycle(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.LastEvent, nil
+			return obj.Lifecycle, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *DomainEventSnapshot) graphql.Marshaler {
-			return ec.marshalODomainEventSnapshot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐDomainEventSnapshot(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_OverlayView_lastEvent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "OverlayView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_DomainEventSnapshot(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Piece_beatmapID(ctx context.Context, field graphql.CollectedField, obj *Piece) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Piece_beatmapID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BeatmapID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Piece_beatmapID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Piece", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _Piece_state(ctx context.Context, field graphql.CollectedField, obj *Piece) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Piece_state(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.State, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v PieceState) graphql.Marshaler {
-			return ec.marshalNPieceState2rctHubBackendᚋinternalᚋgraphqlᚐPieceState(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v MatchLifecycle) graphql.Marshaler {
+			return ec.marshalNMatchLifecycle2rctHubBackendᚋinternalᚋgraphqlᚐMatchLifecycle(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Piece_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Piece", field, false, false, errors.New("field of type PieceState does not have child fields"))
+func (ec *executionContext) fieldContext_OverlayView_lifecycle(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("OverlayView", field, false, false, errors.New("field of type MatchLifecycle does not have child fields"))
 }
 
-func (ec *executionContext) _Piece_teamID(ctx context.Context, field graphql.CollectedField, obj *Piece) (ret graphql.Marshaler) {
+func (ec *executionContext) _OverlayView_phase(ctx context.Context, field graphql.CollectedField, obj *OverlayView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Piece_teamID(ctx, field)
+			return ec.fieldContext_OverlayView_phase(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.TeamID, nil
+			return obj.Phase, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Piece_teamID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Piece", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Piece_forceMod(ctx context.Context, field graphql.CollectedField, obj *Piece) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Piece_forceMod(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ForceMod, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Piece_forceMod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Piece", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Piece_position(ctx context.Context, field graphql.CollectedField, obj *Piece) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Piece_position(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Position, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Position) graphql.Marshaler {
-			return ec.marshalOPosition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPosition(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Piece_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Piece",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Position(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _PieceRender_mod(ctx context.Context, field graphql.CollectedField, obj *PieceRender) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PieceRender_mod(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Mod, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v PieceMod) graphql.Marshaler {
-			return ec.marshalNPieceMod2rctHubBackendᚋinternalᚋgraphqlᚐPieceMod(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v FormalMatchPhase) graphql.Marshaler {
+			return ec.marshalNFormalMatchPhase2rctHubBackendᚋinternalᚋgraphqlᚐFormalMatchPhase(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_PieceRender_mod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PieceRender", field, false, false, errors.New("field of type PieceMod does not have child fields"))
+func (ec *executionContext) fieldContext_OverlayView_phase(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("OverlayView", field, false, false, errors.New("field of type FormalMatchPhase does not have child fields"))
 }
 
-func (ec *executionContext) _PieceRender_state(ctx context.Context, field graphql.CollectedField, obj *PieceRender) (ret graphql.Marshaler) {
+func (ec *executionContext) _OverlayView_activeTeam(ctx context.Context, field graphql.CollectedField, obj *OverlayView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PieceRender_state(ctx, field)
+			return ec.fieldContext_OverlayView_activeTeam(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.State, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v PieceState) graphql.Marshaler {
-			return ec.marshalNPieceState2rctHubBackendᚋinternalᚋgraphqlᚐPieceState(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_PieceRender_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PieceRender", field, false, false, errors.New("field of type PieceState does not have child fields"))
-}
-
-func (ec *executionContext) _PieceRender_owner(ctx context.Context, field graphql.CollectedField, obj *PieceRender) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PieceRender_owner(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Owner, nil
+			return obj.ActiveTeam, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
@@ -11155,192 +10935,77 @@ func (ec *executionContext) _PieceRender_owner(ctx context.Context, field graphq
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_PieceRender_owner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PieceRender", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+func (ec *executionContext) fieldContext_OverlayView_activeTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("OverlayView", field, false, false, errors.New("field of type TeamSide does not have child fields"))
 }
 
-func (ec *executionContext) _PieceRender_beatmapCover(ctx context.Context, field graphql.CollectedField, obj *PieceRender) (ret graphql.Marshaler) {
+func (ec *executionContext) _PendingTBRequest_id(ctx context.Context, field graphql.CollectedField, obj *PendingTBRequest) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PieceRender_beatmapCover(ctx, field)
+			return ec.fieldContext_PendingTBRequest_id(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.BeatmapCover, nil
+			return obj.ID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
-		false,
+		true,
 	)
 }
-func (ec *executionContext) fieldContext_PieceRender_beatmapCover(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PieceRender", field, false, false, errors.New("field of type String does not have child fields"))
+func (ec *executionContext) fieldContext_PendingTBRequest_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PendingTBRequest", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _PieceSummary_mod(ctx context.Context, field graphql.CollectedField, obj *PieceSummary) (ret graphql.Marshaler) {
+func (ec *executionContext) _PendingTBRequest_requestedBy(ctx context.Context, field graphql.CollectedField, obj *PendingTBRequest) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PieceSummary_mod(ctx, field)
+			return ec.fieldContext_PendingTBRequest_requestedBy(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Mod, nil
+			return obj.RequestedBy, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v PieceMod) graphql.Marshaler {
-			return ec.marshalNPieceMod2rctHubBackendᚋinternalᚋgraphqlᚐPieceMod(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
+			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_PieceSummary_mod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PieceSummary", field, false, false, errors.New("field of type PieceMod does not have child fields"))
+func (ec *executionContext) fieldContext_PendingTBRequest_requestedBy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PendingTBRequest", field, false, false, errors.New("field of type TeamSide does not have child fields"))
 }
 
-func (ec *executionContext) _PieceSummary_state(ctx context.Context, field graphql.CollectedField, obj *PieceSummary) (ret graphql.Marshaler) {
+func (ec *executionContext) _PendingTBRequest_basis(ctx context.Context, field graphql.CollectedField, obj *PendingTBRequest) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PieceSummary_state(ctx, field)
+			return ec.fieldContext_PendingTBRequest_basis(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.State, nil
+			return obj.Basis, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v PieceState) graphql.Marshaler {
-			return ec.marshalNPieceState2rctHubBackendᚋinternalᚋgraphqlᚐPieceState(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v TBBasis) graphql.Marshaler {
+			return ec.marshalNTBBasis2rctHubBackendᚋinternalᚋgraphqlᚐTBBasis(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_PieceSummary_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PieceSummary", field, false, false, errors.New("field of type PieceState does not have child fields"))
-}
-
-func (ec *executionContext) _PieceSummary_owner(ctx context.Context, field graphql.CollectedField, obj *PieceSummary) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PieceSummary_owner(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Owner, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
-			return ec.marshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_PieceSummary_owner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PieceSummary", field, false, false, errors.New("field of type TeamSide does not have child fields"))
-}
-
-func (ec *executionContext) _PlayerScore_userID(ctx context.Context, field graphql.CollectedField, obj *PlayerScore) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PlayerScore_userID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.UserID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_PlayerScore_userID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PlayerScore", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _PlayerScore_score(ctx context.Context, field graphql.CollectedField, obj *PlayerScore) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PlayerScore_score(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Score, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_PlayerScore_score(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PlayerScore", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _PlayerScore_accuracy(ctx context.Context, field graphql.CollectedField, obj *PlayerScore) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PlayerScore_accuracy(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Accuracy, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
-			return ec.marshalNFloat2float64(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_PlayerScore_accuracy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PlayerScore", field, false, false, errors.New("field of type Float does not have child fields"))
-}
-
-func (ec *executionContext) _PlayerScore_combo(ctx context.Context, field graphql.CollectedField, obj *PlayerScore) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_PlayerScore_combo(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Combo, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_PlayerScore_combo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PlayerScore", field, false, false, errors.New("field of type Int does not have child fields"))
+func (ec *executionContext) fieldContext_PendingTBRequest_basis(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PendingTBRequest", field, false, false, errors.New("field of type TBBasis does not have child fields"))
 }
 
 func (ec *executionContext) _PoolSlot_mod(ctx context.Context, field graphql.CollectedField, obj *PoolSlot) (ret graphql.Marshaler) {
@@ -11401,15 +11066,15 @@ func (ec *executionContext) _PoolSlot_beatmapID(ctx context.Context, field graph
 			return obj.BeatmapID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_PoolSlot_beatmapID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("PoolSlot", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("PoolSlot", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _PoolSlot_beatmap(ctx context.Context, field graphql.CollectedField, obj *PoolSlot) (ret graphql.Marshaler) {
@@ -11799,7 +11464,7 @@ func (ec *executionContext) _Query_matches(ctx context.Context, field graphql.Co
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().Matches(ctx, fc.Args["status"].(*MatchStatus), fc.Args["page"].(*int), fc.Args["perPage"].(*int))
+			return ec.Resolvers.Query().Matches(ctx, fc.Args["page"].(*int), fc.Args["perPage"].(*int))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *MatchPage) graphql.Marshaler {
@@ -12019,7 +11684,7 @@ func (ec *executionContext) _Query_beatmapByOsuId(ctx context.Context, field gra
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().BeatmapByOsuID(ctx, fc.Args["osuId"].(int))
+			return ec.Resolvers.Query().BeatmapByOsuID(ctx, fc.Args["osuId"].(string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *Beatmap) graphql.Marshaler {
@@ -12349,164 +12014,137 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _RefereeView_board(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
+func (ec *executionContext) _RefereeView_matchID(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RefereeView_board(ctx, field)
+			return ec.fieldContext_RefereeView_matchID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Board, nil
+			return obj.MatchID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Board) graphql.Marshaler {
-			return ec.marshalNBoard2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBoard(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_RefereeView_board(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_RefereeView_matchID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RefereeView", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _RefereeView_snapshot(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RefereeView_snapshot(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Snapshot, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchSnapshot) graphql.Marshaler {
+			return ec.marshalNMatchSnapshot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchSnapshot(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RefereeView_snapshot(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "RefereeView",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Board(ctx, field)
+			return ec.childFields_MatchSnapshot(ctx, field)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _RefereeView_pool(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
+func (ec *executionContext) _RefereeView_analysis(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RefereeView_pool(ctx, field)
+			return ec.fieldContext_RefereeView_analysis(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Pool, nil
+			return obj.Analysis, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Mappool) graphql.Marshaler {
-			return ec.marshalNMappool2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMappool(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchActorAnalysis) graphql.Marshaler {
+			return ec.marshalNMatchActorAnalysis2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchActorAnalysis(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_RefereeView_pool(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_RefereeView_analysis(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "RefereeView",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Mappool(ctx, field)
+			return ec.childFields_MatchActorAnalysis(ctx, field)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _RefereeView_teams(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
+func (ec *executionContext) _RefereeView_suspensionReason(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RefereeView_teams(ctx, field)
+			return ec.fieldContext_RefereeView_suspensionReason(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Teams, nil
+			return obj.SuspensionReason, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *MatchTeams) graphql.Marshaler {
-			return ec.marshalNMatchTeams2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchTeams(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
-func (ec *executionContext) fieldContext_RefereeView_teams(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RefereeView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_MatchTeams(ctx, field)
-		},
-	}
-	return fc, nil
+func (ec *executionContext) fieldContext_RefereeView_suspensionReason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RefereeView", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _RefereeView_turnState(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
+func (ec *executionContext) _RefereeView_abortReason(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RefereeView_turnState(ctx, field)
+			return ec.fieldContext_RefereeView_abortReason(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.TurnState, nil
+			return obj.AbortReason, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TurnState) graphql.Marshaler {
-			return ec.marshalNTurnState2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTurnState(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
-func (ec *executionContext) fieldContext_RefereeView_turnState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RefereeView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TurnState(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _RefereeView_timer(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RefereeView_timer(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Timer, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TimerState) graphql.Marshaler {
-			return ec.marshalNTimerState2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTimerState(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_RefereeView_timer(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RefereeView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TimerState(ctx, field)
-		},
-	}
-	return fc, nil
+func (ec *executionContext) fieldContext_RefereeView_abortReason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RefereeView", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _RefereeView_auditLog(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
@@ -12518,7 +12156,8 @@ func (ec *executionContext) _RefereeView_auditLog(ctx context.Context, field gra
 			return ec.fieldContext_RefereeView_auditLog(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.AuditLog, nil
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.RefereeView().AuditLog(ctx, obj, fc.Args["limit"].(*int))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v []*AuditEntry) graphql.Marshaler {
@@ -12532,8 +12171,8 @@ func (ec *executionContext) fieldContext_RefereeView_auditLog(ctx context.Contex
 	fc = &graphql.FieldContext{
 		Object:     "RefereeView",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_AuditEntry(ctx, field)
 		},
@@ -12552,36 +12191,50 @@ func (ec *executionContext) fieldContext_RefereeView_auditLog(ctx context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _RefereeView_connectionStatus(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
+func (ec *executionContext) _RobberyPlan_targetPieceID(ctx context.Context, field graphql.CollectedField, obj *RobberyPlan) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RefereeView_connectionStatus(ctx, field)
+			return ec.fieldContext_RobberyPlan_targetPieceID(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.ConnectionStatus, nil
+			return obj.TargetPieceID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*ClientConnection) graphql.Marshaler {
-			return ec.marshalNClientConnection2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐClientConnectionᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_RefereeView_connectionStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RefereeView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_ClientConnection(ctx, field)
+func (ec *executionContext) fieldContext_RobberyPlan_targetPieceID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RobberyPlan", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _RobberyPlan_sacrificeSets(ctx context.Context, field graphql.CollectedField, obj *RobberyPlan) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RobberyPlan_sacrificeSets(ctx, field)
 		},
-	}
-	return fc, nil
+		func(ctx context.Context) (any, error) {
+			return obj.SacrificeSets, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v [][]string) graphql.Marshaler {
+			return ec.marshalNID2ᚕᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RobberyPlan_sacrificeSets(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RobberyPlan", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _Room_id(ctx context.Context, field graphql.CollectedField, obj *Room) (ret graphql.Marshaler) {
@@ -12688,15 +12341,15 @@ func (ec *executionContext) _Room_ownerID(ctx context.Context, field graphql.Col
 			return obj.OwnerID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Room_ownerID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Room", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("Room", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _Room_owner(ctx context.Context, field graphql.CollectedField, obj *Room) (ret graphql.Marshaler) {
@@ -13000,15 +12653,15 @@ func (ec *executionContext) _RoomSettings_redStrategistUserID(ctx context.Contex
 			return obj.RedStrategistUserID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_RoomSettings_redStrategistUserID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _RoomSettings_redStrategist(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
@@ -13055,15 +12708,15 @@ func (ec *executionContext) _RoomSettings_blueStrategistUserID(ctx context.Conte
 			return obj.BlueStrategistUserID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_RoomSettings_blueStrategistUserID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _RoomSettings_blueStrategist(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
@@ -13110,15 +12763,15 @@ func (ec *executionContext) _RoomSettings_streamerUserID(ctx context.Context, fi
 			return obj.StreamerUserID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_RoomSettings_streamerUserID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _RoomSettings_streamer(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
@@ -13243,15 +12896,15 @@ func (ec *executionContext) _RoomSettings_redPlayers(ctx context.Context, field 
 			return obj.RedPlayers, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []int) graphql.Marshaler {
-			return ec.marshalNInt2ᚕintᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_RoomSettings_redPlayers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _RoomSettings_bluePlayers(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
@@ -13266,15 +12919,15 @@ func (ec *executionContext) _RoomSettings_bluePlayers(ctx context.Context, field
 			return obj.BluePlayers, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []int) graphql.Marshaler {
-			return ec.marshalNInt2ᚕintᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_RoomSettings_bluePlayers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _RoomSettings_redLeader(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
@@ -13289,15 +12942,15 @@ func (ec *executionContext) _RoomSettings_redLeader(ctx context.Context, field g
 			return obj.RedLeader, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_RoomSettings_redLeader(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _RoomSettings_blueLeader(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
@@ -13312,15 +12965,15 @@ func (ec *executionContext) _RoomSettings_blueLeader(ctx context.Context, field 
 			return obj.BlueLeader, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_RoomSettings_blueLeader(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _RoomSettings_mpLink(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
@@ -13381,8 +13034,8 @@ func (ec *executionContext) _SpectatorView_board(ctx context.Context, field grap
 			return obj.Board, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *BoardSummary) graphql.Marshaler {
-			return ec.marshalNBoardSummary2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBoardSummary(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *FormalBoard) graphql.Marshaler {
+			return ec.marshalNFormalBoard2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalBoard(ctx, selections, v)
 		},
 		true,
 		true,
@@ -13395,39 +13048,39 @@ func (ec *executionContext) fieldContext_SpectatorView_board(_ context.Context, 
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_BoardSummary(ctx, field)
+			return ec.childFields_FormalBoard(ctx, field)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _SpectatorView_scores(ctx context.Context, field graphql.CollectedField, obj *SpectatorView) (ret graphql.Marshaler) {
+func (ec *executionContext) _SpectatorView_wonCounts(ctx context.Context, field graphql.CollectedField, obj *SpectatorView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SpectatorView_scores(ctx, field)
+			return ec.fieldContext_SpectatorView_wonCounts(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Scores, nil
+			return obj.WonCounts, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TeamScores) graphql.Marshaler {
-			return ec.marshalNTeamScores2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamScores(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamCounts) graphql.Marshaler {
+			return ec.marshalNTeamCounts2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamCounts(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_SpectatorView_scores(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_SpectatorView_wonCounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "SpectatorView",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TeamScores(ctx, field)
+			return ec.childFields_TeamCounts(ctx, field)
 		},
 	}
 	return fc, nil
@@ -13445,15 +13098,15 @@ func (ec *executionContext) _SpectatorView_currentPhase(ctx context.Context, fie
 			return obj.CurrentPhase, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v MatchPhase) graphql.Marshaler {
-			return ec.marshalNMatchPhase2rctHubBackendᚋinternalᚋgraphqlᚐMatchPhase(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v FormalMatchPhase) graphql.Marshaler {
+			return ec.marshalNFormalMatchPhase2rctHubBackendᚋinternalᚋgraphqlᚐFormalMatchPhase(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_SpectatorView_currentPhase(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("SpectatorView", field, false, false, errors.New("field of type MatchPhase does not have child fields"))
+	return graphql.NewScalarFieldContext("SpectatorView", field, false, false, errors.New("field of type FormalMatchPhase does not have child fields"))
 }
 
 func (ec *executionContext) _SpectatorView_activeTeam(ctx context.Context, field graphql.CollectedField, obj *SpectatorView) (ret graphql.Marshaler) {
@@ -13491,44 +13144,67 @@ func (ec *executionContext) _SpectatorView_turnNumber(ctx context.Context, field
 			return obj.TurnNumber, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
 		},
 		true,
-		false,
+		true,
 	)
 }
 func (ec *executionContext) fieldContext_SpectatorView_turnNumber(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("SpectatorView", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
-func (ec *executionContext) _SpectatorView_recentMoves(ctx context.Context, field graphql.CollectedField, obj *SpectatorView) (ret graphql.Marshaler) {
+func (ec *executionContext) _SpectatorView_lifecycle(ctx context.Context, field graphql.CollectedField, obj *SpectatorView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_SpectatorView_recentMoves(ctx, field)
+			return ec.fieldContext_SpectatorView_lifecycle(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.RecentMoves, nil
+			return obj.Lifecycle, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*Move) graphql.Marshaler {
-			return ec.marshalNMove2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐMoveᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v MatchLifecycle) graphql.Marshaler {
+			return ec.marshalNMatchLifecycle2rctHubBackendᚋinternalᚋgraphqlᚐMatchLifecycle(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_SpectatorView_recentMoves(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_SpectatorView_lifecycle(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SpectatorView", field, false, false, errors.New("field of type MatchLifecycle does not have child fields"))
+}
+
+func (ec *executionContext) _StalemateEvidence_wonCounts(ctx context.Context, field graphql.CollectedField, obj *StalemateEvidence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StalemateEvidence_wonCounts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.WonCounts, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamCounts) graphql.Marshaler {
+			return ec.marshalNTeamCounts2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamCounts(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StalemateEvidence_wonCounts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "SpectatorView",
+		Object:     "StalemateEvidence",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Move(ctx, field)
+			return ec.childFields_TeamCounts(ctx, field)
 		},
 	}
 	return fc, nil
@@ -13569,6 +13245,107 @@ func (ec *executionContext) _StrategistView_myTeam(ctx context.Context, field gr
 			return obj.MyTeam, nil
 		},
 		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
+			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StrategistView_myTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StrategistView", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _StrategistView_analysis(ctx context.Context, field graphql.CollectedField, obj *StrategistView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StrategistView_analysis(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Analysis, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchActorAnalysis) graphql.Marshaler {
+			return ec.marshalNMatchActorAnalysis2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchActorAnalysis(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StrategistView_analysis(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "StrategistView",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchActorAnalysis(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TBEntry_basis(ctx context.Context, field graphql.CollectedField, obj *TBEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TBEntry_basis(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Basis, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v TBBasis) graphql.Marshaler {
+			return ec.marshalNTBBasis2rctHubBackendᚋinternalᚋgraphqlᚐTBBasis(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TBEntry_basis(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TBEntry", field, false, false, errors.New("field of type TBBasis does not have child fields"))
+}
+
+func (ec *executionContext) _TBEntry_requestID(ctx context.Context, field graphql.CollectedField, obj *TBEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TBEntry_requestID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequestID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_TBEntry_requestID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TBEntry", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _TBEntry_requestedBy(ctx context.Context, field graphql.CollectedField, obj *TBEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TBEntry_requestedBy(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequestedBy, nil
+		},
+		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
 			return ec.marshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
 		},
@@ -13576,513 +13353,17 @@ func (ec *executionContext) _StrategistView_myTeam(ctx context.Context, field gr
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_StrategistView_myTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("StrategistView", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+func (ec *executionContext) fieldContext_TBEntry_requestedBy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TBEntry", field, false, false, errors.New("field of type TeamSide does not have child fields"))
 }
 
-func (ec *executionContext) _StrategistView_allowedActions(ctx context.Context, field graphql.CollectedField, obj *StrategistView) (ret graphql.Marshaler) {
+func (ec *executionContext) _TeamCounts_red(ctx context.Context, field graphql.CollectedField, obj *TeamCounts) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_StrategistView_allowedActions(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.AllowedActions, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
-			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_StrategistView_allowedActions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("StrategistView", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _StrategistView_disallowedActions(ctx context.Context, field graphql.CollectedField, obj *StrategistView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_StrategistView_disallowedActions(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.DisallowedActions, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
-			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_StrategistView_disallowedActions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("StrategistView", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _StrategistView_selectablePoolSlots(ctx context.Context, field graphql.CollectedField, obj *StrategistView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_StrategistView_selectablePoolSlots(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.SelectablePoolSlots, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
-			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_StrategistView_selectablePoolSlots(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("StrategistView", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _StrategistView_selectableBoardCells(ctx context.Context, field graphql.CollectedField, obj *StrategistView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_StrategistView_selectableBoardCells(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.SelectableBoardCells, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
-			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_StrategistView_selectableBoardCells(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("StrategistView", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _StrategistView_timer(ctx context.Context, field graphql.CollectedField, obj *StrategistView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_StrategistView_timer(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Timer, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TimerInfo) graphql.Marshaler {
-			return ec.marshalNTimerInfo2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTimerInfo(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_StrategistView_timer(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "StrategistView",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_TimerInfo(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _StrategistView_robberyInProgress(ctx context.Context, field graphql.CollectedField, obj *StrategistView) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_StrategistView_robberyInProgress(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.RobberyInProgress, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_StrategistView_robberyInProgress(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("StrategistView", field, false, false, errors.New("field of type Boolean does not have child fields"))
-}
-
-func (ec *executionContext) _Team_id(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_id(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNObjectID2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Team_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Team", field, false, false, errors.New("field of type ObjectID does not have child fields"))
-}
-
-func (ec *executionContext) _Team_side(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_side(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Side, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
-			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Team_side(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Team", field, false, false, errors.New("field of type TeamSide does not have child fields"))
-}
-
-func (ec *executionContext) _Team_name(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_name(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Name, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Team_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Team", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Team_description(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_description(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Description, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Team_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Team", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Team_seed(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_seed(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Seed, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Team_seed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Team", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Team_color(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_color(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Color, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Team_color(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Team", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Team_leaderID(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_leaderID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.LeaderID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Team_leaderID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Team", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _Team_leader(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_leader(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Team().Leader(ctx, obj)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
-			return ec.marshalOUser2ᚖrctHubBackendᚋinternalᚋgraphqlᚐUser(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Team_leader(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Team",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_User(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Team_strategistID(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_strategistID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.StrategistID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Team_strategistID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Team", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _Team_strategist(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_strategist(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Team().Strategist(ctx, obj)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
-			return ec.marshalOUser2ᚖrctHubBackendᚋinternalᚋgraphqlᚐUser(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Team_strategist(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Team",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_User(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Team_players(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_players(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Players, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []int) graphql.Marshaler {
-			return ec.marshalNInt2ᚕintᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Team_players(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Team", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _Team_playerUsers(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Team_playerUsers(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Team().PlayerUsers(ctx, obj)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*User) graphql.Marshaler {
-			return ec.marshalNUser2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐUserᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Team_playerUsers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Team",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_User(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _TeamScore_teamSide(ctx context.Context, field graphql.CollectedField, obj *TeamScore) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TeamScore_teamSide(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.TeamSide, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
-			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TeamScore_teamSide(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TeamScore", field, false, false, errors.New("field of type TeamSide does not have child fields"))
-}
-
-func (ec *executionContext) _TeamScore_score(ctx context.Context, field graphql.CollectedField, obj *TeamScore) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TeamScore_score(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Score, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TeamScore_score(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TeamScore", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _TeamScores_red(ctx context.Context, field graphql.CollectedField, obj *TeamScores) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TeamScores_red(ctx, field)
+			return ec.fieldContext_TeamCounts_red(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Red, nil
@@ -14095,17 +13376,17 @@ func (ec *executionContext) _TeamScores_red(ctx context.Context, field graphql.C
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_TeamScores_red(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TeamScores", field, false, false, errors.New("field of type Int does not have child fields"))
+func (ec *executionContext) fieldContext_TeamCounts_red(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TeamCounts", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
-func (ec *executionContext) _TeamScores_blue(ctx context.Context, field graphql.CollectedField, obj *TeamScores) (ret graphql.Marshaler) {
+func (ec *executionContext) _TeamCounts_blue(ctx context.Context, field graphql.CollectedField, obj *TeamCounts) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TeamScores_blue(ctx, field)
+			return ec.fieldContext_TeamCounts_blue(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			return obj.Blue, nil
@@ -14118,43 +13399,20 @@ func (ec *executionContext) _TeamScores_blue(ctx context.Context, field graphql.
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_TeamScores_blue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TeamScores", field, false, false, errors.New("field of type Int does not have child fields"))
+func (ec *executionContext) fieldContext_TeamCounts_blue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TeamCounts", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
-func (ec *executionContext) _TimerDisplay_remainingSeconds(ctx context.Context, field graphql.CollectedField, obj *TimerDisplay) (ret graphql.Marshaler) {
+func (ec *executionContext) _TeamFlags_red(ctx context.Context, field graphql.CollectedField, obj *TeamFlags) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerDisplay_remainingSeconds(ctx, field)
+			return ec.fieldContext_TeamFlags_red(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.RemainingSeconds, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TimerDisplay_remainingSeconds(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerDisplay", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _TimerDisplay_isPaused(ctx context.Context, field graphql.CollectedField, obj *TimerDisplay) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerDisplay_isPaused(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.IsPaused, nil
+			return obj.Red, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
@@ -14164,20 +13422,20 @@ func (ec *executionContext) _TimerDisplay_isPaused(ctx context.Context, field gr
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_TimerDisplay_isPaused(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerDisplay", field, false, false, errors.New("field of type Boolean does not have child fields"))
+func (ec *executionContext) fieldContext_TeamFlags_red(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TeamFlags", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
-func (ec *executionContext) _TimerDisplay_isWarning(ctx context.Context, field graphql.CollectedField, obj *TimerDisplay) (ret graphql.Marshaler) {
+func (ec *executionContext) _TeamFlags_blue(ctx context.Context, field graphql.CollectedField, obj *TeamFlags) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerDisplay_isWarning(ctx, field)
+			return ec.fieldContext_TeamFlags_blue(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.IsWarning, nil
+			return obj.Blue, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
@@ -14187,445 +13445,8 @@ func (ec *executionContext) _TimerDisplay_isWarning(ctx context.Context, field g
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_TimerDisplay_isWarning(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerDisplay", field, false, false, errors.New("field of type Boolean does not have child fields"))
-}
-
-func (ec *executionContext) _TimerInfo_startedAt(ctx context.Context, field graphql.CollectedField, obj *TimerInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerInfo_startedAt(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.StartedAt, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
-			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TimerInfo_startedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerInfo", field, false, false, errors.New("field of type Time does not have child fields"))
-}
-
-func (ec *executionContext) _TimerInfo_durationSeconds(ctx context.Context, field graphql.CollectedField, obj *TimerInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerInfo_durationSeconds(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.DurationSeconds, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TimerInfo_durationSeconds(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerInfo", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _TimerInfo_remainingSeconds(ctx context.Context, field graphql.CollectedField, obj *TimerInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerInfo_remainingSeconds(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.RemainingSeconds, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TimerInfo_remainingSeconds(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerInfo", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _TimerInfo_isPaused(ctx context.Context, field graphql.CollectedField, obj *TimerInfo) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerInfo_isPaused(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.IsPaused, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TimerInfo_isPaused(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerInfo", field, false, false, errors.New("field of type Boolean does not have child fields"))
-}
-
-func (ec *executionContext) _TimerState_startedAt(ctx context.Context, field graphql.CollectedField, obj *TimerState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerState_startedAt(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.StartedAt, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
-			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_TimerState_startedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerState", field, false, false, errors.New("field of type Time does not have child fields"))
-}
-
-func (ec *executionContext) _TimerState_timeLimit(ctx context.Context, field graphql.CollectedField, obj *TimerState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerState_timeLimit(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.TimeLimit, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TimerState_timeLimit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerState", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _TimerState_bonusTime(ctx context.Context, field graphql.CollectedField, obj *TimerState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerState_bonusTime(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BonusTime, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TimerState_bonusTime(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerState", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _TimerState_bonusUsed(ctx context.Context, field graphql.CollectedField, obj *TimerState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerState_bonusUsed(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BonusUsed, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TimerState_bonusUsed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerState", field, false, false, errors.New("field of type Boolean does not have child fields"))
-}
-
-func (ec *executionContext) _TimerState_isPaused(ctx context.Context, field graphql.CollectedField, obj *TimerState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerState_isPaused(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.IsPaused, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TimerState_isPaused(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerState", field, false, false, errors.New("field of type Boolean does not have child fields"))
-}
-
-func (ec *executionContext) _TimerState_pausedAt(ctx context.Context, field graphql.CollectedField, obj *TimerState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerState_pausedAt(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.PausedAt, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
-			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_TimerState_pausedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerState", field, false, false, errors.New("field of type Time does not have child fields"))
-}
-
-func (ec *executionContext) _TimerState_remainingAtPause(ctx context.Context, field graphql.CollectedField, obj *TimerState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TimerState_remainingAtPause(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.RemainingAtPause, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_TimerState_remainingAtPause(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TimerState", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _TurnState_phase(ctx context.Context, field graphql.CollectedField, obj *TurnState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TurnState_phase(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Phase, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v MatchPhase) graphql.Marshaler {
-			return ec.marshalNMatchPhase2rctHubBackendᚋinternalᚋgraphqlᚐMatchPhase(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TurnState_phase(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TurnState", field, false, false, errors.New("field of type MatchPhase does not have child fields"))
-}
-
-func (ec *executionContext) _TurnState_counter(ctx context.Context, field graphql.CollectedField, obj *TurnState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TurnState_counter(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Counter, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TurnState_counter(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TurnState", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _TurnState_activeTeam(ctx context.Context, field graphql.CollectedField, obj *TurnState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TurnState_activeTeam(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ActiveTeam, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TeamSide) graphql.Marshaler {
-			return ec.marshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_TurnState_activeTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TurnState", field, false, false, errors.New("field of type TeamSide does not have child fields"))
-}
-
-func (ec *executionContext) _TurnState_action(ctx context.Context, field graphql.CollectedField, obj *TurnState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TurnState_action(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Action, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_TurnState_action(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TurnState", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _TurnState_startedAt(ctx context.Context, field graphql.CollectedField, obj *TurnState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TurnState_startedAt(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.StartedAt, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
-			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_TurnState_startedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TurnState", field, false, false, errors.New("field of type Time does not have child fields"))
-}
-
-func (ec *executionContext) _TurnState_timeLimit(ctx context.Context, field graphql.CollectedField, obj *TurnState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TurnState_timeLimit(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.TimeLimit, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_TurnState_timeLimit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TurnState", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _TurnState_bonusTime(ctx context.Context, field graphql.CollectedField, obj *TurnState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TurnState_bonusTime(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BonusTime, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_TurnState_bonusTime(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TurnState", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _TurnState_bonusUsed(ctx context.Context, field graphql.CollectedField, obj *TurnState) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TurnState_bonusUsed(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BonusUsed, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_TurnState_bonusUsed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TurnState", field, false, false, errors.New("field of type Boolean does not have child fields"))
+func (ec *executionContext) fieldContext_TeamFlags_blue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TeamFlags", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _User_id(ctx context.Context, field graphql.CollectedField, obj *User) (ret graphql.Marshaler) {
@@ -14663,15 +13484,15 @@ func (ec *executionContext) _User_onlineID(ctx context.Context, field graphql.Co
 			return obj.OnlineID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_User_onlineID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _User_username(ctx context.Context, field graphql.CollectedField, obj *User) (ret graphql.Marshaler) {
@@ -15026,84 +13847,6 @@ func (ec *executionContext) _UserPage_totalPages(ctx context.Context, field grap
 }
 func (ec *executionContext) fieldContext_UserPage_totalPages(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("UserPage", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _WinningAlignment_length(ctx context.Context, field graphql.CollectedField, obj *WinningAlignment) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_WinningAlignment_length(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Length, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_WinningAlignment_length(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("WinningAlignment", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _WinningAlignment_positions(ctx context.Context, field graphql.CollectedField, obj *WinningAlignment) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_WinningAlignment_positions(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Positions, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*Position) graphql.Marshaler {
-			return ec.marshalNPosition2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐPositionᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_WinningAlignment_positions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "WinningAlignment",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Position(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _WinningAlignment_teamID(ctx context.Context, field graphql.CollectedField, obj *WinningAlignment) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_WinningAlignment_teamID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.TeamID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_WinningAlignment_teamID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("WinningAlignment", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -16273,7 +15016,7 @@ func (ec *executionContext) unmarshalInputCommandMeta(ctx context.Context, obj a
 			it.MatchID = data
 		case "expectedVersion":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("expectedVersion"))
-			data, err := ec.unmarshalNInt2int(ctx, v)
+			data, err := ec.unmarshalNUInt642string(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -16560,7 +15303,7 @@ func (ec *executionContext) unmarshalInputRecordSurrenderInput(ctx context.Conte
 			it.SurrenderingTeam = data
 		case "confirmingPlayerIds":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("confirmingPlayerIds"))
-			data, err := ec.unmarshalNInt2ᚕintᚄ(ctx, v)
+			data, err := ec.unmarshalNID2ᚕstringᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -17238,13 +15981,8 @@ func (ec *executionContext) _AuditEntry(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "actorId":
-			out.Values[i] = ec._AuditEntry_actorId(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "actorRole":
-			out.Values[i] = ec._AuditEntry_actorRole(ctx, field, obj)
+		case "actor":
+			out.Values[i] = ec._AuditEntry_actor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -17268,57 +16006,9 @@ func (ec *executionContext) _AuditEntry(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "isAdminOverride":
-			out.Values[i] = ec._AuditEntry_isAdminOverride(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "reason":
 			out.Values[i] = ec._AuditEntry_reason(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var bPOrderImplementors = []string{"BPOrder"}
-
-func (ec *executionContext) _BPOrder(ctx context.Context, sel ast.SelectionSet, obj *BPOrder) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, bPOrderImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("BPOrder")
-		case "firstPick":
-			out.Values[i] = ec._BPOrder_firstPick(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "firstBan":
-			out.Values[i] = ec._BPOrder_firstBan(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -17677,10 +16367,10 @@ func (ec *executionContext) _BeatmapPage(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
-var boardImplementors = []string{"Board"}
+var captainViewImplementors = []string{"CaptainView"}
 
-func (ec *executionContext) _Board(ctx context.Context, sel ast.SelectionSet, obj *Board) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, boardImplementors)
+func (ec *executionContext) _CaptainView(ctx context.Context, sel ast.SelectionSet, obj *CaptainView) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, captainViewImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -17688,19 +16378,14 @@ func (ec *executionContext) _Board(ctx context.Context, sel ast.SelectionSet, ob
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("Board")
-		case "rows":
-			out.Values[i] = ec._Board_rows(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("CaptainView")
+		case "myTeam":
+			out.Values[i] = ec._CaptainView_myTeam(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "cols":
-			out.Values[i] = ec._Board_cols(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "cells":
-			out.Values[i] = ec._Board_cells(ctx, field, obj)
+		case "analysis":
+			out.Values[i] = ec._CaptainView_analysis(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -17725,10 +16410,10 @@ func (ec *executionContext) _Board(ctx context.Context, sel ast.SelectionSet, ob
 	return out
 }
 
-var boardCellImplementors = []string{"BoardCell"}
+var formalBoardImplementors = []string{"FormalBoard"}
 
-func (ec *executionContext) _BoardCell(ctx context.Context, sel ast.SelectionSet, obj *BoardCell) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, boardCellImplementors)
+func (ec *executionContext) _FormalBoard(ctx context.Context, sel ast.SelectionSet, obj *FormalBoard) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, formalBoardImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -17736,72 +16421,241 @@ func (ec *executionContext) _BoardCell(ctx context.Context, sel ast.SelectionSet
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("BoardCell")
-		case "position":
-			out.Values[i] = ec._BoardCell_position(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("FormalBoard")
+		case "cells":
+			out.Values[i] = ec._FormalBoard_cells(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var formalBoardCellImplementors = []string{"FormalBoardCell"}
+
+func (ec *executionContext) _FormalBoardCell(ctx context.Context, sel ast.SelectionSet, obj *FormalBoardCell) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, formalBoardCellImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FormalBoardCell")
+		case "cell":
+			out.Values[i] = ec._FormalBoardCell_cell(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "row":
+			out.Values[i] = ec._FormalBoardCell_row(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "col":
+			out.Values[i] = ec._FormalBoardCell_col(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		case "zone":
-			out.Values[i] = ec._BoardCell_zone(ctx, field, obj)
+			out.Values[i] = ec._FormalBoardCell_zone(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "piece":
+			out.Values[i] = ec._FormalBoardCell_piece(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var formalBoardPieceImplementors = []string{"FormalBoardPiece"}
+
+func (ec *executionContext) _FormalBoardPiece(ctx context.Context, sel ast.SelectionSet, obj *FormalBoardPiece) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, formalBoardPieceImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FormalBoardPiece")
+		case "id":
+			out.Values[i] = ec._FormalBoardPiece_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sourcePoolSlotID":
+			out.Values[i] = ec._FormalBoardPiece_sourcePoolSlotID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "mod":
+			out.Values[i] = ec._FormalBoardPiece_mod(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "forceMod":
+			out.Values[i] = ec._FormalBoardPiece_forceMod(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "selectedBy":
+			out.Values[i] = ec._FormalBoardPiece_selectedBy(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "owner":
+			out.Values[i] = ec._FormalBoardPiece_owner(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "outcome":
+			out.Values[i] = ec._FormalBoardPiece_outcome(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var formalMatchResultImplementors = []string{"FormalMatchResult"}
+
+func (ec *executionContext) _FormalMatchResult(ctx context.Context, sel ast.SelectionSet, obj *FormalMatchResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, formalMatchResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FormalMatchResult")
+		case "winner":
+			out.Values[i] = ec._FormalMatchResult_winner(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "reason":
+			out.Values[i] = ec._FormalMatchResult_reason(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "surrenderingTeam":
+			out.Values[i] = ec._FormalMatchResult_surrenderingTeam(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "confirmingPlayerIDs":
+			out.Values[i] = ec._FormalMatchResult_confirmingPlayerIDs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "wonCounts":
+			out.Values[i] = ec._FormalMatchResult_wonCounts(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var formalPoolSlotImplementors = []string{"FormalPoolSlot"}
+
+func (ec *executionContext) _FormalPoolSlot(ctx context.Context, sel ast.SelectionSet, obj *FormalPoolSlot) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, formalPoolSlotImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FormalPoolSlot")
+		case "id":
+			out.Values[i] = ec._FormalPoolSlot_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "mod":
+			out.Values[i] = ec._FormalPoolSlot_mod(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		case "state":
-			out.Values[i] = ec._BoardCell_state(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "pieceID":
-			out.Values[i] = ec._BoardCell_pieceID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "teamID":
-			out.Values[i] = ec._BoardCell_teamID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var boardRenderDataImplementors = []string{"BoardRenderData"}
-
-func (ec *executionContext) _BoardRenderData(ctx context.Context, sel ast.SelectionSet, obj *BoardRenderData) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, boardRenderDataImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("BoardRenderData")
-		case "cells":
-			out.Values[i] = ec._BoardRenderData_cells(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "lastChangedCells":
-			out.Values[i] = ec._BoardRenderData_lastChangedCells(ctx, field, obj)
+			out.Values[i] = ec._FormalPoolSlot_state(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -17826,10 +16680,10 @@ func (ec *executionContext) _BoardRenderData(ctx context.Context, sel ast.Select
 	return out
 }
 
-var boardSummaryImplementors = []string{"BoardSummary"}
+var formalRosterImplementors = []string{"FormalRoster"}
 
-func (ec *executionContext) _BoardSummary(ctx context.Context, sel ast.SelectionSet, obj *BoardSummary) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, boardSummaryImplementors)
+func (ec *executionContext) _FormalRoster(ctx context.Context, sel ast.SelectionSet, obj *FormalRoster) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, formalRosterImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -17837,9 +16691,14 @@ func (ec *executionContext) _BoardSummary(ctx context.Context, sel ast.Selection
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("BoardSummary")
-		case "cells":
-			out.Values[i] = ec._BoardSummary_cells(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("FormalRoster")
+		case "leaderID":
+			out.Values[i] = ec._FormalRoster_leaderID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "playerIDs":
+			out.Values[i] = ec._FormalRoster_playerIDs(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -17864,10 +16723,10 @@ func (ec *executionContext) _BoardSummary(ctx context.Context, sel ast.Selection
 	return out
 }
 
-var cellRenderImplementors = []string{"CellRender"}
+var formalRostersImplementors = []string{"FormalRosters"}
 
-func (ec *executionContext) _CellRender(ctx context.Context, sel ast.SelectionSet, obj *CellRender) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, cellRenderImplementors)
+func (ec *executionContext) _FormalRosters(ctx context.Context, sel ast.SelectionSet, obj *FormalRosters) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, formalRostersImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -17875,19 +16734,67 @@ func (ec *executionContext) _CellRender(ctx context.Context, sel ast.SelectionSe
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("CellRender")
-		case "position":
-			out.Values[i] = ec._CellRender_position(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("FormalRosters")
+		case "red":
+			out.Values[i] = ec._FormalRosters_red(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "zone":
-			out.Values[i] = ec._CellRender_zone(ctx, field, obj)
+		case "blue":
+			out.Values[i] = ec._FormalRosters_blue(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "piece":
-			out.Values[i] = ec._CellRender_piece(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var formalTimerImplementors = []string{"FormalTimer"}
+
+func (ec *executionContext) _FormalTimer(ctx context.Context, sel ast.SelectionSet, obj *FormalTimer) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, formalTimerImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FormalTimer")
+		case "startedAt":
+			out.Values[i] = ec._FormalTimer_startedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "durationMilliseconds":
+			out.Values[i] = ec._FormalTimer_durationMilliseconds(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "paused":
+			out.Values[i] = ec._FormalTimer_paused(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "remainingAtPauseMilliseconds":
+			out.Values[i] = ec._FormalTimer_remainingAtPauseMilliseconds(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
@@ -17912,53 +16819,10 @@ func (ec *executionContext) _CellRender(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
-var cellSummaryImplementors = []string{"CellSummary"}
+var legalPlacementImplementors = []string{"LegalPlacement"}
 
-func (ec *executionContext) _CellSummary(ctx context.Context, sel ast.SelectionSet, obj *CellSummary) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, cellSummaryImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("CellSummary")
-		case "position":
-			out.Values[i] = ec._CellSummary_position(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "piece":
-			out.Values[i] = ec._CellSummary_piece(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var clientConnectionImplementors = []string{"ClientConnection"}
-
-func (ec *executionContext) _ClientConnection(ctx context.Context, sel ast.SelectionSet, obj *ClientConnection) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, clientConnectionImplementors)
+func (ec *executionContext) _LegalPlacement(ctx context.Context, sel ast.SelectionSet, obj *LegalPlacement) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, legalPlacementImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -17966,83 +16830,20 @@ func (ec *executionContext) _ClientConnection(ctx context.Context, sel ast.Selec
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("ClientConnection")
-		case "userID":
-			out.Values[i] = ec._ClientConnection_userID(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("LegalPlacement")
+		case "poolSlotID":
+			out.Values[i] = ec._LegalPlacement_poolSlotID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "username":
-			out.Values[i] = ec._ClientConnection_username(ctx, field, obj)
+		case "cell":
+			out.Values[i] = ec._LegalPlacement_cell(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "role":
-			out.Values[i] = ec._ClientConnection_role(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "teamSide":
-			out.Values[i] = ec._ClientConnection_teamSide(ctx, field, obj)
+		case "forceMod":
+			out.Values[i] = ec._LegalPlacement_forceMod(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "isConnected":
-			out.Values[i] = ec._ClientConnection_isConnected(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "lastSeenAt":
-			out.Values[i] = ec._ClientConnection_lastSeenAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var domainEventSnapshotImplementors = []string{"DomainEventSnapshot"}
-
-func (ec *executionContext) _DomainEventSnapshot(ctx context.Context, sel ast.SelectionSet, obj *DomainEventSnapshot) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, domainEventSnapshotImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("DomainEventSnapshot")
-		case "type":
-			out.Values[i] = ec._DomainEventSnapshot_type(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "payload":
-			out.Values[i] = ec._DomainEventSnapshot_payload(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "timestamp":
-			out.Values[i] = ec._DomainEventSnapshot_timestamp(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -18141,165 +16942,6 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "status":
-			out.Values[i] = ec._Match_status(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "phase":
-			out.Values[i] = ec._Match_phase(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "activeTeam":
-			out.Values[i] = ec._Match_activeTeam(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "board":
-			out.Values[i] = ec._Match_board(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "pool":
-			out.Values[i] = ec._Match_pool(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "teams":
-			out.Values[i] = ec._Match_teams(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "bpOrder":
-			out.Values[i] = ec._Match_bpOrder(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "turnState":
-			out.Values[i] = ec._Match_turnState(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "timer":
-			out.Values[i] = ec._Match_timer(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "result":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Match_result(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
-				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "moves":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Match_moves(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
-				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "recentMove":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Match_recentMove(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
-				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "room":
 			field := field
 
@@ -18338,6 +16980,11 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "pool":
+			out.Values[i] = ec._Match_pool(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "strategistView":
 			field := field
 
@@ -18348,7 +16995,45 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 					}
 				}()
 				res = ec._Match_strategistView(ctx, field, obj)
-				if res == graphql.Null {
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "captainView":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Match_captainView(ctx, field, obj)
+				if res == graphql.RequiredNull {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res
@@ -18462,7 +17147,7 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 					}
 				}()
 				res = ec._Match_refereeView(ctx, field, obj)
-				if res == graphql.Null {
+				if res == graphql.RequiredNull {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res
@@ -18495,20 +17180,151 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "startedAt":
-			out.Values[i] = ec._Match_startedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "finishedAt":
-			out.Values[i] = ec._Match_finishedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "updatedAt":
-			out.Values[i] = ec._Match_updatedAt(ctx, field, obj)
+		case "snapshot":
+			out.Values[i] = ec._Match_snapshot(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var matchActorAnalysisImplementors = []string{"MatchActorAnalysis"}
+
+func (ec *executionContext) _MatchActorAnalysis(ctx context.Context, sel ast.SelectionSet, obj *MatchActorAnalysis) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchActorAnalysisImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchActorAnalysis")
+		case "allowedActions":
+			out.Values[i] = ec._MatchActorAnalysis_allowedActions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "banPoolSlotIDs":
+			out.Values[i] = ec._MatchActorAnalysis_banPoolSlotIDs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "legalPlacements":
+			out.Values[i] = ec._MatchActorAnalysis_legalPlacements(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "shiroCells":
+			out.Values[i] = ec._MatchActorAnalysis_shiroCells(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "robberyPlans":
+			out.Values[i] = ec._MatchActorAnalysis_robberyPlans(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pendingTBRequestID":
+			out.Values[i] = ec._MatchActorAnalysis_pendingTBRequestID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "canAcceptTBRequest":
+			out.Values[i] = ec._MatchActorAnalysis_canAcceptTBRequest(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "canRejectTBRequest":
+			out.Values[i] = ec._MatchActorAnalysis_canRejectTBRequest(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "tbRequestTeams":
+			out.Values[i] = ec._MatchActorAnalysis_tbRequestTeams(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "tbResponseTeams":
+			out.Values[i] = ec._MatchActorAnalysis_tbResponseTeams(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var matchCommandActorImplementors = []string{"MatchCommandActor"}
+
+func (ec *executionContext) _MatchCommandActor(ctx context.Context, sel ast.SelectionSet, obj *MatchCommandActor) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchCommandActorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchCommandActor")
+		case "osuID":
+			out.Values[i] = ec._MatchCommandActor_osuID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "capability":
+			out.Values[i] = ec._MatchCommandActor_capability(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "team":
+			out.Values[i] = ec._MatchCommandActor_team(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "adminOverride":
+			out.Values[i] = ec._MatchCommandActor_adminOverride(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "refereeOverride":
+			out.Values[i] = ec._MatchCommandActor_refereeOverride(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -18548,6 +17364,21 @@ func (ec *executionContext) _MatchCommandEvent(ctx context.Context, sel ast.Sele
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "schemaVersion":
+			out.Values[i] = ec._MatchCommandEvent_schemaVersion(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "aggregateId":
+			out.Values[i] = ec._MatchCommandEvent_aggregateId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "aggregateType":
+			out.Values[i] = ec._MatchCommandEvent_aggregateType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "sequence":
 			out.Values[i] = ec._MatchCommandEvent_sequence(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -18568,8 +17399,13 @@ func (ec *executionContext) _MatchCommandEvent(ctx context.Context, sel ast.Sele
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "payload":
-			out.Values[i] = ec._MatchCommandEvent_payload(ctx, field, obj)
+		case "actor":
+			out.Values[i] = ec._MatchCommandEvent_actor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "fact":
+			out.Values[i] = ec._MatchCommandEvent_fact(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -18636,8 +17472,8 @@ func (ec *executionContext) _MatchCommandResult(ctx context.Context, sel ast.Sel
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "state":
-			out.Values[i] = ec._MatchCommandResult_state(ctx, field, obj)
+		case "snapshot":
+			out.Values[i] = ec._MatchCommandResult_snapshot(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
@@ -18720,6 +17556,89 @@ func (ec *executionContext) _MatchError(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
+var matchEventFactImplementors = []string{"MatchEventFact"}
+
+func (ec *executionContext) _MatchEventFact(ctx context.Context, sel ast.SelectionSet, obj *MatchEventFact) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchEventFactImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchEventFact")
+		case "team":
+			out.Values[i] = ec._MatchEventFact_team(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "poolSlotID":
+			out.Values[i] = ec._MatchEventFact_poolSlotID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "boardPieceID":
+			out.Values[i] = ec._MatchEventFact_boardPieceID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "boardPieceIDs":
+			out.Values[i] = ec._MatchEventFact_boardPieceIDs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cell":
+			out.Values[i] = ec._MatchEventFact_cell(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "durationMilliseconds":
+			out.Values[i] = ec._MatchEventFact_durationMilliseconds(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "reason":
+			out.Values[i] = ec._MatchEventFact_reason(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "requestID":
+			out.Values[i] = ec._MatchEventFact_requestID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "tbBasis":
+			out.Values[i] = ec._MatchEventFact_tbBasis(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "playerIDs":
+			out.Values[i] = ec._MatchEventFact_playerIDs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var matchPageImplementors = []string{"MatchPage"}
 
 func (ec *executionContext) _MatchPage(ctx context.Context, sel ast.SelectionSet, obj *MatchPage) graphql.Marshaler {
@@ -18778,98 +17697,10 @@ func (ec *executionContext) _MatchPage(ctx context.Context, sel ast.SelectionSet
 	return out
 }
 
-var matchResultImplementors = []string{"MatchResult"}
+var matchPoolSlotMetadataImplementors = []string{"MatchPoolSlotMetadata"}
 
-func (ec *executionContext) _MatchResult(ctx context.Context, sel ast.SelectionSet, obj *MatchResult) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, matchResultImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("MatchResult")
-		case "id":
-			out.Values[i] = ec._MatchResult_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "matchID":
-			out.Values[i] = ec._MatchResult_matchID(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "roomID":
-			out.Values[i] = ec._MatchResult_roomID(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "winner":
-			out.Values[i] = ec._MatchResult_winner(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "winReason":
-			out.Values[i] = ec._MatchResult_winReason(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "scores":
-			out.Values[i] = ec._MatchResult_scores(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "wonPieces":
-			out.Values[i] = ec._MatchResult_wonPieces(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "alignments":
-			out.Values[i] = ec._MatchResult_alignments(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "summary":
-			out.Values[i] = ec._MatchResult_summary(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "createdAt":
-			out.Values[i] = ec._MatchResult_createdAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "updatedAt":
-			out.Values[i] = ec._MatchResult_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var matchTeamsImplementors = []string{"MatchTeams"}
-
-func (ec *executionContext) _MatchTeams(ctx context.Context, sel ast.SelectionSet, obj *MatchTeams) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, matchTeamsImplementors)
+func (ec *executionContext) _MatchPoolSlotMetadata(ctx context.Context, sel ast.SelectionSet, obj *MatchPoolSlotMetadata) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchPoolSlotMetadataImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -18877,81 +17708,18 @@ func (ec *executionContext) _MatchTeams(ctx context.Context, sel ast.SelectionSe
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("MatchTeams")
-		case "red":
-			out.Values[i] = ec._MatchTeams_red(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "blue":
-			out.Values[i] = ec._MatchTeams_blue(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var moveImplementors = []string{"Move"}
-
-func (ec *executionContext) _Move(ctx context.Context, sel ast.SelectionSet, obj *Move) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, moveImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("Move")
-		case "id":
-			out.Values[i] = ec._Move_id(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("MatchPoolSlotMetadata")
+		case "poolSlotID":
+			out.Values[i] = ec._MatchPoolSlotMetadata_poolSlotID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "matchID":
-			out.Values[i] = ec._Move_matchID(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "roomID":
-			out.Values[i] = ec._Move_roomID(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "type":
-			out.Values[i] = ec._Move_type(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "teamSide":
-			out.Values[i] = ec._Move_teamSide(ctx, field, obj)
+		case "beatmapID":
+			out.Values[i] = ec._MatchPoolSlotMetadata_beatmapID(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "operatorID":
-			out.Values[i] = ec._Move_operatorID(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "operator":
+		case "beatmap":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -18960,7 +17728,7 @@ func (ec *executionContext) _Move(ctx context.Context, sel ast.SelectionSet, obj
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Move_operator(ctx, field, obj)
+				res = ec._MatchPoolSlotMetadata_beatmap(ctx, field, obj)
 				if res == graphql.RequiredNull {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -18989,45 +17757,138 @@ func (ec *executionContext) _Move(ctx context.Context, sel ast.SelectionSet, obj
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "slot":
-			out.Values[i] = ec._Move_slot(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "from":
-			out.Values[i] = ec._Move_from(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "to":
-			out.Values[i] = ec._Move_to(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "forceMod":
-			out.Values[i] = ec._Move_forceMod(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "redScore":
-			out.Values[i] = ec._Move_redScore(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "blueScore":
-			out.Values[i] = ec._Move_blueScore(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "comment":
-			out.Values[i] = ec._Move_comment(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var matchSnapshotImplementors = []string{"MatchSnapshot"}
+
+func (ec *executionContext) _MatchSnapshot(ctx context.Context, sel ast.SelectionSet, obj *MatchSnapshot) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchSnapshotImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchSnapshot")
+		case "version":
+			out.Values[i] = ec._MatchSnapshot_version(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
 			}
-		case "createdAt":
-			out.Values[i] = ec._Move_createdAt(ctx, field, obj)
+		case "lifecycle":
+			out.Values[i] = ec._MatchSnapshot_lifecycle(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
+				out.Invalids++
+			}
+		case "phase":
+			out.Values[i] = ec._MatchSnapshot_phase(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "firstBan":
+			out.Values[i] = ec._MatchSnapshot_firstBan(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "firstPick":
+			out.Values[i] = ec._MatchSnapshot_firstPick(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "turn":
+			out.Values[i] = ec._MatchSnapshot_turn(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "activeTeam":
+			out.Values[i] = ec._MatchSnapshot_activeTeam(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "poolSlots":
+			out.Values[i] = ec._MatchSnapshot_poolSlots(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "board":
+			out.Values[i] = ec._MatchSnapshot_board(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "wonCounts":
+			out.Values[i] = ec._MatchSnapshot_wonCounts(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "timer":
+			out.Values[i] = ec._MatchSnapshot_timer(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "robberyUsed":
+			out.Values[i] = ec._MatchSnapshot_robberyUsed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "teamPauseUsed":
+			out.Values[i] = ec._MatchSnapshot_teamPauseUsed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rosters":
+			out.Values[i] = ec._MatchSnapshot_rosters(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pendingPieceID":
+			out.Values[i] = ec._MatchSnapshot_pendingPieceID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "pendingTBRequest":
+			out.Values[i] = ec._MatchSnapshot_pendingTBRequest(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "tbEntry":
+			out.Values[i] = ec._MatchSnapshot_tbEntry(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "winner":
+			out.Values[i] = ec._MatchSnapshot_winner(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "result":
+			out.Values[i] = ec._MatchSnapshot_result(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "stalemate":
+			out.Values[i] = ec._MatchSnapshot_stalemate(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -19283,8 +18144,8 @@ func (ec *executionContext) _OverlayView(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "scores":
-			out.Values[i] = ec._OverlayView_scores(ctx, field, obj)
+		case "wonCounts":
+			out.Values[i] = ec._OverlayView_wonCounts(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -19293,8 +18154,18 @@ func (ec *executionContext) _OverlayView(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "lastEvent":
-			out.Values[i] = ec._OverlayView_lastEvent(ctx, field, obj)
+		case "lifecycle":
+			out.Values[i] = ec._OverlayView_lifecycle(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "phase":
+			out.Values[i] = ec._OverlayView_phase(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "activeTeam":
+			out.Values[i] = ec._OverlayView_activeTeam(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
@@ -19319,68 +18190,10 @@ func (ec *executionContext) _OverlayView(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
-var pieceImplementors = []string{"Piece"}
+var pendingTBRequestImplementors = []string{"PendingTBRequest"}
 
-func (ec *executionContext) _Piece(ctx context.Context, sel ast.SelectionSet, obj *Piece) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, pieceImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("Piece")
-		case "beatmapID":
-			out.Values[i] = ec._Piece_beatmapID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "state":
-			out.Values[i] = ec._Piece_state(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "teamID":
-			out.Values[i] = ec._Piece_teamID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "forceMod":
-			out.Values[i] = ec._Piece_forceMod(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "position":
-			out.Values[i] = ec._Piece_position(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var pieceRenderImplementors = []string{"PieceRender"}
-
-func (ec *executionContext) _PieceRender(ctx context.Context, sel ast.SelectionSet, obj *PieceRender) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, pieceRenderImplementors)
+func (ec *executionContext) _PendingTBRequest(ctx context.Context, sel ast.SelectionSet, obj *PendingTBRequest) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, pendingTBRequestImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -19388,125 +18201,19 @@ func (ec *executionContext) _PieceRender(ctx context.Context, sel ast.SelectionS
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("PieceRender")
-		case "mod":
-			out.Values[i] = ec._PieceRender_mod(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("PendingTBRequest")
+		case "id":
+			out.Values[i] = ec._PendingTBRequest_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "state":
-			out.Values[i] = ec._PieceRender_state(ctx, field, obj)
+		case "requestedBy":
+			out.Values[i] = ec._PendingTBRequest_requestedBy(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "owner":
-			out.Values[i] = ec._PieceRender_owner(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "beatmapCover":
-			out.Values[i] = ec._PieceRender_beatmapCover(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var pieceSummaryImplementors = []string{"PieceSummary"}
-
-func (ec *executionContext) _PieceSummary(ctx context.Context, sel ast.SelectionSet, obj *PieceSummary) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, pieceSummaryImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("PieceSummary")
-		case "mod":
-			out.Values[i] = ec._PieceSummary_mod(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "state":
-			out.Values[i] = ec._PieceSummary_state(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "owner":
-			out.Values[i] = ec._PieceSummary_owner(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var playerScoreImplementors = []string{"PlayerScore"}
-
-func (ec *executionContext) _PlayerScore(ctx context.Context, sel ast.SelectionSet, obj *PlayerScore) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, playerScoreImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("PlayerScore")
-		case "userID":
-			out.Values[i] = ec._PlayerScore_userID(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "score":
-			out.Values[i] = ec._PlayerScore_score(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "accuracy":
-			out.Values[i] = ec._PlayerScore_accuracy(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "combo":
-			out.Values[i] = ec._PlayerScore_combo(ctx, field, obj)
+		case "basis":
+			out.Values[i] = ec._PendingTBRequest_basis(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -20120,38 +18827,109 @@ func (ec *executionContext) _RefereeView(ctx context.Context, sel ast.SelectionS
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("RefereeView")
-		case "board":
-			out.Values[i] = ec._RefereeView_board(ctx, field, obj)
+		case "matchID":
+			out.Values[i] = ec._RefereeView_matchID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "pool":
-			out.Values[i] = ec._RefereeView_pool(ctx, field, obj)
+		case "snapshot":
+			out.Values[i] = ec._RefereeView_snapshot(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "teams":
-			out.Values[i] = ec._RefereeView_teams(ctx, field, obj)
+		case "analysis":
+			out.Values[i] = ec._RefereeView_analysis(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "turnState":
-			out.Values[i] = ec._RefereeView_turnState(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+		case "suspensionReason":
+			out.Values[i] = ec._RefereeView_suspensionReason(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "timer":
-			out.Values[i] = ec._RefereeView_timer(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+		case "abortReason":
+			out.Values[i] = ec._RefereeView_abortReason(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "auditLog":
-			out.Values[i] = ec._RefereeView_auditLog(ctx, field, obj)
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._RefereeView_auditLog(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var robberyPlanImplementors = []string{"RobberyPlan"}
+
+func (ec *executionContext) _RobberyPlan(ctx context.Context, sel ast.SelectionSet, obj *RobberyPlan) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, robberyPlanImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("RobberyPlan")
+		case "targetPieceID":
+			out.Values[i] = ec._RobberyPlan_targetPieceID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "connectionStatus":
-			out.Values[i] = ec._RefereeView_connectionStatus(ctx, field, obj)
+		case "sacrificeSets":
+			out.Values[i] = ec._RobberyPlan_sacrificeSets(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -20612,8 +19390,8 @@ func (ec *executionContext) _SpectatorView(ctx context.Context, sel ast.Selectio
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "scores":
-			out.Values[i] = ec._SpectatorView_scores(ctx, field, obj)
+		case "wonCounts":
+			out.Values[i] = ec._SpectatorView_wonCounts(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -20629,11 +19407,49 @@ func (ec *executionContext) _SpectatorView(ctx context.Context, sel ast.Selectio
 			}
 		case "turnNumber":
 			out.Values[i] = ec._SpectatorView_turnNumber(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "recentMoves":
-			out.Values[i] = ec._SpectatorView_recentMoves(ctx, field, obj)
+		case "lifecycle":
+			out.Values[i] = ec._SpectatorView_lifecycle(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var stalemateEvidenceImplementors = []string{"StalemateEvidence"}
+
+func (ec *executionContext) _StalemateEvidence(ctx context.Context, sel ast.SelectionSet, obj *StalemateEvidence) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, stalemateEvidenceImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StalemateEvidence")
+		case "wonCounts":
+			out.Values[i] = ec._StalemateEvidence_wonCounts(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -20677,36 +19493,11 @@ func (ec *executionContext) _StrategistView(ctx context.Context, sel ast.Selecti
 			}
 		case "myTeam":
 			out.Values[i] = ec._StrategistView_myTeam(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "allowedActions":
-			out.Values[i] = ec._StrategistView_allowedActions(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "disallowedActions":
-			out.Values[i] = ec._StrategistView_disallowedActions(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "selectablePoolSlots":
-			out.Values[i] = ec._StrategistView_selectablePoolSlots(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "selectableBoardCells":
-			out.Values[i] = ec._StrategistView_selectableBoardCells(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "timer":
-			out.Values[i] = ec._StrategistView_timer(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "robberyInProgress":
-			out.Values[i] = ec._StrategistView_robberyInProgress(ctx, field, obj)
+		case "analysis":
+			out.Values[i] = ec._StrategistView_analysis(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -20731,202 +19522,10 @@ func (ec *executionContext) _StrategistView(ctx context.Context, sel ast.Selecti
 	return out
 }
 
-var teamImplementors = []string{"Team"}
+var tBEntryImplementors = []string{"TBEntry"}
 
-func (ec *executionContext) _Team(ctx context.Context, sel ast.SelectionSet, obj *Team) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, teamImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("Team")
-		case "id":
-			out.Values[i] = ec._Team_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "side":
-			out.Values[i] = ec._Team_side(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "name":
-			out.Values[i] = ec._Team_name(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "description":
-			out.Values[i] = ec._Team_description(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "seed":
-			out.Values[i] = ec._Team_seed(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "color":
-			out.Values[i] = ec._Team_color(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "leaderID":
-			out.Values[i] = ec._Team_leaderID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "leader":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Team_leader(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
-				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "strategistID":
-			out.Values[i] = ec._Team_strategistID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "strategist":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Team_strategist(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
-				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "players":
-			out.Values[i] = ec._Team_players(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "playerUsers":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Team_playerUsers(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
-				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var teamScoreImplementors = []string{"TeamScore"}
-
-func (ec *executionContext) _TeamScore(ctx context.Context, sel ast.SelectionSet, obj *TeamScore) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, teamScoreImplementors)
+func (ec *executionContext) _TBEntry(ctx context.Context, sel ast.SelectionSet, obj *TBEntry) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, tBEntryImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -20934,15 +19533,20 @@ func (ec *executionContext) _TeamScore(ctx context.Context, sel ast.SelectionSet
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("TeamScore")
-		case "teamSide":
-			out.Values[i] = ec._TeamScore_teamSide(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("TBEntry")
+		case "basis":
+			out.Values[i] = ec._TBEntry_basis(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "score":
-			out.Values[i] = ec._TeamScore_score(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+		case "requestID":
+			out.Values[i] = ec._TBEntry_requestID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "requestedBy":
+			out.Values[i] = ec._TBEntry_requestedBy(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		default:
@@ -20966,10 +19570,10 @@ func (ec *executionContext) _TeamScore(ctx context.Context, sel ast.SelectionSet
 	return out
 }
 
-var teamScoresImplementors = []string{"TeamScores"}
+var teamCountsImplementors = []string{"TeamCounts"}
 
-func (ec *executionContext) _TeamScores(ctx context.Context, sel ast.SelectionSet, obj *TeamScores) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, teamScoresImplementors)
+func (ec *executionContext) _TeamCounts(ctx context.Context, sel ast.SelectionSet, obj *TeamCounts) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, teamCountsImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -20977,14 +19581,14 @@ func (ec *executionContext) _TeamScores(ctx context.Context, sel ast.SelectionSe
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("TeamScores")
+			out.Values[i] = graphql.MarshalString("TeamCounts")
 		case "red":
-			out.Values[i] = ec._TeamScores_red(ctx, field, obj)
+			out.Values[i] = ec._TeamCounts_red(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		case "blue":
-			out.Values[i] = ec._TeamScores_blue(ctx, field, obj)
+			out.Values[i] = ec._TeamCounts_blue(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -21009,58 +19613,10 @@ func (ec *executionContext) _TeamScores(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
-var timerDisplayImplementors = []string{"TimerDisplay"}
+var teamFlagsImplementors = []string{"TeamFlags"}
 
-func (ec *executionContext) _TimerDisplay(ctx context.Context, sel ast.SelectionSet, obj *TimerDisplay) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, timerDisplayImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("TimerDisplay")
-		case "remainingSeconds":
-			out.Values[i] = ec._TimerDisplay_remainingSeconds(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "isPaused":
-			out.Values[i] = ec._TimerDisplay_isPaused(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "isWarning":
-			out.Values[i] = ec._TimerDisplay_isWarning(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var timerInfoImplementors = []string{"TimerInfo"}
-
-func (ec *executionContext) _TimerInfo(ctx context.Context, sel ast.SelectionSet, obj *TimerInfo) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, timerInfoImplementors)
+func (ec *executionContext) _TeamFlags(ctx context.Context, sel ast.SelectionSet, obj *TeamFlags) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, teamFlagsImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferredFieldSet := graphql.NewFieldSet(nil)
@@ -21068,165 +19624,14 @@ func (ec *executionContext) _TimerInfo(ctx context.Context, sel ast.SelectionSet
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("TimerInfo")
-		case "startedAt":
-			out.Values[i] = ec._TimerInfo_startedAt(ctx, field, obj)
+			out.Values[i] = graphql.MarshalString("TeamFlags")
+		case "red":
+			out.Values[i] = ec._TeamFlags_red(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "durationSeconds":
-			out.Values[i] = ec._TimerInfo_durationSeconds(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "remainingSeconds":
-			out.Values[i] = ec._TimerInfo_remainingSeconds(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "isPaused":
-			out.Values[i] = ec._TimerInfo_isPaused(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var timerStateImplementors = []string{"TimerState"}
-
-func (ec *executionContext) _TimerState(ctx context.Context, sel ast.SelectionSet, obj *TimerState) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, timerStateImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("TimerState")
-		case "startedAt":
-			out.Values[i] = ec._TimerState_startedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "timeLimit":
-			out.Values[i] = ec._TimerState_timeLimit(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "bonusTime":
-			out.Values[i] = ec._TimerState_bonusTime(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "bonusUsed":
-			out.Values[i] = ec._TimerState_bonusUsed(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "isPaused":
-			out.Values[i] = ec._TimerState_isPaused(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "pausedAt":
-			out.Values[i] = ec._TimerState_pausedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "remainingAtPause":
-			out.Values[i] = ec._TimerState_remainingAtPause(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var turnStateImplementors = []string{"TurnState"}
-
-func (ec *executionContext) _TurnState(ctx context.Context, sel ast.SelectionSet, obj *TurnState) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, turnStateImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("TurnState")
-		case "phase":
-			out.Values[i] = ec._TurnState_phase(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "counter":
-			out.Values[i] = ec._TurnState_counter(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "activeTeam":
-			out.Values[i] = ec._TurnState_activeTeam(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "action":
-			out.Values[i] = ec._TurnState_action(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "startedAt":
-			out.Values[i] = ec._TurnState_startedAt(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "timeLimit":
-			out.Values[i] = ec._TurnState_timeLimit(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "bonusTime":
-			out.Values[i] = ec._TurnState_bonusTime(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
-			}
-		case "bonusUsed":
-			out.Values[i] = ec._TurnState_bonusUsed(ctx, field, obj)
+		case "blue":
+			out.Values[i] = ec._TeamFlags_blue(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -21378,54 +19783,6 @@ func (ec *executionContext) _UserPage(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "totalPages":
 			out.Values[i] = ec._UserPage_totalPages(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
-
-	return out
-}
-
-var winningAlignmentImplementors = []string{"WinningAlignment"}
-
-func (ec *executionContext) _WinningAlignment(ctx context.Context, sel ast.SelectionSet, obj *WinningAlignment) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, winningAlignmentImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("WinningAlignment")
-		case "length":
-			out.Values[i] = ec._WinningAlignment_length(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "positions":
-			out.Values[i] = ec._WinningAlignment_positions(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "teamID":
-			out.Values[i] = ec._WinningAlignment_teamID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -21953,85 +20310,13 @@ func (ec *executionContext) marshalNBeatmapPage2ᚖrctHubBackendᚋinternalᚋgr
 	return ec._BeatmapPage(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNBoard2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBoard(ctx context.Context, sel ast.SelectionSet, v *Board) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._Board(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNBoardCell2ᚕᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐBoardCellᚄ(ctx context.Context, sel ast.SelectionSet, v [][]*BoardCell) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNBoardCell2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐBoardCellᚄ(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNBoardCell2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐBoardCellᚄ(ctx context.Context, sel ast.SelectionSet, v []*BoardCell) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNBoardCell2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBoardCell(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNBoardCell2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBoardCell(ctx context.Context, sel ast.SelectionSet, v *BoardCell) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._BoardCell(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNBoardRenderData2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBoardRenderData(ctx context.Context, sel ast.SelectionSet, v *BoardRenderData) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._BoardRenderData(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNBoardSummary2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBoardSummary(ctx context.Context, sel ast.SelectionSet, v *BoardSummary) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._BoardSummary(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNBoardZone2rctHubBackendᚋinternalᚋgraphqlᚐBoardZone(ctx context.Context, v any) (BoardZone, error) {
-	var res BoardZone
+func (ec *executionContext) unmarshalNBoardPieceOutcome2rctHubBackendᚋinternalᚋgraphqlᚐBoardPieceOutcome(ctx context.Context, v any) (BoardPieceOutcome, error) {
+	var res BoardPieceOutcome
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNBoardZone2rctHubBackendᚋinternalᚋgraphqlᚐBoardZone(ctx context.Context, sel ast.SelectionSet, v BoardZone) graphql.Marshaler {
+func (ec *executionContext) marshalNBoardPieceOutcome2rctHubBackendᚋinternalᚋgraphqlᚐBoardPieceOutcome(ctx context.Context, sel ast.SelectionSet, v BoardPieceOutcome) graphql.Marshaler {
 	return v
 }
 
@@ -22054,116 +20339,6 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 func (ec *executionContext) unmarshalNCalibrateTimerInput2rctHubBackendᚋinternalᚋgraphqlᚐCalibrateTimerInput(ctx context.Context, v any) (CalibrateTimerInput, error) {
 	res, err := ec.unmarshalInputCalibrateTimerInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNCellRender2ᚕᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐCellRenderᚄ(ctx context.Context, sel ast.SelectionSet, v [][]*CellRender) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNCellRender2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐCellRenderᚄ(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNCellRender2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐCellRenderᚄ(ctx context.Context, sel ast.SelectionSet, v []*CellRender) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNCellRender2ᚖrctHubBackendᚋinternalᚋgraphqlᚐCellRender(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNCellRender2ᚖrctHubBackendᚋinternalᚋgraphqlᚐCellRender(ctx context.Context, sel ast.SelectionSet, v *CellRender) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._CellRender(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNCellSummary2ᚕᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐCellSummaryᚄ(ctx context.Context, sel ast.SelectionSet, v [][]*CellSummary) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNCellSummary2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐCellSummaryᚄ(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNCellSummary2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐCellSummaryᚄ(ctx context.Context, sel ast.SelectionSet, v []*CellSummary) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNCellSummary2ᚖrctHubBackendᚋinternalᚋgraphqlᚐCellSummary(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNCellSummary2ᚖrctHubBackendᚋinternalᚋgraphqlᚐCellSummary(ctx context.Context, sel ast.SelectionSet, v *CellSummary) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._CellSummary(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNClientConnection2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐClientConnectionᚄ(ctx context.Context, sel ast.SelectionSet, v []*ClientConnection) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNClientConnection2ᚖrctHubBackendᚋinternalᚋgraphqlᚐClientConnection(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNClientConnection2ᚖrctHubBackendᚋinternalᚋgraphqlᚐClientConnection(ctx context.Context, sel ast.SelectionSet, v *ClientConnection) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._ClientConnection(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNCommandMeta2rctHubBackendᚋinternalᚋgraphqlᚐCommandMeta(ctx context.Context, v any) (CommandMeta, error) {
@@ -22202,6 +20377,118 @@ func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.S
 	return graphql.WrapContextMarshaler(ctx, res)
 }
 
+func (ec *executionContext) marshalNFormalBoard2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalBoard(ctx context.Context, sel ast.SelectionSet, v *FormalBoard) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._FormalBoard(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNFormalBoardCell2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalBoardCellᚄ(ctx context.Context, sel ast.SelectionSet, v []*FormalBoardCell) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNFormalBoardCell2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalBoardCell(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNFormalBoardCell2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalBoardCell(ctx context.Context, sel ast.SelectionSet, v *FormalBoardCell) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._FormalBoardCell(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNFormalBoardZone2rctHubBackendᚋinternalᚋgraphqlᚐFormalBoardZone(ctx context.Context, v any) (FormalBoardZone, error) {
+	var res FormalBoardZone
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNFormalBoardZone2rctHubBackendᚋinternalᚋgraphqlᚐFormalBoardZone(ctx context.Context, sel ast.SelectionSet, v FormalBoardZone) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNFormalMatchPhase2rctHubBackendᚋinternalᚋgraphqlᚐFormalMatchPhase(ctx context.Context, v any) (FormalMatchPhase, error) {
+	var res FormalMatchPhase
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNFormalMatchPhase2rctHubBackendᚋinternalᚋgraphqlᚐFormalMatchPhase(ctx context.Context, sel ast.SelectionSet, v FormalMatchPhase) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNFormalPoolSlot2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalPoolSlotᚄ(ctx context.Context, sel ast.SelectionSet, v []*FormalPoolSlot) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNFormalPoolSlot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalPoolSlot(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNFormalPoolSlot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalPoolSlot(ctx context.Context, sel ast.SelectionSet, v *FormalPoolSlot) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._FormalPoolSlot(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNFormalRoster2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalRoster(ctx context.Context, sel ast.SelectionSet, v *FormalRoster) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._FormalRoster(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNFormalRosters2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalRosters(ctx context.Context, sel ast.SelectionSet, v *FormalRosters) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._FormalRosters(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNFormalTimer2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalTimer(ctx context.Context, sel ast.SelectionSet, v *FormalTimer) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._FormalTimer(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNID2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalID(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -22216,6 +20503,64 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNID2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNID2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNID2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNID2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNID2ᚕᚕstringᚄ(ctx context.Context, v any) ([][]string, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([][]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNID2ᚕstringᚄ(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNID2ᚕᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v [][]string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNID2ᚕstringᚄ(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
@@ -22234,25 +20579,12 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) unmarshalNInt2ᚕintᚄ(ctx context.Context, v any) ([]int, error) {
-	vSlice := graphql.CoerceList(v)
-	var err error
-	res := make([]int, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNInt2int(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) marshalNInt2ᚕintᚄ(ctx context.Context, sel ast.SelectionSet, v []int) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	for i := range v {
-		ret[i] = ec.marshalNInt2int(ctx, sel, v[i])
-	}
+func (ec *executionContext) marshalNLegalPlacement2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐLegalPlacementᚄ(ctx context.Context, sel ast.SelectionSet, v []*LegalPlacement) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNLegalPlacement2ᚖrctHubBackendᚋinternalᚋgraphqlᚐLegalPlacement(ctx, sel, v[i])
+	})
 
 	for _, e := range ret {
 		if e == graphql.Null {
@@ -22263,26 +20595,14 @@ func (ec *executionContext) marshalNInt2ᚕintᚄ(ctx context.Context, sel ast.S
 	return ret
 }
 
-func (ec *executionContext) unmarshalNJSON2map(ctx context.Context, v any) (map[string]any, error) {
-	res, err := graphql.UnmarshalMap(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNJSON2map(ctx context.Context, sel ast.SelectionSet, v map[string]any) graphql.Marshaler {
+func (ec *executionContext) marshalNLegalPlacement2ᚖrctHubBackendᚋinternalᚋgraphqlᚐLegalPlacement(ctx context.Context, sel ast.SelectionSet, v *LegalPlacement) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	_ = sel
-	res := graphql.MarshalMap(v)
-	if res == graphql.Null {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-	}
-	return res
+	return ec._LegalPlacement(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNMappool2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMappool(ctx context.Context, sel ast.SelectionSet, v *Mappool) graphql.Marshaler {
@@ -22319,6 +20639,76 @@ func (ec *executionContext) marshalNMatch2ᚖrctHubBackendᚋinternalᚋgraphql�
 		return graphql.Null
 	}
 	return ec._Match(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNMatchAction2rctHubBackendᚋinternalᚋgraphqlᚐMatchAction(ctx context.Context, v any) (MatchAction, error) {
+	var res MatchAction
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMatchAction2rctHubBackendᚋinternalᚋgraphqlᚐMatchAction(ctx context.Context, sel ast.SelectionSet, v MatchAction) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNMatchAction2ᚕrctHubBackendᚋinternalᚋgraphqlᚐMatchActionᚄ(ctx context.Context, v any) ([]MatchAction, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]MatchAction, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNMatchAction2rctHubBackendᚋinternalᚋgraphqlᚐMatchAction(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNMatchAction2ᚕrctHubBackendᚋinternalᚋgraphqlᚐMatchActionᚄ(ctx context.Context, sel ast.SelectionSet, v []MatchAction) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMatchAction2rctHubBackendᚋinternalᚋgraphqlᚐMatchAction(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNMatchActorAnalysis2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchActorAnalysis(ctx context.Context, sel ast.SelectionSet, v *MatchActorAnalysis) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._MatchActorAnalysis(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNMatchActorCapability2rctHubBackendᚋinternalᚋgraphqlᚐMatchActorCapability(ctx context.Context, v any) (MatchActorCapability, error) {
+	var res MatchActorCapability
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMatchActorCapability2rctHubBackendᚋinternalᚋgraphqlᚐMatchActorCapability(ctx context.Context, sel ast.SelectionSet, v MatchActorCapability) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNMatchCommandActor2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchCommandActor(ctx context.Context, sel ast.SelectionSet, v *MatchCommandActor) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._MatchCommandActor(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNMatchCommandEvent2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchCommandEventᚄ(ctx context.Context, sel ast.SelectionSet, v []*MatchCommandEvent) graphql.Marshaler {
@@ -22361,6 +20751,46 @@ func (ec *executionContext) marshalNMatchCommandResult2ᚖrctHubBackendᚋintern
 	return ec._MatchCommandResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNMatchErrorCode2rctHubBackendᚋinternalᚋgraphqlᚐMatchErrorCode(ctx context.Context, v any) (MatchErrorCode, error) {
+	var res MatchErrorCode
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMatchErrorCode2rctHubBackendᚋinternalᚋgraphqlᚐMatchErrorCode(ctx context.Context, sel ast.SelectionSet, v MatchErrorCode) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNMatchEventFact2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchEventFact(ctx context.Context, sel ast.SelectionSet, v *MatchEventFact) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._MatchEventFact(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNMatchEventType2rctHubBackendᚋinternalᚋgraphqlᚐMatchEventType(ctx context.Context, v any) (MatchEventType, error) {
+	var res MatchEventType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMatchEventType2rctHubBackendᚋinternalᚋgraphqlᚐMatchEventType(ctx context.Context, sel ast.SelectionSet, v MatchEventType) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNMatchLifecycle2rctHubBackendᚋinternalᚋgraphqlᚐMatchLifecycle(ctx context.Context, v any) (MatchLifecycle, error) {
+	var res MatchLifecycle
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMatchLifecycle2rctHubBackendᚋinternalᚋgraphqlᚐMatchLifecycle(ctx context.Context, sel ast.SelectionSet, v MatchLifecycle) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalNMatchPage2rctHubBackendᚋinternalᚋgraphqlᚐMatchPage(ctx context.Context, sel ast.SelectionSet, v MatchPage) graphql.Marshaler {
 	return ec._MatchPage(ctx, sel, &v)
 }
@@ -22375,41 +20805,11 @@ func (ec *executionContext) marshalNMatchPage2ᚖrctHubBackendᚋinternalᚋgrap
 	return ec._MatchPage(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNMatchPhase2rctHubBackendᚋinternalᚋgraphqlᚐMatchPhase(ctx context.Context, v any) (MatchPhase, error) {
-	var res MatchPhase
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNMatchPhase2rctHubBackendᚋinternalᚋgraphqlᚐMatchPhase(ctx context.Context, sel ast.SelectionSet, v MatchPhase) graphql.Marshaler {
-	return v
-}
-
-func (ec *executionContext) unmarshalNMatchStatus2rctHubBackendᚋinternalᚋgraphqlᚐMatchStatus(ctx context.Context, v any) (MatchStatus, error) {
-	var res MatchStatus
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNMatchStatus2rctHubBackendᚋinternalᚋgraphqlᚐMatchStatus(ctx context.Context, sel ast.SelectionSet, v MatchStatus) graphql.Marshaler {
-	return v
-}
-
-func (ec *executionContext) marshalNMatchTeams2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchTeams(ctx context.Context, sel ast.SelectionSet, v *MatchTeams) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._MatchTeams(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNMove2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐMoveᚄ(ctx context.Context, sel ast.SelectionSet, v []*Move) graphql.Marshaler {
+func (ec *executionContext) marshalNMatchPoolSlotMetadata2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchPoolSlotMetadataᚄ(ctx context.Context, sel ast.SelectionSet, v []*MatchPoolSlotMetadata) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNMove2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMove(ctx, sel, v[i])
+		return ec.marshalNMatchPoolSlotMetadata2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchPoolSlotMetadata(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -22421,24 +20821,34 @@ func (ec *executionContext) marshalNMove2ᚕᚖrctHubBackendᚋinternalᚋgraphq
 	return ret
 }
 
-func (ec *executionContext) marshalNMove2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMove(ctx context.Context, sel ast.SelectionSet, v *Move) graphql.Marshaler {
+func (ec *executionContext) marshalNMatchPoolSlotMetadata2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchPoolSlotMetadata(ctx context.Context, sel ast.SelectionSet, v *MatchPoolSlotMetadata) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._Move(ctx, sel, v)
+	return ec._MatchPoolSlotMetadata(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNMoveType2rctHubBackendᚋinternalᚋgraphqlᚐMoveType(ctx context.Context, v any) (MoveType, error) {
-	var res MoveType
+func (ec *executionContext) unmarshalNMatchResultReason2rctHubBackendᚋinternalᚋgraphqlᚐMatchResultReason(ctx context.Context, v any) (MatchResultReason, error) {
+	var res MatchResultReason
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNMoveType2rctHubBackendᚋinternalᚋgraphqlᚐMoveType(ctx context.Context, sel ast.SelectionSet, v MoveType) graphql.Marshaler {
+func (ec *executionContext) marshalNMatchResultReason2rctHubBackendᚋinternalᚋgraphqlᚐMatchResultReason(ctx context.Context, sel ast.SelectionSet, v MatchResultReason) graphql.Marshaler {
 	return v
+}
+
+func (ec *executionContext) marshalNMatchSnapshot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchSnapshot(ctx context.Context, sel ast.SelectionSet, v *MatchSnapshot) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._MatchSnapshot(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNObjectID2string(ctx context.Context, v any) (string, error) {
@@ -22553,30 +20963,14 @@ func (ec *executionContext) marshalNPoolSlotGroup2ᚖrctHubBackendᚋinternalᚋ
 	return ec._PoolSlotGroup(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNPosition2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐPositionᚄ(ctx context.Context, sel ast.SelectionSet, v []*Position) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNPosition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPosition(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
+func (ec *executionContext) unmarshalNPoolSlotState2rctHubBackendᚋinternalᚋgraphqlᚐPoolSlotState(ctx context.Context, v any) (PoolSlotState, error) {
+	var res PoolSlotState
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNPosition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPosition(ctx context.Context, sel ast.SelectionSet, v *Position) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._Position(ctx, sel, v)
+func (ec *executionContext) marshalNPoolSlotState2rctHubBackendᚋinternalᚋgraphqlᚐPoolSlotState(ctx context.Context, sel ast.SelectionSet, v PoolSlotState) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNPositionInput2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPositionInput(ctx context.Context, v any) (*PositionInput, error) {
@@ -22624,20 +21018,6 @@ func (ec *executionContext) unmarshalNRefereeRobPieceInput2rctHubBackendᚋinter
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNRefereeView2rctHubBackendᚋinternalᚋgraphqlᚐRefereeView(ctx context.Context, sel ast.SelectionSet, v RefereeView) graphql.Marshaler {
-	return ec._RefereeView(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNRefereeView2ᚖrctHubBackendᚋinternalᚋgraphqlᚐRefereeView(ctx context.Context, sel ast.SelectionSet, v *RefereeView) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._RefereeView(ctx, sel, v)
-}
-
 func (ec *executionContext) unmarshalNRequestTbInput2rctHubBackendᚋinternalᚋgraphqlᚐRequestTbInput(ctx context.Context, v any) (RequestTbInput, error) {
 	res, err := ec.unmarshalInputRequestTbInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -22651,6 +21031,32 @@ func (ec *executionContext) unmarshalNRespondTbRequestInput2rctHubBackendᚋinte
 func (ec *executionContext) unmarshalNRobPieceInput2rctHubBackendᚋinternalᚋgraphqlᚐRobPieceInput(ctx context.Context, v any) (RobPieceInput, error) {
 	res, err := ec.unmarshalInputRobPieceInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRobberyPlan2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐRobberyPlanᚄ(ctx context.Context, sel ast.SelectionSet, v []*RobberyPlan) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNRobberyPlan2ᚖrctHubBackendᚋinternalᚋgraphqlᚐRobberyPlan(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNRobberyPlan2ᚖrctHubBackendᚋinternalᚋgraphqlᚐRobberyPlan(ctx context.Context, sel ast.SelectionSet, v *RobberyPlan) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._RobberyPlan(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNRoom2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐRoomᚄ(ctx context.Context, sel ast.SelectionSet, v []*Room) graphql.Marshaler {
@@ -22727,20 +21133,6 @@ func (ec *executionContext) marshalNSpectatorView2ᚖrctHubBackendᚋinternalᚋ
 	return ec._SpectatorView(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNStrategistView2rctHubBackendᚋinternalᚋgraphqlᚐStrategistView(ctx context.Context, sel ast.SelectionSet, v StrategistView) graphql.Marshaler {
-	return ec._StrategistView(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNStrategistView2ᚖrctHubBackendᚋinternalᚋgraphqlᚐStrategistView(ctx context.Context, sel ast.SelectionSet, v *StrategistView) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._StrategistView(ctx, sel, v)
-}
-
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -22815,50 +21207,34 @@ func (ec *executionContext) marshalNString2ᚕᚕstringᚄ(ctx context.Context, 
 	return ret
 }
 
-func (ec *executionContext) marshalNTeam2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeam(ctx context.Context, sel ast.SelectionSet, v *Team) graphql.Marshaler {
+func (ec *executionContext) unmarshalNTBBasis2rctHubBackendᚋinternalᚋgraphqlᚐTBBasis(ctx context.Context, v any) (TBBasis, error) {
+	var res TBBasis
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNTBBasis2rctHubBackendᚋinternalᚋgraphqlᚐTBBasis(ctx context.Context, sel ast.SelectionSet, v TBBasis) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNTeamCounts2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamCounts(ctx context.Context, sel ast.SelectionSet, v *TeamCounts) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._Team(ctx, sel, v)
+	return ec._TeamCounts(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTeamScore2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamScoreᚄ(ctx context.Context, sel ast.SelectionSet, v []*TeamScore) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNTeamScore2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamScore(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNTeamScore2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamScore(ctx context.Context, sel ast.SelectionSet, v *TeamScore) graphql.Marshaler {
+func (ec *executionContext) marshalNTeamFlags2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamFlags(ctx context.Context, sel ast.SelectionSet, v *TeamFlags) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._TeamScore(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNTeamScores2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamScores(ctx context.Context, sel ast.SelectionSet, v *TeamScores) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._TeamScores(ctx, sel, v)
+	return ec._TeamFlags(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx context.Context, v any) (TeamSide, error) {
@@ -22869,6 +21245,36 @@ func (ec *executionContext) unmarshalNTeamSide2rctHubBackendᚋinternalᚋgraphq
 
 func (ec *executionContext) marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx context.Context, sel ast.SelectionSet, v TeamSide) graphql.Marshaler {
 	return v
+}
+
+func (ec *executionContext) unmarshalNTeamSide2ᚕrctHubBackendᚋinternalᚋgraphqlᚐTeamSideᚄ(ctx context.Context, v any) ([]TeamSide, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]TeamSide, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNTeamSide2ᚕrctHubBackendᚋinternalᚋgraphqlᚐTeamSideᚄ(ctx context.Context, sel ast.SelectionSet, v []TeamSide) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {
@@ -22887,44 +21293,20 @@ func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel as
 	return res
 }
 
-func (ec *executionContext) marshalNTimerDisplay2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTimerDisplay(ctx context.Context, sel ast.SelectionSet, v *TimerDisplay) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._TimerDisplay(ctx, sel, v)
+func (ec *executionContext) unmarshalNUInt642string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNTimerInfo2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTimerInfo(ctx context.Context, sel ast.SelectionSet, v *TimerInfo) graphql.Marshaler {
-	if v == nil {
+func (ec *executionContext) marshalNUInt642string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
 		}
-		return graphql.Null
 	}
-	return ec._TimerInfo(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNTimerState2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTimerState(ctx context.Context, sel ast.SelectionSet, v *TimerState) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._TimerState(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNTurnState2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTurnState(ctx context.Context, sel ast.SelectionSet, v *TurnState) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._TurnState(ctx, sel, v)
+	return res
 }
 
 func (ec *executionContext) marshalNUser2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐUserᚄ(ctx context.Context, sel ast.SelectionSet, v []*User) graphql.Marshaler {
@@ -23015,42 +21397,6 @@ func (ec *executionContext) unmarshalNVerifyStatus2rctHubBackendᚋinternalᚋgr
 
 func (ec *executionContext) marshalNVerifyStatus2rctHubBackendᚋinternalᚋgraphqlᚐVerifyStatus(ctx context.Context, sel ast.SelectionSet, v VerifyStatus) graphql.Marshaler {
 	return v
-}
-
-func (ec *executionContext) unmarshalNWinReason2rctHubBackendᚋinternalᚋgraphqlᚐWinReason(ctx context.Context, v any) (WinReason, error) {
-	var res WinReason
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNWinReason2rctHubBackendᚋinternalᚋgraphqlᚐWinReason(ctx context.Context, sel ast.SelectionSet, v WinReason) graphql.Marshaler {
-	return v
-}
-
-func (ec *executionContext) marshalNWinningAlignment2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐWinningAlignmentᚄ(ctx context.Context, sel ast.SelectionSet, v []*WinningAlignment) graphql.Marshaler {
-	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
-		fc := graphql.GetFieldContext(ctx)
-		fc.Result = &v[i]
-		return ec.marshalNWinningAlignment2ᚖrctHubBackendᚋinternalᚋgraphqlᚐWinningAlignment(ctx, sel, v[i])
-	})
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
-}
-
-func (ec *executionContext) marshalNWinningAlignment2ᚖrctHubBackendᚋinternalᚋgraphqlᚐWinningAlignment(ctx context.Context, sel ast.SelectionSet, v *WinningAlignment) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._WinningAlignment(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
@@ -23200,25 +21546,11 @@ func (ec *executionContext) marshalOAnnouncement2ᚖrctHubBackendᚋinternalᚋg
 	return ec._Announcement(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOBPOrder2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBPOrder(ctx context.Context, sel ast.SelectionSet, v *BPOrder) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._BPOrder(ctx, sel, v)
-}
-
 func (ec *executionContext) marshalOBeatmap2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBeatmap(ctx context.Context, sel ast.SelectionSet, v *Beatmap) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Beatmap(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalOBoard2ᚖrctHubBackendᚋinternalᚋgraphqlᚐBoard(ctx context.Context, sel ast.SelectionSet, v *Board) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._Board(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v any) (bool, error) {
@@ -23251,11 +21583,11 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
-func (ec *executionContext) marshalODomainEventSnapshot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐDomainEventSnapshot(ctx context.Context, sel ast.SelectionSet, v *DomainEventSnapshot) graphql.Marshaler {
+func (ec *executionContext) marshalOCaptainView2ᚖrctHubBackendᚋinternalᚋgraphqlᚐCaptainView(ctx context.Context, sel ast.SelectionSet, v *CaptainView) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	return ec._DomainEventSnapshot(ctx, sel, v)
+	return ec._CaptainView(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOFloat2ᚖfloat64(ctx context.Context, v any) (*float64, error) {
@@ -23273,6 +21605,36 @@ func (ec *executionContext) marshalOFloat2ᚖfloat64(ctx context.Context, sel as
 	_ = sel
 	res := graphql.MarshalFloatContext(*v)
 	return graphql.WrapContextMarshaler(ctx, res)
+}
+
+func (ec *executionContext) unmarshalOForceMod2ᚖrctHubBackendᚋinternalᚋgraphqlᚐForceMod(ctx context.Context, v any) (*ForceMod, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(ForceMod)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOForceMod2ᚖrctHubBackendᚋinternalᚋgraphqlᚐForceMod(ctx context.Context, sel ast.SelectionSet, v *ForceMod) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
+func (ec *executionContext) marshalOFormalBoardPiece2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalBoardPiece(ctx context.Context, sel ast.SelectionSet, v *FormalBoardPiece) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._FormalBoardPiece(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOFormalMatchResult2ᚖrctHubBackendᚋinternalᚋgraphqlᚐFormalMatchResult(ctx context.Context, sel ast.SelectionSet, v *FormalMatchResult) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._FormalMatchResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {
@@ -23311,36 +21673,27 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
-func (ec *executionContext) unmarshalOJSON2map(ctx context.Context, v any) (map[string]any, error) {
-	if v == nil {
-		return nil, nil
-	}
-	res, err := graphql.UnmarshalMap(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOJSON2map(ctx context.Context, sel ast.SelectionSet, v map[string]any) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	_ = sel
-	_ = ctx
-	res := graphql.MarshalMap(v)
-	return res
-}
-
-func (ec *executionContext) marshalOMappool2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMappool(ctx context.Context, sel ast.SelectionSet, v *Mappool) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._Mappool(ctx, sel, v)
-}
-
 func (ec *executionContext) marshalOMatch2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatch(ctx context.Context, sel ast.SelectionSet, v *Match) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Match(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOMatchCommandDisposition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchCommandDisposition(ctx context.Context, v any) (*MatchCommandDisposition, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(MatchCommandDisposition)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOMatchCommandDisposition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchCommandDisposition(ctx context.Context, sel ast.SelectionSet, v *MatchCommandDisposition) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) marshalOMatchError2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchError(ctx context.Context, sel ast.SelectionSet, v *MatchError) graphql.Marshaler {
@@ -23350,78 +21703,18 @@ func (ec *executionContext) marshalOMatchError2ᚖrctHubBackendᚋinternalᚋgra
 	return ec._MatchError(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOMatchPhase2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchPhase(ctx context.Context, v any) (*MatchPhase, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var res = new(MatchPhase)
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOMatchPhase2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchPhase(ctx context.Context, sel ast.SelectionSet, v *MatchPhase) graphql.Marshaler {
+func (ec *executionContext) marshalOMatchSnapshot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchSnapshot(ctx context.Context, sel ast.SelectionSet, v *MatchSnapshot) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	return v
+	return ec._MatchSnapshot(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOMatchResult2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchResult(ctx context.Context, sel ast.SelectionSet, v *MatchResult) graphql.Marshaler {
+func (ec *executionContext) marshalOPendingTBRequest2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPendingTBRequest(ctx context.Context, sel ast.SelectionSet, v *PendingTBRequest) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	return ec._MatchResult(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalOMatchStatus2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchStatus(ctx context.Context, v any) (*MatchStatus, error) {
-	if v == nil {
-		return nil, nil
-	}
-	var res = new(MatchStatus)
-	err := res.UnmarshalGQL(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOMatchStatus2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchStatus(ctx context.Context, sel ast.SelectionSet, v *MatchStatus) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return v
-}
-
-func (ec *executionContext) marshalOMove2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMove(ctx context.Context, sel ast.SelectionSet, v *Move) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._Move(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalOPieceRender2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPieceRender(ctx context.Context, sel ast.SelectionSet, v *PieceRender) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._PieceRender(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalOPieceSummary2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPieceSummary(ctx context.Context, sel ast.SelectionSet, v *PieceSummary) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._PieceSummary(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalOPlayerScore2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPlayerScore(ctx context.Context, sel ast.SelectionSet, v *PlayerScore) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._PlayerScore(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalOPoolSlot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPoolSlot(ctx context.Context, sel ast.SelectionSet, v *PoolSlot) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._PoolSlot(ctx, sel, v)
+	return ec._PendingTBRequest(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOPosition2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPosition(ctx context.Context, sel ast.SelectionSet, v *Position) graphql.Marshaler {
@@ -23429,6 +21722,13 @@ func (ec *executionContext) marshalOPosition2ᚖrctHubBackendᚋinternalᚋgraph
 		return graphql.Null
 	}
 	return ec._Position(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalORefereeView2ᚖrctHubBackendᚋinternalᚋgraphqlᚐRefereeView(ctx context.Context, sel ast.SelectionSet, v *RefereeView) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._RefereeView(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalORoom2ᚖrctHubBackendᚋinternalᚋgraphqlᚐRoom(ctx context.Context, sel ast.SelectionSet, v *Room) graphql.Marshaler {
@@ -23454,6 +21754,20 @@ func (ec *executionContext) marshalORoomType2ᚖrctHubBackendᚋinternalᚋgraph
 	return v
 }
 
+func (ec *executionContext) marshalOStalemateEvidence2ᚖrctHubBackendᚋinternalᚋgraphqlᚐStalemateEvidence(ctx context.Context, sel ast.SelectionSet, v *StalemateEvidence) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._StalemateEvidence(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOStrategistView2ᚖrctHubBackendᚋinternalᚋgraphqlᚐStrategistView(ctx context.Context, sel ast.SelectionSet, v *StrategistView) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._StrategistView(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {
 	if v == nil {
 		return nil, nil
@@ -23470,6 +21784,29 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = ctx
 	res := graphql.MarshalString(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOTBBasis2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTBBasis(ctx context.Context, v any) (*TBBasis, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(TBBasis)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOTBBasis2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTBBasis(ctx context.Context, sel ast.SelectionSet, v *TBBasis) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
+func (ec *executionContext) marshalOTBEntry2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTBEntry(ctx context.Context, sel ast.SelectionSet, v *TBEntry) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._TBEntry(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx context.Context, v any) (*TeamSide, error) {
@@ -23506,18 +21843,22 @@ func (ec *executionContext) marshalOTime2ᚖtimeᚐTime(ctx context.Context, sel
 	return res
 }
 
-func (ec *executionContext) marshalOTimerState2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTimerState(ctx context.Context, sel ast.SelectionSet, v *TimerState) graphql.Marshaler {
+func (ec *executionContext) unmarshalOUInt642ᚖstring(ctx context.Context, v any) (*string, error) {
 	if v == nil {
-		return graphql.Null
+		return nil, nil
 	}
-	return ec._TimerState(ctx, sel, v)
+	res, err := graphql.UnmarshalString(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOTurnState2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTurnState(ctx context.Context, sel ast.SelectionSet, v *TurnState) graphql.Marshaler {
+func (ec *executionContext) marshalOUInt642ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
-	return ec._TurnState(ctx, sel, v)
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(*v)
+	return res
 }
 
 func (ec *executionContext) marshalOUser2ᚖrctHubBackendᚋinternalᚋgraphqlᚐUser(ctx context.Context, sel ast.SelectionSet, v *User) graphql.Marshaler {

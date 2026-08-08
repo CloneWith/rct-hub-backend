@@ -18,6 +18,10 @@ resolver:
   package: graphql
   filename_template: "{name}.resolvers.go"
 
+# Dependency ownership belongs to go.mod updates, not schema generation.
+# This also keeps deterministic codegen usable in restricted CI/dev networks.
+skip_mod_tidy: true
+
 # 自定义标量映射
 models:
   # Time → time.Time (gqlgen 内置, 序列化为 RFC3339 字符串)
@@ -26,10 +30,10 @@ models:
   # ObjectID → string (bson.ObjectID.Hex(), 在 resolver 中手动转换)
   ObjectID:
     model: github.com/99designs/gqlgen/graphql.String
-  # JSON → map[string]interface{} (gqlgen 内置 Scalar)
-  JSON:
-    model: github.com/99designs/gqlgen/graphql.Map
-
-# Phase 2: directive 实现在 directive.go 中
-# @requireRole: 检查 JWT claims 中的角色
-# @public: no-op pass-through
+  UInt64:
+    model: github.com/99designs/gqlgen/graphql.String
+  Match:
+    extraFields:
+      State:
+        description: "Authoritative state captured with this GraphQL object; never exposed directly."
+        type: rctHubBackend/internal/matchengine.State

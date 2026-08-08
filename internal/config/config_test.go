@@ -13,6 +13,8 @@ func isolateConfigEnv(t *testing.T) {
 		"MONGODB_URI", "MONGODB_NAME",
 		"REDIS_ADDR", "REDIS_PASSWORD", "REDIS_DB",
 		"JWT_SECRET", "JWT_EXPIRY_HOURS",
+		"AUTH_COOKIE_NAME", "AUTH_COOKIE_DOMAIN", "AUTH_COOKIE_SECURE", "AUTH_COOKIE_SAME_SITE",
+		"AUTH_SESSION_IDLE_HOURS", "AUTH_SESSION_MAX_HOURS",
 		"OSU_CLIENT_ID", "OSU_CLIENT_SECRET", "OSU_REDIRECT_URI", "OSU_API_BASE",
 		"OSU_FETCHER_USER_CACHE_TTL_MIN", "OSU_FETCHER_BEATMAP_CACHE_TTL_HR",
 		"ALLOWED_ORIGINS",
@@ -73,6 +75,17 @@ func TestLoad_DefaultValues(t *testing.T) {
 	if cfg.Redis.DB != 0 {
 		t.Errorf("expected default redis db 0, got %d", cfg.Redis.DB)
 	}
+	if cfg.AuthSession.IdleExpiry.Hours() != 24 || cfg.AuthSession.AbsoluteExpiry.Hours() != 168 {
+		t.Errorf("unexpected browser session expiry: %+v", cfg.AuthSession)
+	}
+}
+
+func TestLoadRejectsInvalidBrowserSessionExpiry(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("ENV_FILE", writeTempEnv(t, "JWT_SECRET=this-is-a-32-byte-secret-key-for-test!\nAUTH_SESSION_IDLE_HOURS=48\nAUTH_SESSION_MAX_HOURS=24\n"))
+	if _, err := Load(); err == nil {
+		t.Fatal("expected absolute session expiry shorter than idle expiry to be rejected")
+	}
 }
 
 func TestLoad_FromEnvFile(t *testing.T) {
@@ -128,5 +141,41 @@ func TestLoad_RejectsNonPositiveFetcherTTL(t *testing.T) {
 				t.Fatal("expected non-positive fetcher TTL to be rejected")
 			}
 		})
+	}
+}
+
+func TestLoadRejectsCredentialedWildcardCORS(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("ENV_FILE", writeTempEnv(t, "JWT_SECRET=this-is-a-32-byte-secret-key-for-test!\nALLOWED_ORIGINS=*\n"))
+	if _, err := Load(); err == nil {
+		t.Fatal("expected wildcard CORS to be rejected")
+	}
+}
+
+func TestLoadRequiresSecureProductionCookie(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("ENV_FILE", writeTempEnv(t, "JWT_SECRET=this-is-a-32-byte-secret-key-for-test!\nAPP_ENV=production\nAUTH_COOKIE_SECURE=false\n"))
+	if _, err := Load(); err == nil {
+		t.Fatal("expected insecure production cookie to be rejected")
+	}
+}
+
+func TestLoadRejectsInvalidCookieBoolean(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("ENV_FILE", writeTempEnv(t, "JWT_SECRET=this-is-a-32-byte-secret-key-for-test!\nAUTH_COOKIE_SECURE=maybe\n"))
+	if _, err := Load(); err == nil {
+		t.Fatal("expected invalid AUTH_COOKIE_SECURE to be rejected")
+	}
+}
+
+func TestLoadAcceptsExactHTTPSProductionBrowserConfig(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("ENV_FILE", writeTempEnv(t, "JWT_SECRET=this-is-a-32-byte-secret-key-for-test!\nAPP_ENV=production\nFRONTEND_URI=https://rct.example\nALLOWED_ORIGINS=https://rct.example\nAUTH_COOKIE_SECURE=true\n"))
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.AuthCookie.Secure || len(cfg.CORS.AllowedOrigins) != 1 {
+		t.Fatalf("production browser config = %+v", cfg)
 	}
 }

@@ -20,6 +20,7 @@ type MatchRepository interface {
 	ByID(ctx context.Context, id bson.ObjectID) (*domain.Match, error)
 	ByCode(ctx context.Context, code string) (*domain.Match, error)
 	List(ctx context.Context, params paginate.Params, status *domain.MatchStatus) (paginate.Result[domain.Match], error)
+	ListFormal(ctx context.Context, params paginate.Params) (paginate.Result[domain.Match], error)
 }
 
 type matchRepo struct {
@@ -104,6 +105,28 @@ func (r *matchRepo) List(ctx context.Context, params paginate.Params, status *do
 	defer cur.Close(ctx)
 	var matches []domain.Match
 	if err := cur.All(ctx, &matches); err != nil {
+		return paginate.Result[domain.Match]{}, err
+	}
+	return paginate.NewResult(matches, params, total), nil
+}
+
+// ListFormal pages only tournament-room match shells. Authoritative state is
+// batch-loaded separately by FormalMatchReadService.
+func (r *matchRepo) ListFormal(ctx context.Context, params paginate.Params) (paginate.Result[domain.Match], error) {
+	params.Normalize()
+	filter := bson.M{"room_type": domain.RoomTypeMatch}
+	total, err := r.coll.CountDocuments(ctx, filter)
+	if err != nil {
+		return paginate.Result[domain.Match]{}, err
+	}
+	opts := options.Find().SetSkip(params.Skip()).SetLimit(params.PerPage).SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := r.coll.Find(ctx, filter, opts)
+	if err != nil {
+		return paginate.Result[domain.Match]{}, err
+	}
+	defer cursor.Close(ctx)
+	var matches []domain.Match
+	if err := cursor.All(ctx, &matches); err != nil {
 		return paginate.Result[domain.Match]{}, err
 	}
 	return paginate.NewResult(matches, params, total), nil

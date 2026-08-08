@@ -65,15 +65,21 @@ func TestSchemaIntrospection(t *testing.T) {
 		typeNames[tp.Name] = true
 	}
 	expectedTypes := []string{
-		"User", "Room", "RoomSettings", "Match", "MatchTeams", "Team",
-		"Board", "BoardCell", "Piece", "Position", "Mappool", "PoolSlotGroup",
-		"PoolSlot", "Beatmap", "Move", "PlayerScore", "BPOrder",
-		"TurnState", "TimerState", "Announcement",
+		"User", "Room", "RoomSettings", "Match", "MatchSnapshot",
+		"FormalBoard", "FormalBoardCell", "FormalBoardPiece", "FormalTimer",
+		"FormalPoolSlot", "FormalRosters", "FormalRoster", "Position",
+		"Mappool", "PoolSlotGroup", "PoolSlot", "Beatmap", "Announcement",
+		"StrategistView", "CaptainView", "SpectatorView", "OverlayView", "RefereeView",
 		"MatchPage", "RoomPage", "BeatmapPage", "UserPage", "AnnouncementPage",
 	}
 	for _, et := range expectedTypes {
 		if !typeNames[et] {
 			t.Errorf("expected type %s in schema, not found", et)
+		}
+	}
+	for _, removed := range []string{"MatchTeams", "Board", "BoardCell", "Move", "TurnState", "TimerState"} {
+		if typeNames[removed] {
+			t.Errorf("legacy type %s remains in the Web contract", removed)
 		}
 	}
 
@@ -124,8 +130,8 @@ func TestMapUser(t *testing.T) {
 	if gqlUser.ID != u.ID.Hex() {
 		t.Errorf("ID: expected %s, got %s", u.ID.Hex(), gqlUser.ID)
 	}
-	if gqlUser.OnlineID != 12345 {
-		t.Errorf("OnlineID: expected 12345, got %d", gqlUser.OnlineID)
+	if gqlUser.OnlineID != "12345" {
+		t.Errorf("OnlineID: expected 12345, got %s", gqlUser.OnlineID)
 	}
 	if gqlUser.Username != "testuser" {
 		t.Errorf("Username: expected testuser, got %s", gqlUser.Username)
@@ -149,113 +155,16 @@ func TestMapUser(t *testing.T) {
 	t.Logf("✓ mapUser: all fields correctly mapped")
 }
 
-func TestMapMatch(t *testing.T) {
-	red := domain.TeamSideRed
-	pausedAt := time.Date(2026, time.July, 30, 12, 0, 0, 0, time.UTC)
-	timer := domain.NewTimerState(60*time.Second, 15*time.Second)
-	timer.BonusUsed = true
-	timer.IsPaused = true
-	timer.PausedAt = &pausedAt
-	timer.RemainingAtPause = 23 * time.Second
-	match := &domain.Match{
-		ID:       bson.NewObjectID(),
-		RoomID:   bson.NewObjectID(),
-		Code:     "MATCH001",
-		Name:     "Test Match",
-		RoomType: domain.RoomTypeMatch,
-		Status:   domain.MatchStatusActive,
-		TeamRed:  domain.Team{ID: bson.NewObjectID(), Side: domain.TeamSideRed, Name: "Red Team"},
-		TeamBlue: domain.Team{ID: bson.NewObjectID(), Side: domain.TeamSideBlue, Name: "Blue Team"},
-		Board:    domain.NewBoard(),
-		Mappool:  domain.NewMappool(),
-		BPOrder:  domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue},
-		TurnState: domain.TurnState{
-			Phase:      domain.MatchPhaseBan,
-			Counter:    -3,
-			ActiveTeam: &red,
-			Action:     domain.TurnActionBan,
-			TimeLimit:  60 * time.Second,
-			BonusTime:  15 * time.Second,
-		},
-		Timer: timer,
+func TestOsuIDContractDoesNotTruncateAtGraphQLInt32(t *testing.T) {
+	const largeID int64 = 4_294_967_296
+	mapped := mapUser(&domain.User{OnlineID: largeID})
+	if mapped.OnlineID != "4294967296" {
+		t.Fatalf("mapped osu ID = %q", mapped.OnlineID)
 	}
-
-	gqlMatch := mapMatch(match)
-
-	if gqlMatch.ID != match.ID.Hex() {
-		t.Errorf("ID mismatch")
+	parsed, err := parsePositiveInt64ID(mapped.OnlineID)
+	if err != nil || parsed != largeID {
+		t.Fatalf("parsed osu ID = %d, %v", parsed, err)
 	}
-	if gqlMatch.Code != "MATCH001" {
-		t.Errorf("Code: expected MATCH001, got %s", gqlMatch.Code)
-	}
-	if gqlMatch.RoomType != RoomType("MATCH") {
-		t.Errorf("RoomType: expected MATCH, got %s", gqlMatch.RoomType)
-	}
-	if gqlMatch.Status != MatchStatus("ACTIVE") {
-		t.Errorf("Status: expected ACTIVE, got %s", gqlMatch.Status)
-	}
-	if gqlMatch.Phase == nil || *gqlMatch.Phase != MatchPhase("BAN") {
-		t.Errorf("Phase: expected BAN, got %v", gqlMatch.Phase)
-	}
-	if gqlMatch.ActiveTeam == nil || *gqlMatch.ActiveTeam != TeamSide("RED") {
-		t.Errorf("ActiveTeam: expected RED, got %v", gqlMatch.ActiveTeam)
-	}
-	if gqlMatch.RoomID != match.RoomID.Hex() {
-		t.Errorf("RoomID mismatch")
-	}
-	if gqlMatch.Teams == nil || gqlMatch.Teams.Red == nil || gqlMatch.Teams.Red.Name != "Red Team" {
-		t.Errorf("Teams.Red not mapped correctly")
-	}
-	if gqlMatch.Board == nil || gqlMatch.Board.Rows != 4 || gqlMatch.Board.Cols != 4 {
-		t.Errorf("Board not mapped correctly")
-	}
-	if gqlMatch.BpOrder == nil || gqlMatch.BpOrder.FirstPick != TeamSide("RED") {
-		t.Errorf("BpOrder.FirstPick: expected RED, got %v", gqlMatch.BpOrder)
-	}
-	if gqlMatch.TurnState == nil || gqlMatch.TurnState.Counter != -3 {
-		t.Errorf("TurnState.Counter: expected -3, got %v", gqlMatch.TurnState)
-	}
-	if gqlMatch.TurnState.TimeLimit == nil || *gqlMatch.TurnState.TimeLimit != 60 {
-		t.Errorf("TurnState.TimeLimit: expected 60, got %v", gqlMatch.TurnState.TimeLimit)
-	}
-	if gqlMatch.Timer == nil || gqlMatch.Timer.TimeLimit != 60 {
-		t.Errorf("Timer.TimeLimit: expected 60, got %v", gqlMatch.Timer)
-	}
-	if gqlMatch.Timer.BonusTime != 15 || !gqlMatch.Timer.BonusUsed || !gqlMatch.Timer.IsPaused ||
-		gqlMatch.Timer.PausedAt == nil || !gqlMatch.Timer.PausedAt.Equal(pausedAt) ||
-		gqlMatch.Timer.RemainingAtPause == nil || *gqlMatch.Timer.RemainingAtPause != 23 {
-		t.Errorf("Timer contract fields were not preserved: %+v", gqlMatch.Timer)
-	}
-
-	t.Logf("✓ mapMatch: all fields correctly mapped")
-}
-
-func TestMapBoard(t *testing.T) {
-	board := domain.NewBoard()
-	gqlBoard := mapBoard(&board)
-
-	if gqlBoard.Rows != 4 || gqlBoard.Cols != 4 {
-		t.Fatalf("Board dimensions: expected 4x4, got %dx%d", gqlBoard.Cols, gqlBoard.Rows)
-	}
-	if len(gqlBoard.Cells) != 4 || len(gqlBoard.Cells[0]) != 4 {
-		t.Fatalf("Cells: expected 4x4, got %dx%d", len(gqlBoard.Cells[0]), len(gqlBoard.Cells))
-	}
-
-	// 验证 zone 映射
-	cell00 := gqlBoard.Cells[0][0]
-	if cell00.Zone != BoardZone("HD") {
-		t.Errorf("Cell(0,0) Zone: expected HD, got %s", cell00.Zone)
-	}
-	if cell00.Position.Row != 0 || cell00.Position.Col != 0 {
-		t.Errorf("Cell(0,0) Position: expected (0,0), got row=%d col=%d", cell00.Position.Row, cell00.Position.Col)
-	}
-
-	cell20 := gqlBoard.Cells[2][0]
-	if cell20.Zone != BoardZone("HR") {
-		t.Errorf("Cell(2,0) Zone: expected HR, got %s", cell20.Zone)
-	}
-
-	t.Logf("✓ mapBoard: 4x4 board with correct zones and positions")
 }
 
 func TestMapPosition(t *testing.T) {
@@ -298,7 +207,7 @@ func TestMapMappool(t *testing.T) {
 		t.Fatalf("NM pieces: expected 2, got %d", len(gqlPool.Slots[0].Pieces))
 	}
 	// 第一个 NM slot: beatmapID=12345, state=NORMAL
-	if gqlPool.Slots[0].Pieces[0].BeatmapID == nil || *gqlPool.Slots[0].Pieces[0].BeatmapID != 12345 {
+	if gqlPool.Slots[0].Pieces[0].BeatmapID == nil || *gqlPool.Slots[0].Pieces[0].BeatmapID != "12345" {
 		t.Errorf("NM-1 BeatmapID: expected 12345, got %v", gqlPool.Slots[0].Pieces[0].BeatmapID)
 	}
 	if gqlPool.Slots[0].Pieces[0].State != PieceState("NORMAL") {

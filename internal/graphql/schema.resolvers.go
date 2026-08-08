@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/matchengine"
-	"rctHubBackend/pkg/paginate"
+	"rctHubBackend/pkg/errs"
+	"strconv"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -24,7 +26,11 @@ func (r *announcementResolver) Author(ctx context.Context, obj *Announcement) (*
 	if loader == nil {
 		return nil, fmt.Errorf("UserLoader not found in context")
 	}
-	u, err := loader.Load(ctx, obj.AuthorID)
+	id, err := parsePositiveInt64ID(obj.AuthorID)
+	if err != nil {
+		return nil, err
+	}
+	u, err := loader.Load(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +43,11 @@ func (r *beatmapResolver) Author(ctx context.Context, obj *Beatmap) (*User, erro
 	if loader == nil {
 		return nil, fmt.Errorf("UserLoader not found in context")
 	}
-	u, err := loader.Load(ctx, obj.AuthorID)
+	id, err := parsePositiveInt64ID(obj.AuthorID)
+	if err != nil {
+		return nil, err
+	}
+	u, err := loader.Load(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -46,14 +56,18 @@ func (r *beatmapResolver) Author(ctx context.Context, obj *Beatmap) (*User, erro
 
 // Selector is the resolver for the selector field.
 func (r *beatmapResolver) Selector(ctx context.Context, obj *Beatmap) (*User, error) {
-	if obj.SelectorID == nil || *obj.SelectorID <= 0 {
+	if obj.SelectorID == nil {
 		return nil, nil
+	}
+	id, err := parsePositiveInt64ID(*obj.SelectorID)
+	if err != nil {
+		return nil, err
 	}
 	loader := UserLoaderFromCtx(ctx)
 	if loader == nil {
 		return nil, fmt.Errorf("UserLoader not found in context")
 	}
-	u, err := loader.Load(ctx, *obj.SelectorID)
+	u, err := loader.Load(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -68,10 +82,11 @@ func (r *beatmapResolver) Credits(ctx context.Context, obj *Beatmap) ([]*User, e
 	}
 	users := make([]*User, 0, len(obj.CreditUserIDs))
 	for _, id := range obj.CreditUserIDs {
-		if id <= 0 {
-			continue
+		parsedID, err := parsePositiveInt64ID(id)
+		if err != nil {
+			return nil, err
 		}
-		u, err := loader.Load(ctx, id)
+		u, err := loader.Load(ctx, parsedID)
 		if err != nil {
 			return nil, err
 		}
@@ -80,72 +95,6 @@ func (r *beatmapResolver) Credits(ctx context.Context, obj *Beatmap) ([]*User, e
 		}
 	}
 	return users, nil
-}
-
-// Result is the resolver for the result field.
-func (r *matchResolver) Result(ctx context.Context, obj *Match) (*MatchResult, error) {
-	matchID, err := bson.ObjectIDFromHex(obj.ID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid match ID: %w", err)
-	}
-
-	result, err := r.svc.Matchs.GetResult(ctx, matchID)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return mapMatchResult(result), nil
-}
-
-// Moves is the resolver for the moves field.
-func (r *matchResolver) Moves(ctx context.Context, obj *Match, limit *int, offset *int) ([]*Move, error) {
-	matchID, err := bson.ObjectIDFromHex(obj.ID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid match ID: %w", err)
-	}
-
-	params := buildPageParams(limit, limit)
-	if offset != nil && *offset > 0 {
-		perPage := params.PerPage
-		if perPage <= 0 {
-			perPage = 50
-		}
-		params.Page = int64(*offset)/perPage + 1
-		params.PerPage = perPage
-	}
-	if params.PerPage <= 0 || params.PerPage > 100 {
-		params.PerPage = 50
-	}
-
-	result, err := r.svc.Moves.ListByMatch(ctx, matchID, params)
-	if err != nil {
-		return nil, err
-	}
-
-	moves := make([]*Move, len(result.Data))
-	for i := range result.Data {
-		moves[i] = mapMove(&result.Data[i])
-	}
-	return moves, nil
-}
-
-// RecentMove is the resolver for the recentMove field.
-func (r *matchResolver) RecentMove(ctx context.Context, obj *Match) (*Move, error) {
-	matchID, err := bson.ObjectIDFromHex(obj.ID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid match ID: %w", err)
-	}
-
-	moves, err := r.svc.Moves.LatestByMatch(ctx, matchID, 1)
-	if err != nil {
-		return nil, err
-	}
-	if len(moves) == 0 {
-		return nil, nil
-	}
-	return mapMove(&moves[0]), nil
 }
 
 // Room is the resolver for the room field.
@@ -167,54 +116,55 @@ func (r *matchResolver) Room(ctx context.Context, obj *Match) (*Room, error) {
 
 // StrategistView is the resolver for the strategistView field.
 func (r *matchResolver) StrategistView(ctx context.Context, obj *Match) (*StrategistView, error) {
-	claims, ok := ClaimsFromCtx(ctx)
-	if !ok || claims == nil {
-		return nil, fmt.Errorf("AUTH_REQUIRED")
+	room, user, err := r.privateMatchContext(ctx, obj.ID, obj.RoomID)
+	if err != nil {
+		return nil, err
 	}
-	return computeStrategistView(obj, claims.OsuID), nil
+	team, err := strategistViewerTeam(user, room)
+	if err != nil {
+		return nil, err
+	}
+	return computeStrategistView(obj.State, team, time.Now().UTC()), nil
+}
+
+// CaptainView is the resolver for the captainView field.
+func (r *matchResolver) CaptainView(ctx context.Context, obj *Match) (*CaptainView, error) {
+	room, user, err := r.privateMatchContext(ctx, obj.ID, obj.RoomID)
+	if err != nil {
+		return nil, err
+	}
+	team, err := captainViewerTeam(user, room)
+	if err != nil {
+		return nil, err
+	}
+	return computeCaptainView(obj.State, team, time.Now().UTC()), nil
 }
 
 // SpectatorView is the resolver for the spectatorView field.
 func (r *matchResolver) SpectatorView(ctx context.Context, obj *Match) (*SpectatorView, error) {
-	view := computeSpectatorView(obj)
-
-	matchID, err := bson.ObjectIDFromHex(obj.ID)
-	if err == nil {
-		params := paginate.Params{Page: 1, PerPage: 5}
-		params.Normalize()
-		result, err := r.svc.Moves.ListByMatch(ctx, matchID, params)
-		if err == nil && len(result.Data) > 0 {
-			view.RecentMoves = make([]*Move, len(result.Data))
-			for i := range result.Data {
-				view.RecentMoves[i] = mapMove(&result.Data[i])
-			}
-		}
-	}
-
-	return view, nil
+	return computeSpectatorView(obj.Snapshot), nil
 }
 
 // OverlayView is the resolver for the overlayView field.
 func (r *matchResolver) OverlayView(ctx context.Context, obj *Match) (*OverlayView, error) {
-	return computeOverlayView(obj), nil
+	return computeOverlayView(obj.Snapshot), nil
 }
 
 // RefereeView is the resolver for the refereeView field.
 func (r *matchResolver) RefereeView(ctx context.Context, obj *Match) (*RefereeView, error) {
-	return computeRefereeView(obj), nil
-}
-
-// Operator is the resolver for the operator field.
-func (r *moveResolver) Operator(ctx context.Context, obj *Move) (*User, error) {
-	loader := UserLoaderFromCtx(ctx)
-	if loader == nil {
-		return nil, fmt.Errorf("UserLoader not found in context")
-	}
-	u, err := loader.Load(ctx, obj.OperatorID)
+	room, user, err := r.privateMatchContext(ctx, obj.ID, obj.RoomID)
 	if err != nil {
 		return nil, err
 	}
-	return mapUser(u), nil
+	if err := authorizeRefereeViewer(user, room); err != nil {
+		return nil, err
+	}
+	return computeRefereeView(obj.ID, obj.State, time.Now().UTC()), nil
+}
+
+// Beatmap is the resolver for the beatmap field.
+func (r *matchPoolSlotMetadataResolver) Beatmap(ctx context.Context, obj *MatchPoolSlotMetadata) (*Beatmap, error) {
+	return r.beatmapByID(ctx, obj.BeatmapID)
 }
 
 // StartMatch is the resolver for the startMatch field.
@@ -358,32 +308,16 @@ func (r *mutationResolver) ConfirmTbResult(ctx context.Context, input ConfirmTbR
 
 // RecordSurrender is the resolver for the recordSurrender field.
 func (r *mutationResolver) RecordSurrender(ctx context.Context, input RecordSurrenderInput) (*MatchCommandResult, error) {
-	return r.executeCommand(ctx, input.Meta, matchengine.RecordSurrender{SurrenderingTeam: engineTeam(input.SurrenderingTeam), ConfirmingPlayerIDs: int64IDs(input.ConfirmingPlayerIds), Reason: input.Reason}), nil
+	playerIDs, err := int64IDs(input.ConfirmingPlayerIds)
+	if err != nil {
+		return invalidCommandInput(input.Meta, err), nil
+	}
+	return r.executeCommand(ctx, input.Meta, matchengine.RecordSurrender{SurrenderingTeam: engineTeam(input.SurrenderingTeam), ConfirmingPlayerIDs: playerIDs, Reason: input.Reason}), nil
 }
 
 // Beatmap is the resolver for the beatmap field.
 func (r *poolSlotResolver) Beatmap(ctx context.Context, obj *PoolSlot) (*Beatmap, error) {
-	if obj.BeatmapID == nil || *obj.BeatmapID <= 0 {
-		return nil, nil
-	}
-
-	loader := BeatmapLoaderFromCtx(ctx)
-	if loader != nil {
-		b, err := loader.Load(ctx, *obj.BeatmapID)
-		if err != nil {
-			return nil, err
-		}
-		return mapBeatmap(b), nil
-	}
-
-	b, err := r.svc.Beatmaps.GetByOsuID(ctx, int64(*obj.BeatmapID))
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return mapBeatmap(b), nil
+	return r.beatmapByID(ctx, obj.BeatmapID)
 }
 
 // Ping is the resolver for the ping field.
@@ -397,15 +331,12 @@ func (r *queryResolver) Me(ctx context.Context) (*User, error) {
 	if !ok || claims == nil {
 		return nil, nil
 	}
-
-	objID, err := bson.ObjectIDFromHex(claims.UserID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid user ID in token: %w", err)
+	if r.users == nil {
+		return nil, fmt.Errorf("current user reader is unavailable")
 	}
-
-	user, err := r.svc.Users.Get(ctx, objID)
+	user, err := r.users.GetByOsuID(ctx, claims.OsuID)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
+		if errors.Is(err, mongo.ErrNoDocuments) || errors.Is(err, errs.ErrNotFound) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to fetch user: %w", err)
@@ -416,47 +347,54 @@ func (r *queryResolver) Me(ctx context.Context) (*User, error) {
 
 // Match is the resolver for the match field.
 func (r *queryResolver) Match(ctx context.Context, id string) (*Match, error) {
+	if r.formal == nil {
+		return nil, fmt.Errorf("formal match read service is unavailable")
+	}
 	objID, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, fmt.Errorf("invalid match ID: %w", err)
 	}
 
-	m, err := r.svc.Matchs.GetMatch(ctx, objID)
+	m, err := r.formal.ByID(ctx, objID)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
+		if errors.Is(err, mongo.ErrNoDocuments) || errors.Is(err, errs.ErrNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return mapMatch(m), nil
+	return mapFormalMatch(m), nil
 }
 
 // MatchByCode is the resolver for the matchByCode field.
 func (r *queryResolver) MatchByCode(ctx context.Context, code string) (*Match, error) {
-	m, err := r.svc.Matchs.GetMatchByCode(ctx, code)
+	if r.formal == nil {
+		return nil, fmt.Errorf("formal match read service is unavailable")
+	}
+	m, err := r.formal.ByCode(ctx, code)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
+		if errors.Is(err, mongo.ErrNoDocuments) || errors.Is(err, errs.ErrNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return mapMatch(m), nil
+	return mapFormalMatch(m), nil
 }
 
 // Matches is the resolver for the matches field.
-func (r *queryResolver) Matches(ctx context.Context, status *MatchStatus, page *int, perPage *int) (*MatchPage, error) {
-	var domainStatus *domain.MatchStatus
-	if status != nil {
-		s := domain.MatchStatus(strings.ToLower(string(*status)))
-		domainStatus = &s
+func (r *queryResolver) Matches(ctx context.Context, page *int, perPage *int) (*MatchPage, error) {
+	if r.formal == nil {
+		return nil, fmt.Errorf("formal match read service is unavailable")
 	}
-
 	params := buildPageParams(page, perPage)
-	result, err := r.svc.Matchs.List(ctx, params, domainStatus)
+	result, err := r.formal.List(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	return mapMatchPage(result), nil
+	items := make([]*Match, 0, len(result.Data))
+	for index := range result.Data {
+		items = append(items, mapFormalMatch(&result.Data[index]))
+	}
+	return &MatchPage{Items: items, Page: int(result.Page), PerPage: int(result.PerPage), Total: int(result.Total), TotalPages: int(result.TotalPages)}, nil
 }
 
 // Room is the resolver for the room field.
@@ -522,8 +460,12 @@ func (r *queryResolver) Beatmap(ctx context.Context, id string) (*Beatmap, error
 }
 
 // BeatmapByOsuID is the resolver for the beatmapByOsuId field.
-func (r *queryResolver) BeatmapByOsuID(ctx context.Context, osuID int) (*Beatmap, error) {
-	b, err := r.svc.Beatmaps.GetByOsuID(ctx, int64(osuID))
+func (r *queryResolver) BeatmapByOsuID(ctx context.Context, osuID string) (*Beatmap, error) {
+	parsedID, err := parsePositiveInt64ID(osuID)
+	if err != nil {
+		return nil, err
+	}
+	b, err := r.svc.Beatmaps.GetByOsuID(ctx, parsedID)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil
@@ -597,13 +539,52 @@ func (r *queryResolver) Announcement(ctx context.Context, id string) (*Announcem
 	return mapAnnouncement(a), nil
 }
 
+// AuditLog is the resolver for the auditLog field.
+func (r *refereeViewResolver) AuditLog(ctx context.Context, obj *RefereeView, limit *int) ([]*AuditEntry, error) {
+	if r.audit == nil {
+		return nil, fmt.Errorf("match audit reader is unavailable")
+	}
+	matchID, err := bson.ObjectIDFromHex(obj.MatchID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid match ID: %w", err)
+	}
+	requested := 50
+	if limit != nil {
+		requested = *limit
+	}
+	actions, err := r.audit.ListActions(ctx, matchID, requested)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]*AuditEntry, len(actions))
+	for index, action := range actions {
+		entries[index] = &AuditEntry{
+			ActionID: action.ID.Hex(), MatchID: action.MatchID.Hex(),
+			Sequence: strconv.FormatUint(action.ResultingVersion, 10),
+			Actor: &MatchCommandActor{
+				OsuID: strconv.FormatInt(action.Actor.OsuID, 10), Capability: MatchActorCapability(action.Actor.Capability),
+				Team: gqlTeamPtrValue(action.Actor.Team), AdminOverride: action.Actor.AdminOverride,
+				RefereeOverride: action.Actor.RefereeOverride,
+			},
+			CommandType: action.CommandType, PreviousVersion: strconv.FormatUint(action.PreviousVersion, 10),
+			ResultingVersion: strconv.FormatUint(action.ResultingVersion, 10), Timestamp: action.CreatedAt,
+			Reason: optionalString(action.Reason),
+		}
+	}
+	return entries, nil
+}
+
 // Owner is the resolver for the owner field.
 func (r *roomResolver) Owner(ctx context.Context, obj *Room) (*User, error) {
 	loader := UserLoaderFromCtx(ctx)
 	if loader == nil {
 		return nil, fmt.Errorf("UserLoader not found in context")
 	}
-	u, err := loader.Load(ctx, obj.OwnerID)
+	id, err := parsePositiveInt64ID(obj.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	u, err := loader.Load(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -615,32 +596,39 @@ func (r *roomResolver) Match(ctx context.Context, obj *Room) (*Match, error) {
 	if obj.MatchID == nil || *obj.MatchID == "" {
 		return nil, nil
 	}
+	if r.formal == nil {
+		return nil, fmt.Errorf("formal match read service is unavailable")
+	}
 
 	matchID, err := bson.ObjectIDFromHex(*obj.MatchID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid match ID: %w", err)
 	}
 
-	m, err := r.svc.Matchs.GetMatch(ctx, matchID)
+	m, err := r.formal.ByID(ctx, matchID)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
+		if errors.Is(err, mongo.ErrNoDocuments) || errors.Is(err, errs.ErrNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return mapMatch(m), nil
+	return mapFormalMatch(m), nil
 }
 
 // RedStrategist is the resolver for the redStrategist field.
 func (r *roomSettingsResolver) RedStrategist(ctx context.Context, obj *RoomSettings) (*User, error) {
-	if obj.RedStrategistUserID == nil || *obj.RedStrategistUserID <= 0 {
+	if obj.RedStrategistUserID == nil {
 		return nil, nil
+	}
+	id, err := parsePositiveInt64ID(*obj.RedStrategistUserID)
+	if err != nil {
+		return nil, err
 	}
 	loader := UserLoaderFromCtx(ctx)
 	if loader == nil {
 		return nil, fmt.Errorf("UserLoader not found in context")
 	}
-	u, err := loader.Load(ctx, int(*obj.RedStrategistUserID))
+	u, err := loader.Load(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -649,14 +637,18 @@ func (r *roomSettingsResolver) RedStrategist(ctx context.Context, obj *RoomSetti
 
 // BlueStrategist is the resolver for the blueStrategist field.
 func (r *roomSettingsResolver) BlueStrategist(ctx context.Context, obj *RoomSettings) (*User, error) {
-	if obj.BlueStrategistUserID == nil || *obj.BlueStrategistUserID <= 0 {
+	if obj.BlueStrategistUserID == nil {
 		return nil, nil
+	}
+	id, err := parsePositiveInt64ID(*obj.BlueStrategistUserID)
+	if err != nil {
+		return nil, err
 	}
 	loader := UserLoaderFromCtx(ctx)
 	if loader == nil {
 		return nil, fmt.Errorf("UserLoader not found in context")
 	}
-	u, err := loader.Load(ctx, int(*obj.BlueStrategistUserID))
+	u, err := loader.Load(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -665,72 +657,22 @@ func (r *roomSettingsResolver) BlueStrategist(ctx context.Context, obj *RoomSett
 
 // Streamer is the resolver for the streamer field.
 func (r *roomSettingsResolver) Streamer(ctx context.Context, obj *RoomSettings) (*User, error) {
-	if obj.StreamerUserID == nil || *obj.StreamerUserID <= 0 {
+	if obj.StreamerUserID == nil {
 		return nil, nil
+	}
+	id, err := parsePositiveInt64ID(*obj.StreamerUserID)
+	if err != nil {
+		return nil, err
 	}
 	loader := UserLoaderFromCtx(ctx)
 	if loader == nil {
 		return nil, fmt.Errorf("UserLoader not found in context")
 	}
-	u, err := loader.Load(ctx, int(*obj.StreamerUserID))
+	u, err := loader.Load(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	return mapUser(u), nil
-}
-
-// Leader is the resolver for the leader field.
-func (r *teamResolver) Leader(ctx context.Context, obj *Team) (*User, error) {
-	if obj.LeaderID == nil || *obj.LeaderID <= 0 {
-		return nil, nil
-	}
-	loader := UserLoaderFromCtx(ctx)
-	if loader == nil {
-		return nil, fmt.Errorf("UserLoader not found in context")
-	}
-	u, err := loader.Load(ctx, *obj.LeaderID)
-	if err != nil {
-		return nil, err
-	}
-	return mapUser(u), nil
-}
-
-// Strategist is the resolver for the strategist field.
-func (r *teamResolver) Strategist(ctx context.Context, obj *Team) (*User, error) {
-	if obj.StrategistID == nil || *obj.StrategistID <= 0 {
-		return nil, nil
-	}
-	loader := UserLoaderFromCtx(ctx)
-	if loader == nil {
-		return nil, fmt.Errorf("UserLoader not found in context")
-	}
-	u, err := loader.Load(ctx, *obj.StrategistID)
-	if err != nil {
-		return nil, err
-	}
-	return mapUser(u), nil
-}
-
-// PlayerUsers is the resolver for the playerUsers field.
-func (r *teamResolver) PlayerUsers(ctx context.Context, obj *Team) ([]*User, error) {
-	loader := UserLoaderFromCtx(ctx)
-	if loader == nil {
-		return nil, fmt.Errorf("UserLoader not found in context")
-	}
-	users := make([]*User, 0, len(obj.Players))
-	for _, id := range obj.Players {
-		if id <= 0 {
-			continue
-		}
-		u, err := loader.Load(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		if u != nil {
-			users = append(users, mapUser(u))
-		}
-	}
-	return users, nil
 }
 
 // Announcement returns AnnouncementResolver implementation.
@@ -742,8 +684,10 @@ func (r *Resolver) Beatmap() BeatmapResolver { return &beatmapResolver{r} }
 // Match returns MatchResolver implementation.
 func (r *Resolver) Match() MatchResolver { return &matchResolver{r} }
 
-// Move returns MoveResolver implementation.
-func (r *Resolver) Move() MoveResolver { return &moveResolver{r} }
+// MatchPoolSlotMetadata returns MatchPoolSlotMetadataResolver implementation.
+func (r *Resolver) MatchPoolSlotMetadata() MatchPoolSlotMetadataResolver {
+	return &matchPoolSlotMetadataResolver{r}
+}
 
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
@@ -754,24 +698,24 @@ func (r *Resolver) PoolSlot() PoolSlotResolver { return &poolSlotResolver{r} }
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+// RefereeView returns RefereeViewResolver implementation.
+func (r *Resolver) RefereeView() RefereeViewResolver { return &refereeViewResolver{r} }
+
 // Room returns RoomResolver implementation.
 func (r *Resolver) Room() RoomResolver { return &roomResolver{r} }
 
 // RoomSettings returns RoomSettingsResolver implementation.
 func (r *Resolver) RoomSettings() RoomSettingsResolver { return &roomSettingsResolver{r} }
 
-// Team returns TeamResolver implementation.
-func (r *Resolver) Team() TeamResolver { return &teamResolver{r} }
-
 type (
-	announcementResolver struct{ *Resolver }
-	beatmapResolver      struct{ *Resolver }
-	matchResolver        struct{ *Resolver }
-	moveResolver         struct{ *Resolver }
-	mutationResolver     struct{ *Resolver }
-	poolSlotResolver     struct{ *Resolver }
-	queryResolver        struct{ *Resolver }
-	roomResolver         struct{ *Resolver }
-	roomSettingsResolver struct{ *Resolver }
-	teamResolver         struct{ *Resolver }
+	announcementResolver          struct{ *Resolver }
+	beatmapResolver               struct{ *Resolver }
+	matchResolver                 struct{ *Resolver }
+	matchPoolSlotMetadataResolver struct{ *Resolver }
+	mutationResolver              struct{ *Resolver }
+	poolSlotResolver              struct{ *Resolver }
+	queryResolver                 struct{ *Resolver }
+	refereeViewResolver           struct{ *Resolver }
+	roomResolver                  struct{ *Resolver }
+	roomSettingsResolver          struct{ *Resolver }
 )

@@ -1,4 +1,4 @@
-.PHONY: verify dev test test-integration lint build run docker-up docker-down initdb initdb-seed initdb-drop initdb-admin generate
+.PHONY: verify dev test test-integration lint build run docker-up docker-down initdb initdb-seed initdb-drop initdb-admin generate fixtures matchmock graphql-compat
 
 # Load environment variables from .env if it exists
 ifneq (,$(wildcard .env))
@@ -55,3 +55,12 @@ initdb-admin:
 # GraphQL 代码生成 (gqlgen)
 generate:
 	go run github.com/99designs/gqlgen generate
+
+fixtures:
+	go run ./tools/matchfixtures
+
+matchmock:
+	go run ./tools/matchmock
+
+graphql-compat:
+	go run ./tools/graphqlcompat
