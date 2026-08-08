@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.uber.org/zap"
 
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/matchengine"
@@ -36,13 +37,17 @@ type Orchestrator struct {
 	matches MatchReader
 	rooms   RoomReader
 	now     Clock
+	log     *zap.Logger
 }
 
-func NewOrchestrator(store TransactionStore, users UserReader, matches MatchReader, rooms RoomReader, now Clock) *Orchestrator {
+func NewOrchestrator(store TransactionStore, users UserReader, matches MatchReader, rooms RoomReader, now Clock, log *zap.Logger) *Orchestrator {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	return &Orchestrator{store: store, users: users, matches: matches, rooms: rooms, now: now}
+	if log == nil {
+		log = zap.NewNop()
+	}
+	return &Orchestrator{store: store, users: users, matches: matches, rooms: rooms, now: now, log: log}
 }
 
 func (o *Orchestrator) Execute(ctx context.Context, request Request) (Result, error) {
@@ -73,12 +78,20 @@ func (o *Orchestrator) Execute(ctx context.Context, request Request) (Result, er
 		return Result{}, NewError(CodeInternalError, "server clock returned zero time", nil)
 	}
 
+	o.log.Debug("executing match command",
+		zap.String("match_id", request.MatchID.Hex()),
+		zap.Int64("caller_osu_id", request.CallerOsuID),
+		zap.String("command_type", commandType),
+		zap.String("command_id", request.CommandID),
+		zap.Uint64("expected_version", request.ExpectedVersion),
+	)
+
 	envelope := Envelope{
 		MatchID: request.MatchID, ExpectedVersion: request.ExpectedVersion,
 		CommandID: request.CommandID, CommandType: commandType,
 		RequestHash: requestHash, PayloadJSON: payload, OccurredAt: now,
 	}
-	return o.store.Apply(
+	result, err := o.store.Apply(
 		ctx,
 		envelope,
 		func(txCtx context.Context) (AuthorizedActor, error) {
@@ -89,13 +102,40 @@ func (o *Orchestrator) Execute(ctx context.Context, request Request) (Result, er
 			if executeErr != nil {
 				var ruleErr *matchengine.RuleError
 				if errors.As(executeErr, &ruleErr) {
+					o.log.Warn("match command rule violation",
+						zap.String("match_id", request.MatchID.Hex()),
+						zap.String("command_type", commandType),
+						zap.String("rule_error", ruleErr.Message),
+						zap.String("rule_code", string(ruleErr.Code)),
+					)
 					return matchengine.Transition{}, NewError(ErrorCode(ruleErr.Code), ruleErr.Message, ruleErr)
 				}
+				o.log.Error("match command execution failed",
+					zap.String("match_id", request.MatchID.Hex()),
+					zap.String("command_type", commandType),
+					zap.Error(executeErr),
+				)
 				return matchengine.Transition{}, NewError(CodeInternalError, "execute match command", executeErr)
 			}
 			return transition, nil
 		},
 	)
+	if err != nil {
+		o.log.Warn("match command failed",
+			zap.String("match_id", request.MatchID.Hex()),
+			zap.String("command_type", commandType),
+			zap.Int64("caller_osu_id", request.CallerOsuID),
+			zap.Error(err),
+		)
+		return result, err
+	}
+	o.log.Info("match command executed",
+		zap.String("match_id", request.MatchID.Hex()),
+		zap.String("command_type", commandType),
+		zap.Int64("caller_osu_id", request.CallerOsuID),
+		zap.Uint64("new_version", result.ResultingVersion),
+	)
+	return result, nil
 }
 
 func canonicalRequestHash(request Request, commandType string, payload []byte) (string, error) {
@@ -122,37 +162,55 @@ func (o *Orchestrator) authorize(ctx context.Context, matchID bson.ObjectID, osu
 	user, err := o.users.ByOsuID(ctx, osuID)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
+			o.log.Warn("match command auth: user not found", zap.Int64("osu_id", osuID))
 			return AuthorizedActor{}, NewError(CodeAuthRequired, "authenticated user no longer exists", err)
 		}
+		o.log.Error("match command auth: failed to load user", zap.Int64("osu_id", osuID), zap.Error(err))
 		return AuthorizedActor{}, NewError(CodeInternalError, "load current user", err)
 	}
 	if user.IsBanned {
+		o.log.Warn("match command auth: user is banned", zap.Int64("osu_id", osuID), zap.String("username", user.Username))
 		return AuthorizedActor{}, NewError(CodeUserBanned, "user is banned from formal match operations", nil)
 	}
 	if user.VerifyStatus != domain.Verified {
+		o.log.Warn("match command auth: user not verified", zap.Int64("osu_id", osuID), zap.String("verify_status", string(user.VerifyStatus)))
 		return AuthorizedActor{}, NewError(CodeUserNotVerified, "user is not verified for formal match operations", nil)
 	}
 	match, err := o.matches.ByID(ctx, matchID)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
+			o.log.Warn("match command auth: match not found", zap.String("match_id", matchID.Hex()))
 			return AuthorizedActor{}, NewError(CodeResourceNotFound, "formal match was not found", err)
 		}
+		o.log.Error("match command auth: failed to load match", zap.String("match_id", matchID.Hex()), zap.Error(err))
 		return AuthorizedActor{}, NewError(CodeInternalError, "load formal match", err)
 	}
 	room, err := o.rooms.ByID(ctx, match.RoomID)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
+			o.log.Warn("match command auth: room not found", zap.String("room_id", match.RoomID.Hex()))
 			return AuthorizedActor{}, NewError(CodeResourceNotFound, "formal match room was not found", err)
 		}
+		o.log.Error("match command auth: failed to load room", zap.String("room_id", match.RoomID.Hex()), zap.Error(err))
 		return AuthorizedActor{}, NewError(CodeInternalError, "load formal match room", err)
 	}
 	if match.RoomType != domain.RoomTypeMatch || room.Type != domain.RoomTypeMatch || room.ID != match.RoomID ||
 		room.MatchID == nil || *room.MatchID != matchID {
+		o.log.Warn("match command auth: not an authoritative formal match",
+			zap.String("match_id", matchID.Hex()),
+			zap.String("match_room_type", string(match.RoomType)),
+			zap.String("room_type", string(room.Type)),
+		)
 		return AuthorizedActor{}, NewError(CodeResourceNotFound, "match is not an authoritative formal room match", nil)
 	}
 
 	actor, adminOverride, refereeOverride, err := actorForCommand(user, room, command)
 	if err != nil {
+		o.log.Warn("match command auth: role authorization failed",
+			zap.Int64("osu_id", osuID),
+			zap.String("username", user.Username),
+			zap.Error(err),
+		)
 		return AuthorizedActor{}, err
 	}
 	roles := make([]string, len(user.Roles))

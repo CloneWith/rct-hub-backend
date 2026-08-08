@@ -152,7 +152,9 @@ All configuration is loaded from environment variables (with `.env` file support
 |----------|---------|-------------|
 | `APP_ENV` | `development` | Runtime environment (`production` enables Gin release mode) |
 | `PORT` | `8080` | HTTP listen port |
-| `LOG_LEVEL` | `info` | Zap log level |
+| `LOG_LEVEL` | `info` | Zap log level (`debug`, `info`, `warn`, `error`) |
+| `LOG_DIR` | `./logs` | Directory for timestamped log files (empty = stdout only) |
+| `LOG_SUPPRESS` | *(empty)* | Comma-separated blacklist of log categories to silence (see [Log Categories](#log-categories)) |
 | `MONGODB_URI` | `mongodb://localhost:27017/?replicaSet=rs0&directConnection=true` | MongoDB connection string |
 | `MONGODB_NAME` | `rcthub` | MongoDB database name |
 | `REDIS_ADDR` | `localhost:6379` | Redis address |
@@ -453,6 +455,45 @@ recovery, GraphQL contract, browser security, and MongoDB transaction path.
 ```bash
 make test
 ```
+
+## Log Categories
+
+The logger package (`internal/logger`) defines a set of **typed category constants** that map to per-module log files. By default, every category gets its own `<name>-<timestamp>.log` file. Categories listed in `LOG_SUPPRESS` are silenced entirely.
+
+| Constant | String | Covers |
+|----------|--------|--------|
+| `CatRuntime` | `runtime` | Server start/stop, config load, graceful shutdown, background workers. This IS the main logger (`Provider.Main()`); always active, cannot be suppressed. |
+| `CatStorage` | `storage` | MongoDB & Redis: connection management, query execution, cache hits/misses, index checks. |
+| `CatNetwork` | `network` | Inbound HTTP tracing (Gin access logs) and outbound calls: osu! API fetcher, webhooks, upstream proxies. |
+| `CatAuth` | `auth` | osu! OAuth handshake, JWT issuance/validation/refresh, session expiry, token revocation. |
+| `CatAudit` | `audit` | Security-sensitive mutations: role grants/revocations, ban/unban, verification status, match result finalisation. |
+| `CatMatchEngine` | `matchengine` | Board transitions, command execution, event emission, timer state, win detection, robbery logic. |
+| `CatFetcher` | `fetcher` | osu! API proxy: three-tier cache lookups (Redis → MongoDB → osu! API v2), token refresh, cache invalidation. |
+
+### Usage
+
+```go
+// In a service that needs a category logger:
+log := provider.Get(logger.CatStorage)
+log.Info("connected", zap.String("db", "rcthub"))
+```
+
+### Suppressing Categories
+
+Set `LOG_SUPPRESS` in `.env` to a comma-separated list of category names to silence:
+
+```env
+# Silence verbose categories in production
+LOG_SUPPRESS=network,fetcher
+```
+
+Suppressed categories return a no-op logger — their logs are silently dropped. The `runtime` category (main logger) is always active and cannot be suppressed.
+
+### Adding a New Category
+
+1. Add a `const` entry in `internal/logger/categories.go`.
+2. Add it to the `AllCategories()` return slice.
+3. Document it in the table above.
 
 ## Roadmap
 

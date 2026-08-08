@@ -19,6 +19,7 @@ type Config struct {
 	Port        string
 	LogLevel    string
 	FrontEndURI string
+	Log         LogConfig
 	MongoDB     MongoDBConfig
 	Redis       RedisConfig
 	JWT         JWTConfig
@@ -26,6 +27,14 @@ type Config struct {
 	CORS        CORSConfig
 	AuthCookie  AuthCookieConfig
 	AuthSession AuthSessionConfig
+}
+
+// LogConfig holds logging configuration.
+type LogConfig struct {
+	// Dir is the directory for log files. If empty, logs go to stdout only.
+	Dir string
+	// Suppress is a blacklist of log categories that will NOT be recorded.
+	Suppress []string
 }
 
 type MongoDBConfig struct {
@@ -90,6 +99,10 @@ func Load() (*Config, error) {
 		Port:        getEnv("PORT", "8080"),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		FrontEndURI: frontEndURI,
+		Log: LogConfig{
+			Dir:      getEnv("LOG_DIR", "./logs"),
+			Suppress: parseCSV(getEnv("LOG_SUPPRESS", "")),
+		},
 		MongoDB: MongoDBConfig{
 			URI:  getEnv("MONGODB_URI", "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true"),
 			Name: getEnv("MONGODB_NAME", "rcthub"),
@@ -279,6 +292,22 @@ func splitTrimmed(value string) []string {
 		}
 		seen[part] = struct{}{}
 		result = append(result, part)
+	}
+	return result
+}
+
+func parseCSV(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
 	}
 	return result
 }

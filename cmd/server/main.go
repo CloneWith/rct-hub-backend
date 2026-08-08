@@ -28,30 +28,32 @@ func main() {
 		os.Exit(1)
 	}
 
-	log, err := logger.New(cfg)
+	log, err := logger.NewProvider(cfg)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to setup logger: %v\n", err)
 		os.Exit(1)
 	}
-	log.Info("logger set up")
-	defer func() { _ = log.Sync() }()
+	defer func() { _ = log.Close() }()
+	mainLog := log.Main()
+	mainLog.Info("logger set up", zap.String("log_dir", cfg.Log.Dir), zap.Strings("suppress", cfg.Log.Suppress))
+	defer func() { _ = mainLog.Sync() }()
 
-	log.Info("connecting to database...")
+	mainLog.Info("connecting to database...")
 	db, err := database.New(cfg)
 	if err != nil {
-		log.Error("failed to connect to database", zap.Error(err))
+		mainLog.Error("failed to connect to database", zap.Error(err))
 		os.Exit(1)
 	}
 
-	log.Info("checking database schema...")
+	mainLog.Info("checking database schema...")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := db.EnsureIndexes(ctx); err != nil {
-		log.Error("failed to ensure indexes", zap.Error(err))
+		mainLog.Error("failed to ensure indexes", zap.Error(err))
 		os.Exit(1)
 	}
 	if err := db.VerifySchema(ctx); err != nil {
-		log.Error("database schema is not initialized or is incompatible; run cmd/initdb with migration privileges", zap.Error(err))
+		mainLog.Error("database schema is not initialized or is incompatible; run cmd/initdb with migration privileges", zap.Error(err))
 		os.Exit(1)
 	}
 
@@ -63,21 +65,21 @@ func main() {
 	go func() {
 		// ErrServerClosed is an expected error.
 		if err := srv.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("server error", zap.Error(err))
+			mainLog.Error("server error", zap.Error(err))
 		}
 	}()
 
-	log.Info("server started", zap.String("port", cfg.Port))
+	mainLog.Info("server started", zap.String("port", cfg.Port))
 	<-quit
 
-	log.Info("shutting down server")
+	mainLog.Info("shutting down server")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
 	if err := srv.Stop(shutdownCtx); err != nil {
-		log.Error("server shutdown error", zap.Error(err))
+		mainLog.Error("server shutdown error", zap.Error(err))
 	}
 	if err := db.Close(shutdownCtx); err != nil {
-		log.Error("database close error", zap.Error(err))
+		mainLog.Error("database close error", zap.Error(err))
 	}
 }

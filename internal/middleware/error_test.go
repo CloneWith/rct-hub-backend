@@ -15,7 +15,7 @@ import (
 func TestErrorHandlerMapsCacheSyncFailureToServiceUnavailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(ErrorHandler())
+	router.Use(ErrorHandler(nil))
 	router.GET("/", func(c *gin.Context) {
 		_ = c.Error(fmt.Errorf("%w: redis unavailable", errs.ErrCacheSync))
 	})

@@ -18,6 +18,7 @@ import (
 	"rctHubBackend/internal/fetcher"
 	"rctHubBackend/internal/graphql"
 	"rctHubBackend/internal/handler"
+	"rctHubBackend/internal/logger"
 	"rctHubBackend/internal/matchcommand"
 	"rctHubBackend/internal/middleware"
 	"rctHubBackend/internal/oauth"
@@ -31,6 +32,7 @@ type Server struct {
 	httpServer *http.Server
 	router     *gin.Engine
 	deps       *Deps
+	logs       *logger.Provider
 	logger     *zap.Logger
 }
 
@@ -50,16 +52,22 @@ type Deps struct {
 }
 
 // New creates a new Server with routes configured.
-func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
+func New(cfg *config.Config, db *database.DB, logs *logger.Provider) *Server {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	mainLog := logs.Main()
+	authLog := logs.Get(string(logger.CatAuth))
+	fetcherLog := logs.Get(string(logger.CatFetcher))
+	auditLog := logs.Get(string(logger.CatAudit))
+	matchEngineLog := logs.Get(string(logger.CatMatchEngine))
+
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	router.Use(ginzap.Ginzap(logger, time.RFC3339, true))
-	router.Use(ginzap.RecoveryWithZap(logger, true))
+	router.Use(ginzap.Ginzap(mainLog, time.RFC3339, true))
+	router.Use(ginzap.RecoveryWithZap(mainLog, true))
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.CORS.AllowedOrigins,
@@ -70,7 +78,7 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	router.Use(middleware.ErrorHandler())
+	router.Use(middleware.ErrorHandler(mainLog))
 
 	signer := jwtutil.NewSigner(cfg.JWT.Secret, "rcthub-backend")
 	browserSessions := authsession.NewStore(db.Redis, cfg.AuthSession.IdleExpiry, cfg.AuthSession.AbsoluteExpiry)
@@ -79,7 +87,7 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 		ClientSecret: cfg.Osu.ClientSecret,
 		RedirectURI:  cfg.Osu.RedirectURI,
 		APIBase:      cfg.Osu.APIBase,
-	}, db.Redis)
+	}, db.Redis, authLog)
 
 	repos := repository.NewRepositories(db.Mongo, db.MongoDB)
 
@@ -89,20 +97,20 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 		ClientID:     cfg.Osu.ClientID,
 		ClientSecret: cfg.Osu.ClientSecret,
 		APIBase:      cfg.Osu.APIBase,
-	}, db.Redis, logger)
-	osuFetcher := fetcher.New(apiClient, repos.Users, repos.Beatmaps, db.Redis, logger, fetcher.Config{
+	}, db.Redis, fetcherLog)
+	osuFetcher := fetcher.New(apiClient, repos.Users, repos.Beatmaps, db.Redis, fetcherLog, fetcher.Config{
 		UserCacheTTL:    cfg.Osu.FetcherUserCacheTTL,
 		BeatmapCacheTTL: cfg.Osu.FetcherBeatmapCacheTTL,
 	})
 
-	services := service.NewServices(repos, osuFetcher, browserSessions)
+	services := service.NewServices(repos, osuFetcher, logs, browserSessions)
 
 	deps := &Deps{
 		Cfg:          cfg,
 		DB:           db,
 		Repos:        repos,
 		Services:     services,
-		AuthSvc:      service.NewAuthService(oauthClient, repos.Users, osuFetcher, signer, cfg.JWT.Expiry),
+		AuthSvc:      service.NewAuthService(oauthClient, repos.Users, osuFetcher, signer, cfg.JWT.Expiry, authLog),
 		UserSvc:      services.Users,
 		BeatmapSvc:   services.Beatmaps,
 		AnnounceSvc:  service.NewAnnouncementService(repos.Announcements),
@@ -114,18 +122,19 @@ func New(cfg *config.Config, db *database.DB, logger *zap.Logger) *Server {
 	s := &Server{
 		router: router,
 		deps:   deps,
-		logger: logger,
+		logs:   logs,
+		logger: mainLog,
 		httpServer: &http.Server{
 			Addr:    fmt.Sprintf(":%s", cfg.Port),
 			Handler: router,
 		},
 	}
 
-	s.registerRoutes()
+	s.registerRoutes(auditLog, authLog, matchEngineLog)
 	return s
 }
 
-func (s *Server) registerRoutes() {
+func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 	health := handler.NewHealthHandler(s.deps.DB)
 	s.router.GET("/health", health.Check)
 
@@ -147,15 +156,16 @@ func (s *Server) registerRoutes() {
 		s.deps.Repos.Matches,
 		s.deps.Repos.Rooms,
 		nil,
+		matchEngineLog,
 	)
 	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
 	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Services, s.deps.Cfg.AuthCookie.Name))
 
-	users := handler.NewUserHandler(s.deps.UserSvc)
-	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc)
-	rooms := handler.NewRoomHandler(s.deps.Services.Rooms)
+	users := handler.NewUserHandler(s.deps.UserSvc, auditLog)
+	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc, auditLog)
+	rooms := handler.NewRoomHandler(s.deps.Services.Rooms, auditLog)
 	announcements := handler.NewAnnouncementHandler(s.deps.AnnounceSvc)
 
 	api := s.router.Group("/api/v1")

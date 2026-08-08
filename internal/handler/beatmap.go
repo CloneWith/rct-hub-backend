@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.uber.org/zap"
 
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/service"
@@ -12,10 +13,14 @@ import (
 // BeatmapHandler exposes beatmap management endpoints (admin CRUD only).
 type BeatmapHandler struct {
 	svc *service.BeatmapService
+	log *zap.Logger
 }
 
-func NewBeatmapHandler(svc *service.BeatmapService) *BeatmapHandler {
-	return &BeatmapHandler{svc: svc}
+func NewBeatmapHandler(svc *service.BeatmapService, log *zap.Logger) *BeatmapHandler {
+	if log == nil {
+		log = zap.NewNop()
+	}
+	return &BeatmapHandler{svc: svc, log: log}
 }
 
 // Create creates a new beatmap entry.
@@ -27,9 +32,11 @@ func (h *BeatmapHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.svc.Create(c.Request.Context(), &beatmap); err != nil {
+		h.log.Warn("beatmap operation failed", zap.String("op", "create"), zap.Error(err))
 		_ = c.Error(err)
 		return
 	}
+	h.log.Info("beatmap created", zap.Int64("osu_id", beatmap.OnlineID), zap.String("title", beatmap.Title))
 	response.Created(c, beatmap)
 }
 
@@ -49,9 +56,11 @@ func (h *BeatmapHandler) Update(c *gin.Context) {
 	beatmap.ID = id
 
 	if err := h.svc.Update(c.Request.Context(), &beatmap); err != nil {
+		h.log.Warn("beatmap operation failed", zap.String("op", "update"), zap.Error(err))
 		_ = c.Error(err)
 		return
 	}
+	h.log.Info("beatmap updated", zap.String("id", c.Param("id")), zap.Int64("osu_id", beatmap.OnlineID))
 	response.JSON(c, beatmap)
 }
 
@@ -64,8 +73,10 @@ func (h *BeatmapHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
+		h.log.Warn("beatmap operation failed", zap.String("op", "delete"), zap.Error(err))
 		_ = c.Error(err)
 		return
 	}
+	h.log.Info("beatmap deleted", zap.String("id", c.Param("id")))
 	response.NoContent(c)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.uber.org/zap"
 
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/middleware"
@@ -17,10 +18,14 @@ import (
 // RoomHandler exposes room configuration endpoints (pre-game setup).
 type RoomHandler struct {
 	svc *service.RoomService
+	log *zap.Logger
 }
 
-func NewRoomHandler(svc *service.RoomService) *RoomHandler {
-	return &RoomHandler{svc: svc}
+func NewRoomHandler(svc *service.RoomService, log *zap.Logger) *RoomHandler {
+	if log == nil {
+		log = zap.NewNop()
+	}
+	return &RoomHandler{svc: svc, log: log}
 }
 
 // Create creates a new room.
@@ -264,9 +269,19 @@ func (h *RoomHandler) StartMatch(c *gin.Context) {
 	}
 	match, err := h.svc.StartMatch(c.Request.Context(), callerID, id)
 	if err != nil {
+		h.log.Warn("room start match failed",
+			zap.Int64("caller_osu_id", callerID),
+			zap.String("room_id", c.Param("id")),
+			zap.Error(err),
+		)
 		writeRoomError(c, err)
 		return
 	}
+	h.log.Info("audit: match started",
+		zap.Int64("caller_osu_id", callerID),
+		zap.String("room_id", c.Param("id")),
+		zap.String("match_id", match.ID.Hex()),
+	)
 	response.Created(c, match)
 }
 

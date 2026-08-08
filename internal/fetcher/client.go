@@ -117,6 +117,7 @@ func (c *APIClient) getToken(ctx context.Context) (string, error) {
 	// Fast path: in-memory cache is still valid.
 	c.mu.Lock()
 	if c.token != "" && time.Now().Before(c.expires) {
+		// Use a local variable to store token before releasing the lock.
 		tok := c.token
 		c.mu.Unlock()
 		return tok, nil
@@ -134,12 +135,13 @@ func (c *APIClient) getToken(ctx context.Context) (string, error) {
 			c.token = tok
 			c.expires = time.Now().Add(ttl - tokenSafetyMargin)
 			c.mu.Unlock()
+			c.logger.Debug("token cache hit (redis)", zap.Duration("ttl", ttl))
 			return tok, nil
 		}
 	}
 
 	// Slow path: request a new token from osu!.
-	c.logger.Info("no token present, fetching a new one from osu! API")
+	c.logger.Info("token cache miss, fetching new token from osu! API")
 	return c.refreshToken(ctx)
 }
 
@@ -172,12 +174,17 @@ func (c *APIClient) refreshToken(ctx context.Context) (string, error) {
 
 	resp, err := c.http.Do(req)
 	if err != nil {
+		c.logger.Error("failed to request osu! token", zap.Error(err))
 		return "", fmt.Errorf("request token: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		raw, _ := io.ReadAll(resp.Body)
+		// Only output to console to reduce log size, in case the response body is too long.
+		c.logger.Error("osu! token endpoint returned non-OK status",
+			zap.Int("status", resp.StatusCode),
+		)
 		return "", fmt.Errorf("osu! token endpoint returned %d: %s", resp.StatusCode, string(raw))
 	}
 
@@ -251,14 +258,18 @@ func (c *APIClient) do(ctx context.Context, method, url string, body []byte, out
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	c.logger.Debug("osu! API call", zap.String("method", method), zap.String("url", url))
+
 	resp, err := c.http.Do(req)
 	if err != nil {
+		c.logger.Error("osu! API request failed", zap.String("url", url), zap.Error(err))
 		return fmt.Errorf("execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		// Token may have been revoked — invalidate and retry once.
+		c.logger.Warn("osu! API returned 401, refreshing token and retrying", zap.String("url", url))
 		c.mu.Lock()
 		c.token = ""
 		c.expires = time.Time{}
@@ -273,20 +284,28 @@ func (c *APIClient) do(ctx context.Context, method, url string, body []byte, out
 		req.Header.Set("Authorization", "Bearer "+tok)
 		resp, err = c.http.Do(req)
 		if err != nil {
+			c.logger.Error("osu! API retry request failed", zap.String("url", url), zap.Error(err))
 			return fmt.Errorf("retry request: %w", err)
 		}
 		defer resp.Body.Close()
 	}
 
 	if resp.StatusCode == http.StatusNotFound {
+		c.logger.Debug("osu! API resource not found", zap.String("url", url))
 		return ErrNotFound
 	}
 	if resp.StatusCode != http.StatusOK {
 		raw, _ := io.ReadAll(resp.Body)
+		c.logger.Error("osu! API returned non-OK status",
+			zap.String("url", url),
+			zap.Int("status", resp.StatusCode),
+			zap.String("body", string(raw)),
+		)
 		return fmt.Errorf("osu! api returned %d: %s", resp.StatusCode, string(raw))
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		c.logger.Error("failed to decode osu! API response", zap.String("url", url), zap.Error(err))
 		return fmt.Errorf("decode response: %w", err)
 	}
 	return nil

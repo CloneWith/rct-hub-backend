@@ -2,7 +2,10 @@ package service
 
 import (
 	"rctHubBackend/internal/authsession"
+	"rctHubBackend/internal/logger"
 	"rctHubBackend/internal/repository"
+
+	"go.uber.org/zap"
 )
 
 // Services wires together all domain services.
@@ -19,13 +22,20 @@ type Services struct {
 // NewServices creates a service container from repositories.
 // invalidator is used by UserService and BeatmapService to invalidate
 // Redis cache entries when local-only fields are modified.
-func NewServices(repos *repository.Repositories, invalidator CacheInvalidator, sessionRevokers ...authsession.Revoker) *Services {
+func NewServices(repos *repository.Repositories, invalidator CacheInvalidator, logs *logger.Provider, sessionRevokers ...authsession.Revoker) *Services {
+	auditLog := zap.NewNop()
+	storageLog := zap.NewNop()
+	if logs != nil {
+		auditLog = logs.Get(string(logger.CatAudit))
+		storageLog = logs.Get(string(logger.CatStorage))
+	}
+
 	return &Services{
-		Rooms:         NewRoomService(repos.Rooms, repos.Matches, repos.Users, repos.FormalMatches),
+		Rooms:         NewRoomService(repos.Rooms, repos.Matches, repos.Users, repos.FormalMatches, auditLog),
 		Matchs:        NewMatchService(repos.Matches, repos.Rooms, repos.Moves, repos.Results),
 		Moves:         NewMoveService(repos.Moves),
-		Users:         NewUserService(repos.Users, invalidator, sessionRevokers...),
-		Beatmaps:      NewBeatmapService(repos.Beatmaps, invalidator),
+		Users:         NewUserService(repos.Users, invalidator, sessionRevokers...).WithLogger(auditLog),
+		Beatmaps:      NewBeatmapService(repos.Beatmaps, invalidator, storageLog),
 		Announcements: NewAnnouncementService(repos.Announcements),
 		FormalMatches: NewFormalMatchReadService(repos.Matches, repos.MatchSnapshots),
 	}
