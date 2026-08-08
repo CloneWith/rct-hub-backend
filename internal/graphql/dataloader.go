@@ -31,13 +31,13 @@ func NewBeatmapLoader(svc *service.BeatmapService) *BeatmapLoader {
 
 // Load 按 osu! beatmap ID 加载谱面，命中缓存则不查库。
 // osuID <= 0 (Shiro/removed) 返回 nil, nil。
-func (l *BeatmapLoader) Load(ctx context.Context, osuID int) (*domain.Beatmap, error) {
+func (l *BeatmapLoader) Load(ctx context.Context, osuID int64) (*domain.Beatmap, error) {
 	if osuID <= 0 {
 		return nil, nil
 	}
 
 	// 检查缓存
-	key := int64(osuID)
+	key := osuID
 	if v, ok := l.cache.Load(key); ok {
 		return v.(*domain.Beatmap), nil
 	}
@@ -97,12 +97,12 @@ func NewUserLoader(svc *service.UserService) *UserLoader {
 
 // Load 按 osu! user ID 加载用户，命中缓存则不查库。
 // osuID <= 0 返回 nil, nil。
-func (l *UserLoader) Load(ctx context.Context, osuID int) (*domain.User, error) {
+func (l *UserLoader) Load(ctx context.Context, osuID int64) (*domain.User, error) {
 	if osuID <= 0 {
 		return nil, nil
 	}
 
-	key := int64(osuID)
+	key := osuID
 	if v, ok := l.cache.Load(key); ok {
 		return v.(*domain.User), nil
 	}

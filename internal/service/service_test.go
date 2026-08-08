@@ -147,11 +147,34 @@ func (r *fakeMatchRepo) ByID(ctx context.Context, id bson.ObjectID) (*domain.Mat
 }
 
 func (r *fakeMatchRepo) ByCode(ctx context.Context, code string) (*domain.Match, error) {
+	for _, match := range r.matches {
+		if match.Code == code {
+			return match, nil
+		}
+	}
 	return nil, errs.ErrNotFound
 }
 
 func (r *fakeMatchRepo) List(ctx context.Context, params paginate.Params, status *domain.MatchStatus) (paginate.Result[domain.Match], error) {
-	return paginate.Result[domain.Match]{}, nil
+	items := make([]domain.Match, 0, len(r.matches))
+	for _, match := range r.matches {
+		if status == nil || match.Status == *status {
+			items = append(items, *match)
+		}
+	}
+	params.Normalize()
+	return paginate.NewResult(items, params, int64(len(items))), nil
+}
+
+func (r *fakeMatchRepo) ListFormal(ctx context.Context, params paginate.Params) (paginate.Result[domain.Match], error) {
+	items := make([]domain.Match, 0, len(r.matches))
+	for _, match := range r.matches {
+		if match.RoomType == domain.RoomTypeMatch {
+			items = append(items, *match)
+		}
+	}
+	params.Normalize()
+	return paginate.NewResult(items, params, int64(len(items))), nil
 }
 
 // fakeMoveRepo is an in-memory move repository for tests.

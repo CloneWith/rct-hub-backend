@@ -212,6 +212,47 @@ func (s *SnapshotStore) Load(ctx context.Context, matchID bson.ObjectID) (matche
 	return state, nil
 }
 
+// LoadMany batch-loads authoritative states. Missing IDs are omitted so the
+// caller can distinguish an absent snapshot without an N+1 fallback query.
+func (s *SnapshotStore) LoadMany(ctx context.Context, matchIDs []bson.ObjectID) (map[bson.ObjectID]matchengine.State, error) {
+	states := make(map[bson.ObjectID]matchengine.State, len(matchIDs))
+	if len(matchIDs) == 0 {
+		return states, nil
+	}
+	unique := make([]bson.ObjectID, 0, len(matchIDs))
+	seen := make(map[bson.ObjectID]struct{}, len(matchIDs))
+	for _, matchID := range matchIDs {
+		if matchID == bson.NilObjectID {
+			return nil, fmt.Errorf("%w: match ID is required", ErrInvalidSnapshotIdentifier)
+		}
+		if _, exists := seen[matchID]; exists {
+			continue
+		}
+		seen[matchID] = struct{}{}
+		unique = append(unique, matchID)
+	}
+	cursor, err := s.snapshots.Find(ctx, bson.M{"_id": bson.M{"$in": unique}})
+	if err != nil {
+		return nil, fmt.Errorf("load authoritative snapshots: %w", err)
+	}
+	defer cursor.Close(ctx)
+	var documents []MatchSnapshotDocument
+	if err := cursor.All(ctx, &documents); err != nil {
+		return nil, fmt.Errorf("decode authoritative snapshots: %w", err)
+	}
+	for _, document := range documents {
+		if document.SchemaVersion != MatchSnapshotSchemaVersion || document.Origin != SnapshotOriginNative {
+			return nil, fmt.Errorf("match %s: %w", document.MatchID.Hex(), ErrSnapshotIncompatible)
+		}
+		state, decodeErr := document.DecodeState()
+		if decodeErr != nil {
+			return nil, fmt.Errorf("match %s: %w: %v", document.MatchID.Hex(), ErrSnapshotCorrupt, decodeErr)
+		}
+		states[document.MatchID] = state
+	}
+	return states, nil
+}
+
 // CompareAndSwap commits exactly one engine transition. The next state must be
 // expectedVersion+1, matching MatchEngine.Execute's version contract.
 func (s *SnapshotStore) CompareAndSwap(

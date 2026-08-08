@@ -288,6 +288,32 @@ func (s *CommandStore) MarkEventFailed(ctx context.Context, eventID, message str
 	return nil
 }
 
+// ListActions returns the newest durable audit entries for one match.
+func (s *CommandStore) ListActions(ctx context.Context, matchID bson.ObjectID, limit int) ([]MatchActionDocument, error) {
+	if matchID == bson.NilObjectID {
+		return nil, fmt.Errorf("match ID is required")
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	cursor, err := s.actions.Find(ctx, bson.M{"match_id": matchID}, options.Find().SetSort(bson.D{{Key: "resulting_version", Value: -1}}).SetLimit(int64(limit)))
+	if err != nil {
+		return nil, fmt.Errorf("list match actions: %w", err)
+	}
+	defer cursor.Close(ctx)
+	var actions []MatchActionDocument
+	if err := cursor.All(ctx, &actions); err != nil {
+		return nil, fmt.Errorf("decode match actions: %w", err)
+	}
+	if actions == nil {
+		actions = []MatchActionDocument{}
+	}
+	return actions, nil
+}
+
 func (s *CommandStore) Apply(
 	ctx context.Context,
 	envelope matchcommand.Envelope,
@@ -444,6 +470,15 @@ func (s *CommandStore) loadReceipt(
 	if err := json.Unmarshal(receipt.EventsJSON, &events); err != nil {
 		return matchcommand.Result{}, true, matchcommand.NewError(matchcommand.CodeInternalError, "decode stored command result events", err)
 	}
+	for index := range events {
+		if events[index].Actor.OsuID != 0 {
+			continue
+		}
+		events[index].Actor = matchcommand.EventActor{
+			OsuID: receipt.Actor.OsuID, Capability: receipt.Actor.Capability, Team: receipt.Actor.Team,
+			AdminOverride: receipt.Actor.AdminOverride, RefereeOverride: receipt.Actor.RefereeOverride,
+		}
+	}
 	return matchcommand.Result{
 		CommandID: receipt.CommandID, Disposition: matchcommand.DispositionReplayed,
 		PreviousVersion: receipt.PreviousVersion, ResultingVersion: receipt.ResultingVersion,
@@ -484,7 +519,12 @@ func (s *CommandStore) buildOutboxDocuments(
 		})
 		committed := matchcommand.CommittedEvent{
 			EventID: eventID, Sequence: sequence, ResultingVersion: transition.State.Version,
-			Type: event.Type, OccurredAt: envelope.OccurredAt, Payload: event,
+			Type: event.Type, OccurredAt: envelope.OccurredAt,
+			Actor: matchcommand.EventActor{
+				OsuID: actor.OsuID, Capability: actor.Capability, Team: actor.Team,
+				AdminOverride: actor.AdminOverride, RefereeOverride: actor.RefereeOverride,
+			},
+			Payload: event,
 		}
 		committedEvents = append(committedEvents, committed)
 		auditEncoded, encodeErr := json.Marshal(committed)

@@ -3,11 +3,10 @@ package middleware
 import (
 	"net/http"
 	"slices"
-	"strings"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 
+	"rctHubBackend/internal/authsession"
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/pkg/jwtutil"
 	"rctHubBackend/pkg/response"
@@ -18,46 +17,18 @@ const (
 	ContextKeyUserID = "user_id"
 )
 
-// Auth verifies the JWT in the Authorization header.
-func Auth(signer *jwtutil.Signer, log *zap.Logger) gin.HandlerFunc {
-	if log == nil {
-		log = zap.NewNop()
-	}
+// Auth accepts script Bearer JWTs and revocable browser session cookies.
+func Auth(signer *jwtutil.Signer, sessions authsession.Resolver, cookieName string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		header := c.GetHeader("Authorization")
-		if header == "" {
-			log.Debug("auth: missing authorization header", zap.String("path", c.Request.URL.Path))
-			response.Unauthorized(c, "missing authorization header")
-			c.Abort()
-			return
-		}
-
-		parts := strings.SplitN(header, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			log.Debug("auth: invalid authorization header format", zap.String("path", c.Request.URL.Path))
-			response.Unauthorized(c, "invalid authorization header")
-			c.Abort()
-			return
-		}
-
-		claims, err := signer.Parse(parts[1])
+		claims, err := authsession.ClaimsFromRequest(c.Request, signer, sessions, cookieName)
 		if err != nil {
-			log.Warn("auth: invalid or expired JWT",
-				zap.String("path", c.Request.URL.Path),
-				zap.Error(err),
-			)
-			response.Error(c, http.StatusUnauthorized, "invalid or expired token")
+			response.Error(c, http.StatusUnauthorized, "invalid or expired authentication")
 			c.Abort()
 			return
 		}
 
 		c.Set(ContextKeyClaims, claims)
 		c.Set(ContextKeyUserID, claims.UserID)
-		log.Debug("auth: token validated",
-			zap.Int64("osu_id", claims.OsuID),
-			zap.String("username", claims.Username),
-			zap.String("path", c.Request.URL.Path),
-		)
 		c.Next()
 	}
 }

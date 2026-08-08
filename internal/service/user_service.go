@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.uber.org/zap"
 
+	"rctHubBackend/internal/authsession"
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/repository"
 	"rctHubBackend/pkg/errs"
@@ -18,18 +19,27 @@ type UserService struct {
 	users       repository.UserRepository
 	invalidator CacheInvalidator
 	log         *zap.Logger
+	sessions    authsession.Revoker
 }
 
 // NewUserService creates a new UserService. If invalidator is nil, a
 // no-op implementation is used (cache entries will expire naturally).
-func NewUserService(users repository.UserRepository, invalidator CacheInvalidator, log *zap.Logger) *UserService {
+func NewUserService(users repository.UserRepository, invalidator CacheInvalidator, sessionRevokers ...authsession.Revoker) *UserService {
 	if invalidator == nil {
 		invalidator = noopInvalidator{}
 	}
-	if log == nil {
-		log = zap.NewNop()
+	var sessions authsession.Revoker
+	if len(sessionRevokers) > 0 {
+		sessions = sessionRevokers[0]
 	}
-	return &UserService{users: users, invalidator: invalidator, log: log}
+	return &UserService{users: users, invalidator: invalidator, log: zap.NewNop(), sessions: sessions}
+}
+
+func (s *UserService) WithLogger(log *zap.Logger) *UserService {
+	if log != nil {
+		s.log = log
+	}
+	return s
 }
 
 // Get returns a user by id.
@@ -64,6 +74,9 @@ func (s *UserService) UpdateRoles(ctx context.Context, id bson.ObjectID, roles [
 		return nil, fmt.Errorf("%w: update roles: %w", errs.ErrCacheSync, err)
 	}
 	s.log.Info("user roles updated", zap.Int64("osu_id", user.OnlineID), zap.Any("roles", roles))
+	if err := s.revokeSessions(ctx, user.ID.Hex()); err != nil {
+		return nil, err
+	}
 	return user, nil
 }
 
@@ -84,6 +97,9 @@ func (s *UserService) SetBanned(ctx context.Context, id bson.ObjectID, banned bo
 		return nil, fmt.Errorf("%w: update ban status: %w", errs.ErrCacheSync, err)
 	}
 	s.log.Info("user ban status changed", zap.Int64("osu_id", user.OnlineID), zap.Bool("banned", banned))
+	if err := s.revokeSessions(ctx, user.ID.Hex()); err != nil {
+		return nil, err
+	}
 	return user, nil
 }
 
@@ -109,5 +125,18 @@ func (s *UserService) SetVerifyStatus(ctx context.Context, id bson.ObjectID, sta
 		return nil, fmt.Errorf("%w: update verification status: %w", errs.ErrCacheSync, err)
 	}
 	s.log.Info("user verify status changed", zap.Int64("osu_id", user.OnlineID), zap.String("status", string(status)))
+	if err := s.revokeSessions(ctx, user.ID.Hex()); err != nil {
+		return nil, err
+	}
 	return user, nil
+}
+
+func (s *UserService) revokeSessions(ctx context.Context, userID string) error {
+	if s.sessions == nil {
+		return nil
+	}
+	if err := s.sessions.RevokeUser(ctx, userID); err != nil {
+		return fmt.Errorf("%w: revoke browser sessions: %w", errs.ErrCacheSync, err)
+	}
+	return nil
 }

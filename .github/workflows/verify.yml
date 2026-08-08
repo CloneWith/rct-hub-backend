@@ -26,6 +26,15 @@ jobs:
       - name: Run repository verification
         run: go run ./tools/verify
 
+      - name: Check GraphQL generated code and fixtures
+        run: |
+          go run github.com/99designs/gqlgen generate
+          go run ./tools/matchfixtures
+          git diff --exit-code -- internal/graphql/generated.go internal/graphql/models_gen.go internal/graphql/schema.resolvers.go contracts/fixtures
+
+      - name: Check GraphQL v1 compatibility
+        run: go run ./tools/graphqlcompat
+
       - name: Start MongoDB replica set
         run: |
           docker run --detach --name rcthub-mongo-test --publish 27017:27017 \
