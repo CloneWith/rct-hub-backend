@@ -40,27 +40,27 @@ func (h *BeatmapHandler) Create(c *gin.Context) {
 	response.Created(c, beatmap)
 }
 
-// Update updates an existing beatmap.
-func (h *BeatmapHandler) Update(c *gin.Context) {
+// Patch applies a partial update to an existing beatmap.
+func (h *BeatmapHandler) Patch(c *gin.Context) {
 	id, err := bson.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		response.BadRequest(c, "invalid beatmap id")
 		return
 	}
 
-	var beatmap domain.Beatmap
-	if err := c.ShouldBindJSON(&beatmap); err != nil {
+	var patch service.BeatmapPatch
+	if err := c.ShouldBindJSON(&patch); err != nil {
 		response.BadRequest(c, "invalid request body")
 		return
 	}
-	beatmap.ID = id
 
-	if err := h.svc.Update(c.Request.Context(), &beatmap); err != nil {
-		h.log.Warn("beatmap operation failed", zap.String("op", "update"), zap.Error(err))
+	beatmap, err := h.svc.Patch(c.Request.Context(), id, &patch)
+	if err != nil {
+		h.log.Warn("beatmap operation failed", zap.String("op", "patch"), zap.String("id", c.Param("id")), zap.Error(err))
 		_ = c.Error(err)
 		return
 	}
-	h.log.Info("beatmap updated", zap.String("id", c.Param("id")), zap.Int64("osu_id", beatmap.OnlineID))
+	h.log.Info("beatmap patched", zap.String("id", c.Param("id")), zap.Int64("osu_id", beatmap.OnlineID))
 	response.JSON(c, beatmap)
 }
 

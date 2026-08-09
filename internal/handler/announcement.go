@@ -43,29 +43,23 @@ func (h *AnnouncementHandler) Create(c *gin.Context) {
 	response.Created(c, a)
 }
 
-// Update updates an existing announcement (admin only).
-func (h *AnnouncementHandler) Update(c *gin.Context) {
+// Patch applies a partial update to an existing announcement (admin only).
+// The author id is preserved from the existing record.
+func (h *AnnouncementHandler) Patch(c *gin.Context) {
 	id, err := bson.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		response.BadRequest(c, "invalid announcement id")
 		return
 	}
 
-	var a domain.Announcement
-	if err := c.ShouldBindJSON(&a); err != nil {
+	var patch service.AnnouncementPatch
+	if err := c.ShouldBindJSON(&patch); err != nil {
 		response.BadRequest(c, "invalid request body")
 		return
 	}
-	a.ID = id
 
-	claims, ok := middleware.ClaimsFromContext(c)
-	if !ok {
-		response.Unauthorized(c, "missing authentication")
-		return
-	}
-	a.AuthorID = claims.OsuID
-
-	if err := h.svc.Update(c.Request.Context(), &a); err != nil {
+	a, err := h.svc.Patch(c.Request.Context(), id, &patch)
+	if err != nil {
 		response.Error(c, http.StatusNotFound, err.Error())
 		return
 	}

@@ -131,6 +131,61 @@ func (s *UserService) SetVerifyStatus(ctx context.Context, id bson.ObjectID, sta
 	return user, nil
 }
 
+// UserPatch is a partial update request for a user. Only non-nil fields are
+// applied; omitted fields keep their current values.
+type UserPatch struct {
+	Roles        *[]domain.UserRole   `json:"roles,omitempty"`
+	Banned       *bool                `json:"banned,omitempty"`
+	VerifyStatus *domain.VerifyStatus `json:"verify_status,omitempty"`
+}
+
+// Patch applies a partial update to an existing user. Changes to roles, ban
+// status or verification status invalidate the cache and revoke browser
+// sessions.
+func (s *UserService) Patch(ctx context.Context, id bson.ObjectID, patch *UserPatch) (*domain.User, error) {
+	user, err := s.users.ByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	authChanged := false
+	if patch.Roles != nil {
+		user.Roles = *patch.Roles
+		authChanged = true
+	}
+	if patch.Banned != nil {
+		user.IsBanned = *patch.Banned
+		authChanged = true
+	}
+	if patch.VerifyStatus != nil {
+		switch *patch.VerifyStatus {
+		case domain.Verified, domain.Pending, domain.Unverified:
+			user.VerifyStatus = *patch.VerifyStatus
+			authChanged = true
+		default:
+			return nil, fmt.Errorf("%w: invalid verify status", errs.ErrInvalidInput)
+		}
+	}
+
+	if err := s.users.Update(ctx, user); err != nil {
+		s.log.Error("failed to patch user", zap.Int64("osu_id", user.OnlineID), zap.Error(err))
+		return nil, err
+	}
+
+	if authChanged {
+		if err := s.invalidator.InvalidateUser(ctx, user.OnlineID); err != nil {
+			s.log.Error("failed to invalidate user cache", zap.Int64("osu_id", user.OnlineID), zap.Error(err))
+			return nil, fmt.Errorf("%w: patch user: %w", errs.ErrCacheSync, err)
+		}
+		if err := s.revokeSessions(ctx, user.ID.Hex()); err != nil {
+			return nil, err
+		}
+	}
+
+	s.log.Info("user patched", zap.Int64("osu_id", user.OnlineID))
+	return user, nil
+}
+
 func (s *UserService) revokeSessions(ctx context.Context, userID string) error {
 	if s.sessions == nil {
 		return nil

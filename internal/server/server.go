@@ -193,15 +193,16 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 		admin.Use(middleware.RequireRole(domain.RoleAdmin))
 		{
 			admin.POST("/beatmaps", beatmaps.Create)
-			admin.PUT("/beatmaps/:id", beatmaps.Update)
+			admin.PATCH("/beatmaps/:id", beatmaps.Patch)
 			admin.DELETE("/beatmaps/:id", beatmaps.Delete)
 
+			admin.PATCH("/users/:id", users.Patch)
 			admin.PATCH("/users/:id/roles", users.UpdateRoles)
 			admin.PATCH("/users/:id/banned", users.SetBanned)
 			admin.PATCH("/users/:id/verify-status", users.SetVerifyStatus)
 
 			admin.POST("/announcements", announcements.Create)
-			admin.PUT("/announcements/:id", announcements.Update)
+			admin.PATCH("/announcements/:id", announcements.Patch)
 			admin.DELETE("/announcements/:id", announcements.Delete)
 			admin.POST("/announcements/:id/publish", announcements.Publish)
 		}

@@ -46,6 +46,40 @@ func (s *AnnouncementService) Update(ctx context.Context, a *domain.Announcement
 	return s.announcements.Update(ctx, a)
 }
 
+// AnnouncementPatch is a partial update request for an announcement. Only
+// non-nil fields are applied; omitted fields keep their current values.
+type AnnouncementPatch struct {
+	Title   *string `json:"title,omitempty"`
+	Content *string `json:"content,omitempty"`
+	Pinned  *bool   `json:"pinned,omitempty"`
+	Visible *bool   `json:"visible,omitempty"`
+}
+
+// Patch applies a partial update to an existing announcement. The author id is
+// preserved and never changed through this endpoint.
+func (s *AnnouncementService) Patch(ctx context.Context, id bson.ObjectID, patch *AnnouncementPatch) (*domain.Announcement, error) {
+	a, err := s.announcements.ByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if patch.Title != nil {
+		a.Title = *patch.Title
+	}
+	if patch.Content != nil {
+		a.Content = *patch.Content
+	}
+	if patch.Pinned != nil {
+		a.Pinned = *patch.Pinned
+	}
+	if patch.Visible != nil {
+		a.Visible = *patch.Visible
+	}
+	if err := s.announcements.Update(ctx, a); err != nil {
+		return nil, err
+	}
+	return a, nil
+}
+
 // Delete removes an announcement.
 func (s *AnnouncementService) Delete(ctx context.Context, id bson.ObjectID) error {
 	return s.announcements.Delete(ctx, id)
