@@ -12,6 +12,7 @@ import (
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/matchengine"
 	"rctHubBackend/pkg/errs"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -515,6 +516,24 @@ func (r *queryResolver) Users(ctx context.Context, page *int, perPage *int) (*Us
 // Announcements is the resolver for the announcements field.
 func (r *queryResolver) Announcements(ctx context.Context, page *int, perPage *int) (*AnnouncementPage, error) {
 	params := buildPageParams(page, perPage)
+	user, meErr := r.Me(ctx)
+	var isPrivileged = false
+
+	if user != nil && meErr == nil {
+		if slices.Contains(user.Roles, UserRoleAdmin) {
+			isPrivileged = true
+		}
+	}
+
+	// Show all announcements based on current user.
+	if isPrivileged {
+		result, err := r.svc.Announcements.ListAll(ctx, params)
+		if err != nil {
+			return nil, err
+		}
+		return mapAnnouncementPage(result), nil
+	}
+
 	result, err := r.svc.Announcements.ListVisible(ctx, params)
 	if err != nil {
 		return nil, err
