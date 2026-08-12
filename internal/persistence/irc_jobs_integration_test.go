@@ -259,19 +259,20 @@ func TestMongoIntegrationParkedIRCChannelsDoNotStarveRunnableJobs(t *testing.T) 
 	for i := range 65 {
 		channel := fmt.Sprintf("#mp_%d", i+1)
 		job := irc.Job{
-			ID:       fmt.Sprintf("parked-%02d", i),
-			MatchID:  matchID.Hex(),
-			Channel:  channel,
-			Sequence: 1,
-			Kind:     "MAP",
-			Payload:  []byte(fmt.Sprintf("PRIVMSG %s :!mp map 123", channel)),
+			ID:        fmt.Sprintf("parked-%02d", i),
+			MatchID:   matchID.Hex(),
+			Channel:   channel,
+			Sequence:  1,
+			Kind:      "MAP",
+			Payload:   []byte(fmt.Sprintf("PRIVMSG %s :!mp map 123", channel)),
+			NextTryAt: now.Add(-time.Minute),
 		}
 		if err := store.Enqueue(ctx, job); err != nil {
 			t.Fatal(err)
 		}
-		claimed, err := store.Claim(ctx, now.Add(time.Second), now.Add(time.Minute))
+		claimed, err := store.Claim(ctx, now, now.Add(time.Minute))
 		if err != nil || claimed == nil || claimed.ID != job.ID {
-			t.Fatalf("parked claim=%+v err=%v", claimed, err)
+			t.Fatalf("parked claim %d=%+v err=%v", i, claimed, err)
 		}
 		if err := store.Reject(ctx, job.ID, claimed.LeaseToken, "manual review required"); err != nil {
 			t.Fatal(err)
@@ -279,12 +280,12 @@ func TestMongoIntegrationParkedIRCChannelsDoNotStarveRunnableJobs(t *testing.T) 
 	}
 	runnable := irc.Job{
 		ID: "runnable-after-parked", MatchID: matchID.Hex(), Channel: "#mp_99", Sequence: 1,
-		Kind: "MAP", Payload: []byte("PRIVMSG #mp_99 :!mp map 999"),
+		Kind: "MAP", Payload: []byte("PRIVMSG #mp_99 :!mp map 999"), NextTryAt: now.Add(-time.Minute),
 	}
 	if err := store.Enqueue(ctx, runnable); err != nil {
 		t.Fatal(err)
 	}
-	claimed, err := store.Claim(ctx, now.Add(2*time.Second), now.Add(time.Minute))
+	claimed, err := store.Claim(ctx, now, now.Add(time.Minute))
 	if err != nil || claimed == nil || claimed.ID != runnable.ID {
 		t.Fatalf("runnable job behind parked channels was starved: claim=%+v err=%v", claimed, err)
 	}
