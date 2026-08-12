@@ -17,7 +17,10 @@ import (
 type BeatmapService struct {
 	beatmaps    repository.BeatmapRepository
 	invalidator CacheInvalidator
-	log         *zap.Logger
+	resolver    interface {
+		GetBeatmap(context.Context, int64) (*domain.Beatmap, error)
+	}
+	log *zap.Logger
 }
 
 // NewBeatmapService creates a new BeatmapService. If invalidator is nil,
@@ -29,7 +32,13 @@ func NewBeatmapService(beatmaps repository.BeatmapRepository, invalidator CacheI
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &BeatmapService{beatmaps: beatmaps, invalidator: invalidator, log: log}
+	service := &BeatmapService{beatmaps: beatmaps, invalidator: invalidator, log: log}
+	if resolver, ok := invalidator.(interface {
+		GetBeatmap(context.Context, int64) (*domain.Beatmap, error)
+	}); ok {
+		service.resolver = resolver
+	}
+	return service
 }
 
 // Get returns a beatmap by id.
@@ -39,6 +48,9 @@ func (s *BeatmapService) Get(ctx context.Context, id bson.ObjectID) (*domain.Bea
 
 // GetByOsuID returns a beatmap by osu! beatmap id.
 func (s *BeatmapService) GetByOsuID(ctx context.Context, osuID int64) (*domain.Beatmap, error) {
+	if s.resolver != nil {
+		return s.resolver.GetBeatmap(ctx, osuID)
+	}
 	return s.beatmaps.ByOsuID(ctx, osuID)
 }
 

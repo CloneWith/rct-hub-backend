@@ -180,6 +180,18 @@ func TestMongoIntegrationSnapshotStoreCASAndCompatibility(t *testing.T) {
 	if err := commandStore.InstallValidators(ctx); err != nil {
 		t.Fatalf("Install command validators: %v", err)
 	}
+	ircJobs := persistence.NewIRCJobStore(db)
+	ircObservations := persistence.NewIRCObservationStore(db)
+	beatmapMetadata := persistence.NewBeatmapMetadataStore(db)
+	if err := ircJobs.InstallValidator(ctx); err != nil {
+		t.Fatalf("Install IRC job validator: %v", err)
+	}
+	if err := ircObservations.InstallValidator(ctx); err != nil {
+		t.Fatalf("Install IRC observation validator: %v", err)
+	}
+	if err := beatmapMetadata.InstallValidator(ctx); err != nil {
+		t.Fatalf("Install beatmap metadata validator: %v", err)
+	}
 	if err := runtimeDB.VerifySchema(ctx); err != nil {
 		t.Fatalf("VerifySchema after initdb: %v", err)
 	}
@@ -188,6 +200,15 @@ func TestMongoIntegrationSnapshotStoreCASAndCompatibility(t *testing.T) {
 	}
 	if err := commandStore.InstallValidators(ctx); err != nil {
 		t.Fatalf("idempotent command validators: %v", err)
+	}
+	if err := ircJobs.InstallValidator(ctx); err != nil {
+		t.Fatalf("idempotent IRC job validator: %v", err)
+	}
+	if err := ircObservations.InstallValidator(ctx); err != nil {
+		t.Fatalf("idempotent IRC observation validator: %v", err)
+	}
+	if err := beatmapMetadata.InstallValidator(ctx); err != nil {
+		t.Fatalf("idempotent beatmap metadata validator: %v", err)
 	}
 	if err := runtimeDB.VerifySchema(ctx); err != nil {
 		t.Fatalf("VerifySchema after repeated initdb: %v", err)

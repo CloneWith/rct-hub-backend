@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rct-hub.local/contracts/realtime-v1.schema.json",
+  "title": "RCT Hub match realtime protocol v1",
+  "oneOf": [
+    { "$ref": "#/$defs/subscribe" },
+    { "$ref": "#/$defs/snapshotMessage" },
+    { "$ref": "#/$defs/eventMessage" },
+    { "$ref": "#/$defs/errorMessage" },
+    { "$ref": "#/$defs/resyncMessage" }
+  ],
+  "$defs": {
+    "matchId": { "type": "string", "pattern": "^[0-9a-f]{24}$" },
+    "team": { "enum": ["RED", "BLUE"] },
+    "mod": { "enum": ["NM", "HD", "HR", "DT", "FM", "SHIRO", "TB"] },
+    "forceMod": { "enum": ["NM", "HD", "HR"] },
+    "tbBasis": { "enum": ["CAPTAIN_AGREEMENT", "FORCED_AFTER_ROBBERY_CHECKS"] },
+    "subscribe": {
+      "type": "object",
+      "required": ["type", "schemaVersion", "matchId"],
+      "properties": {
+        "type": { "const": "subscribe" },
+        "schemaVersion": { "const": 1 },
+        "matchId": { "$ref": "#/$defs/matchId" }
+      },
+      "additionalProperties": false
+    },
+    "snapshotMessage": {
+      "type": "object",
+      "required": ["type", "schemaVersion", "serverTime", "matchId", "version", "snapshot"],
+      "properties": {
+        "type": { "const": "snapshot" },
+        "schemaVersion": { "const": 1 },
+        "serverTime": { "type": "string", "format": "date-time" },
+        "matchId": { "$ref": "#/$defs/matchId" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "version": { "type": "integer", "minimum": 0 },
+        "snapshot": { "$ref": "#/$defs/snapshot" }
+      },
+      "additionalProperties": false
+    },
+    "eventMessage": {
+      "type": "object",
+      "required": ["type", "schemaVersion", "serverTime", "matchId", "sequence", "version", "event", "snapshot"],
+      "properties": {
+        "type": { "const": "event" },
+        "schemaVersion": { "const": 1 },
+        "serverTime": { "type": "string", "format": "date-time" },
+        "matchId": { "$ref": "#/$defs/matchId" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "version": { "type": "integer", "minimum": 1 },
+        "event": { "$ref": "#/$defs/event" },
+        "snapshot": { "$ref": "#/$defs/snapshot" }
+      },
+      "additionalProperties": false
+    },
+    "errorMessage": {
+      "type": "object",
+      "required": ["type", "schemaVersion", "serverTime", "code", "message"],
+      "properties": {
+        "type": { "const": "error" },
+        "schemaVersion": { "const": 1 },
+        "serverTime": { "type": "string", "format": "date-time" },
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "resyncMessage": {
+      "type": "object",
+      "required": ["type", "schemaVersion", "serverTime", "matchId", "code", "message", "nextSequence"],
+      "properties": {
+        "type": { "const": "resync_required" },
+        "schemaVersion": { "const": 1 },
+        "serverTime": { "type": "string", "format": "date-time" },
+        "matchId": { "$ref": "#/$defs/matchId" },
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "nextSequence": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "required": ["id", "type", "resultingVersion", "fact", "occurredAt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": {
+          "enum": [
+            "MATCH_STARTED", "BAN_PHASE_STARTED", "POOL_SLOT_BANNED", "TURN_ADVANCED",
+            "PICK_PHASE_STARTED", "PIECE_PLACED", "SHIRO_PLACED", "RESULT_CONFIRMATION_REQUESTED",
+            "BEATMAP_RESULT_CONFIRMED", "PIECE_WON", "PIECES_SACRIFICED", "PIECE_ROBBED",
+            "ADDITIONAL_TIME_GRANTED", "TIMER_CALIBRATED", "TIMER_PAUSED", "TIMER_RESUMED",
+            "MATCH_SUSPENDED", "MATCH_RESUMED", "ACTION_SKIPPED", "MATCH_ABORTED",
+            "REFEREE_PROXY_ACTION_RECORDED", "TB_REQUESTED", "TB_REQUEST_ACCEPTED",
+            "TB_REQUEST_REJECTED", "TB_REQUEST_EXPIRED", "TB_FORCED", "TB_PREPARATION_STARTED",
+            "TB_STARTED", "TB_RESULT_CONFIRMED", "SURRENDER_RECORDED", "MATCH_FINISHED",
+            "STALEMATE_DETECTED", "ADJUDICATION_REQUIRED", "TIMER_STARTED", "TIMER_STOPPED"
+          ]
+        },
+        "resultingVersion": { "type": "integer", "minimum": 1 },
+        "fact": { "$ref": "#/$defs/eventFact" },
+        "occurredAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "eventFact": {
+      "type": "object",
+      "required": ["boardPieceIds", "playerIds"],
+      "properties": {
+        "team": { "$ref": "#/$defs/team" },
+        "poolSlotId": { "type": "string", "minLength": 1 },
+        "boardPieceId": { "type": "string", "minLength": 1 },
+        "boardPieceIds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "cell": { "type": "string", "pattern": "^[A-D][1-4]$" },
+        "durationMilliseconds": { "type": "integer", "minimum": 1 },
+        "requestId": { "type": "string", "minLength": 1 },
+        "tbBasis": { "$ref": "#/$defs/tbBasis" },
+        "playerIds": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]+$" } }
+      },
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "required": ["version", "lifecycle", "phase", "firstBan", "firstPick", "turn", "poolSlots", "board", "wonCounts", "timer", "robberyUsed", "teamPauseUsed", "rosters"],
+      "properties": {
+        "version": { "type": "integer", "minimum": 0 },
+        "lifecycle": { "enum": ["READY", "RUNNING", "SUSPENDED", "ADJUDICATION_REQUIRED", "FINISHED", "ABORTED"] },
+        "phase": { "enum": ["NONE", "BAN", "PICK", "WAITING_FOR_RESULT", "TB_PREPARATION", "TB_PLAYING"] },
+        "firstBan": { "$ref": "#/$defs/team" },
+        "firstPick": { "$ref": "#/$defs/team" },
+        "turn": { "type": "integer", "minimum": 0 },
+        "activeTeam": { "$ref": "#/$defs/team" },
+        "poolSlots": { "type": "array", "items": { "$ref": "#/$defs/poolSlot" } },
+        "board": { "$ref": "#/$defs/board" },
+        "wonCounts": { "$ref": "#/$defs/teamCounts" },
+        "timer": { "$ref": "#/$defs/timer" },
+        "robberyUsed": { "$ref": "#/$defs/teamFlags" },
+        "teamPauseUsed": { "$ref": "#/$defs/teamFlags" },
+        "rosters": { "$ref": "#/$defs/rosters" },
+        "pendingPieceId": { "type": "string", "minLength": 1 },
+        "pendingTBRequest": { "$ref": "#/$defs/tbRequest" },
+        "tbEntry": { "$ref": "#/$defs/tbEntry" },
+        "winner": { "$ref": "#/$defs/team" },
+        "result": { "$ref": "#/$defs/matchResult" },
+        "stalemate": { "$ref": "#/$defs/stalemateEvidence" }
+      },
+      "additionalProperties": false
+    },
+    "poolSlot": {
+      "type": "object",
+      "required": ["id", "mod", "state"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "mod": { "$ref": "#/$defs/mod" },
+        "state": { "enum": ["AVAILABLE", "BANNED", "SELECTED"] }
+      },
+      "additionalProperties": false
+    },
+    "board": {
+      "type": "object",
+      "required": ["cells"],
+      "properties": {
+        "cells": {
+          "type": "array",
+          "minItems": 16,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/boardCell" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "boardCell": {
+      "type": "object",
+      "required": ["cell", "row", "col", "zone"],
+      "properties": {
+        "cell": { "type": "string", "pattern": "^[A-D][1-4]$" },
+        "row": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "col": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "zone": { "enum": ["DT", "HD", "HR"] },
+        "piece": { "$ref": "#/$defs/boardPiece" }
+      },
+      "additionalProperties": false
+    },
+    "boardPiece": {
+      "type": "object",
+      "required": ["id", "sourcePoolSlotId", "mod", "selectedBy", "outcome"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "sourcePoolSlotId": { "type": "string", "minLength": 1 },
+        "mod": { "$ref": "#/$defs/mod" },
+        "forceMod": { "$ref": "#/$defs/forceMod" },
+        "selectedBy": { "$ref": "#/$defs/team" },
+        "owner": { "$ref": "#/$defs/team" },
+        "outcome": { "enum": ["WAITING_RESULT", "WON", "WHITE", "DEAD"] }
+      },
+      "additionalProperties": false
+    },
+    "timer": {
+      "type": "object",
+      "required": ["durationMilliseconds", "paused"],
+      "properties": {
+        "startedAt": { "type": "string", "format": "date-time" },
+        "durationMilliseconds": { "type": "integer", "minimum": 0 },
+        "paused": { "type": "boolean" },
+        "remainingAtPauseMilliseconds": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "teamCounts": {
+      "type": "object",
+      "required": ["red", "blue"],
+      "properties": {
+        "red": { "type": "integer", "minimum": 0 },
+        "blue": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "teamFlags": {
+      "type": "object",
+      "required": ["red", "blue"],
+      "properties": {
+        "red": { "type": "boolean" },
+        "blue": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "roster": {
+      "type": "object",
+      "required": ["leaderId", "playerIds"],
+      "properties": {
+        "leaderId": { "type": "string", "pattern": "^[0-9]+$" },
+        "playerIds": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]+$" } }
+      },
+      "additionalProperties": false
+    },
+    "rosters": {
+      "type": "object",
+      "required": ["red", "blue"],
+      "properties": {
+        "red": { "$ref": "#/$defs/roster" },
+        "blue": { "$ref": "#/$defs/roster" }
+      },
+      "additionalProperties": false
+    },
+    "tbRequest": {
+      "type": "object",
+      "required": ["id", "requestedBy", "basis"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "requestedBy": { "$ref": "#/$defs/team" },
+        "basis": { "$ref": "#/$defs/tbBasis" }
+      },
+      "additionalProperties": false
+    },
+    "tbEntry": {
+      "type": "object",
+      "required": ["basis"],
+      "properties": {
+        "basis": { "$ref": "#/$defs/tbBasis" },
+        "requestId": { "type": "string", "minLength": 1 },
+        "requestedBy": { "$ref": "#/$defs/team" }
+      },
+      "additionalProperties": false
+    },
+    "matchResult": {
+      "type": "object",
+      "required": ["winner", "reason", "confirmingPlayerIds", "wonCounts"],
+      "properties": {
+        "winner": { "$ref": "#/$defs/team" },
+        "reason": { "enum": ["FOUR_ALIGNMENT", "TB", "SURRENDER", "STALEMATE_WON_COUNT"] },
+        "surrenderingTeam": { "$ref": "#/$defs/team" },
+        "confirmingPlayerIds": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]+$" } },
+        "wonCounts": { "$ref": "#/$defs/teamCounts" }
+      },
+      "additionalProperties": false
+    },
+    "stalemateEvidence": {
+      "type": "object",
+      "required": ["wonCounts"],
+      "properties": {
+        "wonCounts": { "$ref": "#/$defs/teamCounts" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
