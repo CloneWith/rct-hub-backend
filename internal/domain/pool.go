@@ -69,27 +69,7 @@ func (m Mappool) ActiveSlotsByMod(mod PieceMod) []Piece {
 // ParsePoolSlot parses a string such as "NM-1" into a PoolSlot.
 func ParsePoolSlot(s string) (PoolSlot, bool) {
 	modText, indexText, found := strings.Cut(s, "-")
-	if !found {
-		// The authoritative MatchEngine uses compact IDs such as NM1 and
-		// singleton IDs TB/Shiro. Keep accepting the human-facing NM-1 form.
-		for _, mod := range []PieceMod{PieceModNM, PieceModHD, PieceModHR, PieceModDT, PieceModFM} {
-			prefix := string(mod)
-			if strings.HasPrefix(s, prefix) && len(s) > len(prefix) {
-				modText, indexText = prefix, s[len(prefix):]
-				found = true
-				break
-			}
-		}
-		if !found {
-			switch s {
-			case string(PieceModTB), string(PieceModShiro):
-				return PoolSlot{Mod: PieceMod(s), Index: 1}, true
-			default:
-				return PoolSlot{}, false
-			}
-		}
-	}
-	if modText == "" || indexText == "" || strings.Contains(indexText, "-") {
+	if !found || modText == "" || indexText == "" || strings.Contains(indexText, "-") {
 		return PoolSlot{}, false
 	}
 	mod := PieceMod(modText)

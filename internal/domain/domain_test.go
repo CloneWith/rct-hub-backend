@@ -186,16 +186,6 @@ func TestPoolSlotStringParseRoundTrip(t *testing.T) {
 			t.Fatalf("ParsePoolSlot(%q) = %+v, true; want rejection", invalid, got)
 		}
 	}
-	for input, want := range map[string]PoolSlot{
-		"NM1":   {Mod: PieceModNM, Index: 1},
-		"HD12":  {Mod: PieceModHD, Index: 12},
-		"TB":    {Mod: PieceModTB, Index: 1},
-		"Shiro": {Mod: PieceModShiro, Index: 1},
-	} {
-		if got, ok := ParsePoolSlot(input); !ok || got != want {
-			t.Fatalf("ParsePoolSlot(%q) = %+v, %v; want %+v, true", input, got, ok, want)
-		}
-	}
 }
 
 func TestLegacyMatchBSONRoundTripPreservesBoard(t *testing.T) {

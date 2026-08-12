@@ -71,9 +71,6 @@ func Execute(state State, actor Actor, command Command, now time.Time) (Transiti
 	if err != nil {
 		return Transition{}, err
 	}
-	if len(events) == 0 {
-		return Transition{}, ruleError(CodeInvalidRequest, "successful command produced no events")
-	}
 	next.Version++
 	return Transition{State: next, Events: events}, nil
 }

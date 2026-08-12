@@ -9,9 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"rctHubBackend/internal/beatmapmetadata"
 	"rctHubBackend/internal/domain"
-	"rctHubBackend/internal/irc"
 	"rctHubBackend/internal/matchengine"
 	"rctHubBackend/pkg/errs"
 	"slices"
@@ -167,195 +165,12 @@ func (r *matchResolver) RefereeView(ctx context.Context, obj *Match) (*RefereeVi
 
 // Beatmap is the resolver for the beatmap field.
 func (r *matchPoolSlotMetadataResolver) Beatmap(ctx context.Context, obj *MatchPoolSlotMetadata) (*Beatmap, error) {
-	if r.metadata != nil {
-		return r.persistedBeatmapMetadata(ctx, obj.BeatmapID)
-	}
 	return r.beatmapByID(ctx, obj.BeatmapID)
-}
-
-// MetadataStatus is the resolver for the metadataStatus field.
-func (r *matchPoolSlotMetadataResolver) MetadataStatus(ctx context.Context, obj *MatchPoolSlotMetadata) (BeatmapMetadataStatus, error) {
-	if obj == nil || obj.BeatmapID == nil || *obj.BeatmapID == "" {
-		return BeatmapMetadataStatusNotConfigured, nil
-	}
-	if r.metadata != nil {
-		record, err := r.metadataRecord(ctx, obj)
-		if err != nil || record == nil {
-			return BeatmapMetadataStatusFailed, nil
-		}
-		return BeatmapMetadataStatus(record.Status), nil
-	}
-	beatmap, err := r.beatmapByID(ctx, obj.BeatmapID)
-	if err != nil {
-		return BeatmapMetadataStatusFailed, nil
-	}
-	if beatmap == nil {
-		return BeatmapMetadataStatusPending, nil
-	}
-	return BeatmapMetadataStatusReady, nil
-}
-
-// MetadataAttempts is the resolver for the metadataAttempts field.
-func (r *matchPoolSlotMetadataResolver) MetadataAttempts(ctx context.Context, obj *MatchPoolSlotMetadata) (int, error) {
-	record, err := r.metadataRecord(ctx, obj)
-	if err != nil || record == nil {
-		return 0, err
-	}
-	return record.Attempts, nil
-}
-
-// MetadataNextRetryAt is the resolver for the metadataNextRetryAt field.
-func (r *matchPoolSlotMetadataResolver) MetadataNextRetryAt(ctx context.Context, obj *MatchPoolSlotMetadata) (*time.Time, error) {
-	record, err := r.metadataRecord(ctx, obj)
-	if err != nil || record == nil || record.Status == beatmapmetadata.StatusReady {
-		return nil, err
-	}
-	value := record.NextTryAt
-	return &value, nil
-}
-
-// MetadataLastError is the resolver for the metadataLastError field.
-func (r *matchPoolSlotMetadataResolver) MetadataLastError(ctx context.Context, obj *MatchPoolSlotMetadata) (*string, error) {
-	record, err := r.metadataRecord(ctx, obj)
-	if err != nil || record == nil || record.LastError == "" {
-		return nil, err
-	}
-	value := record.LastError
-	return &value, nil
 }
 
 // StartMatch is the resolver for the startMatch field.
 func (r *mutationResolver) StartMatch(ctx context.Context, input CommandMeta) (*MatchCommandResult, error) {
 	return r.executeCommand(ctx, &input, matchengine.StartMatch{}), nil
-}
-
-// ConfirmIRCResult is the resolver for the confirmIRCResult field.
-func (r *mutationResolver) ConfirmIRCResult(ctx context.Context, input ConfirmIRCResultInput) (*MatchCommandResult, error) {
-	claims, ok := ClaimsFromCtx(ctx)
-	if !ok || claims == nil {
-		return invalidCommandInput(nil, fmt.Errorf("authentication required")), nil
-	}
-	if r.irc == nil {
-		return invalidCommandInput(nil, fmt.Errorf("IRC observation service is unavailable")), nil
-	}
-	observation, err := r.irc.ByID(ctx, input.ObservationID)
-	if err != nil || observation == nil || !ircResultMatches(observation.Command, input.WinningTeam, input.BoardPieceID) {
-		return invalidCommandInput(nil, fmt.Errorf("observation is unavailable")), nil
-	}
-	if err := r.authorizeIRCObservation(ctx, input.MatchID, observation.Channel); err != nil {
-		return invalidCommandInput(nil, err), nil
-	}
-	matchID, err := bson.ObjectIDFromHex(input.MatchID)
-	if err != nil {
-		return invalidCommandInput(nil, fmt.Errorf("matchId must be a valid ObjectID")), nil
-	}
-	winner := engineTeam(input.WinningTeam)
-	claimed, err := r.irc.ClaimConfirmation(ctx, input.ObservationID, matchID, input.CommandID, input.BoardPieceID, winner, claims.OsuID)
-	if err != nil || claimed == nil || !ircResultMatches(claimed.Command, input.WinningTeam, input.BoardPieceID) {
-		return invalidCommandInput(nil, fmt.Errorf("observation is unavailable")), nil
-	}
-	result := r.executeCommand(ctx, &CommandMeta{MatchID: input.MatchID, ExpectedVersion: input.ExpectedVersion, CommandID: input.CommandID}, matchengine.ConfirmBeatmapResult{BoardPieceID: input.BoardPieceID, WinningTeam: winner})
-	if !result.Success {
-		_ = r.irc.ReleaseConfirmation(ctx, input.ObservationID, input.CommandID)
-		return result, nil
-	}
-	// A committed result remains authoritative even if this final evidence write
-	// temporarily fails. The confirmation reconciler finishes it from the
-	// durable command receipt after this request or a process restart.
-	_ = r.irc.FinalizeConfirmation(ctx, input.ObservationID, input.CommandID)
-	return result, nil
-}
-
-// RejectIRCObservation is the resolver for the rejectIRCObservation field.
-func (r *mutationResolver) RejectIRCObservation(ctx context.Context, matchID string, observationID string, reason string) (bool, error) {
-	claims, ok := ClaimsFromCtx(ctx)
-	if !ok || claims == nil {
-		return false, fmt.Errorf("AUTH_REQUIRED: authentication required")
-	}
-	if strings.TrimSpace(reason) == "" || r.irc == nil {
-		return false, fmt.Errorf("reason and IRC observation service are required")
-	}
-	observation, err := r.irc.ByID(ctx, observationID)
-	if err != nil {
-		return false, err
-	}
-	if err := r.authorizeIRCObservation(ctx, matchID, observation.Channel); err != nil {
-		return false, err
-	}
-	if err := r.irc.Reject(ctx, observationID, reason, claims.OsuID); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-// RetryIRCJob is the resolver for the retryIRCJob field.
-func (r *mutationResolver) RetryIRCJob(ctx context.Context, input RetryIRCJobInput) (bool, error) {
-	if r.ircJobs == nil {
-		return false, fmt.Errorf("IRC job service is unavailable")
-	}
-	room, err := r.authorizeIRCMatch(ctx, input.MatchID)
-	if err != nil {
-		return false, err
-	}
-	channel, err := irc.ChannelFromMPLink(*room.Settings.MPLink)
-	if err != nil {
-		return false, fmt.Errorf("match multiplayer link is invalid")
-	}
-	matchID, err := bson.ObjectIDFromHex(input.MatchID)
-	if err != nil {
-		return false, fmt.Errorf("invalid match ID")
-	}
-	if err := r.ircJobs.Retry(ctx, matchID, input.JobID, channel, time.Now().UTC()); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-// RetryMatchAutomation is the resolver for the retryMatchAutomation field.
-func (r *mutationResolver) RetryMatchAutomation(ctx context.Context, input RetryMatchAutomationInput) (bool, error) {
-	if r.automation == nil {
-		return false, fmt.Errorf("match automation service is unavailable")
-	}
-	if _, err := r.authorizeRefereeMatch(ctx, input.MatchID); err != nil {
-		return false, err
-	}
-	matchID, err := bson.ObjectIDFromHex(input.MatchID)
-	if err != nil {
-		return false, fmt.Errorf("invalid match ID")
-	}
-	if err := r.automation.RetryFailedEvent(ctx, matchID, input.EventID); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-// RetryBeatmapMetadata is the resolver for the retryBeatmapMetadata field.
-func (r *mutationResolver) RetryBeatmapMetadata(ctx context.Context, input RetryBeatmapMetadataInput) (bool, error) {
-	if r.metadata == nil {
-		return false, fmt.Errorf("beatmap metadata service is unavailable")
-	}
-	match, err := r.authorizeRefereeMatch(ctx, input.MatchID)
-	if err != nil {
-		return false, err
-	}
-	beatmapID, err := parsePositiveInt64ID(input.BeatmapID)
-	if err != nil {
-		return false, err
-	}
-	linked := false
-	for _, configuredID := range match.Pool {
-		if configuredID != nil && *configuredID == beatmapID {
-			linked = true
-			break
-		}
-	}
-	if !linked {
-		return false, fmt.Errorf("beatmap is not configured in this match")
-	}
-	if err := r.metadata.Retry(ctx, beatmapID); err != nil {
-		return false, err
-	}
-	return true, nil
 }
 
 // BanPoolSlot is the resolver for the banPoolSlot field.
@@ -743,64 +558,6 @@ func (r *queryResolver) Announcement(ctx context.Context, id string) (*Announcem
 	return mapAnnouncement(a), nil
 }
 
-// IrcObservations is the resolver for the ircObservations field.
-func (r *queryResolver) IrcObservations(ctx context.Context, matchID string, channel string) ([]*IRCObservation, error) {
-	claims, ok := ClaimsFromCtx(ctx)
-	if !ok || claims == nil {
-		return nil, fmt.Errorf("AUTH_REQUIRED: authentication required")
-	}
-	if err := r.authorizeIRCObservation(ctx, matchID, channel); err != nil {
-		return nil, err
-	}
-	if r.irc == nil {
-		return nil, fmt.Errorf("IRC observation service is unavailable")
-	}
-	items, err := r.irc.List(ctx, channel, 100)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]*IRCObservation, len(items))
-	for i, item := range items {
-		result[i] = mapIRCObservation(item)
-	}
-	return result, nil
-}
-
-// IrcJobs is the resolver for the ircJobs field.
-func (r *queryResolver) IrcJobs(ctx context.Context, matchID string) ([]*IRCJob, error) {
-	if r.ircJobs == nil {
-		return nil, fmt.Errorf("IRC job service is unavailable")
-	}
-	if _, err := r.authorizeIRCMatch(ctx, matchID); err != nil {
-		return nil, err
-	}
-	parsed, err := bson.ObjectIDFromHex(matchID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid match ID")
-	}
-	items, err := r.ircJobs.List(ctx, parsed, 100)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]*IRCJob, len(items))
-	for i, item := range items {
-		result[i] = mapIRCJob(item)
-	}
-	return result, nil
-}
-
-// IrcConnectionStatus is the resolver for the ircConnectionStatus field.
-func (r *queryResolver) IrcConnectionStatus(ctx context.Context, matchID string) (*IRCConnectionStatus, error) {
-	if _, err := r.authorizeRefereeMatch(ctx, matchID); err != nil {
-		return nil, err
-	}
-	if r.ircStatus == nil {
-		return &IRCConnectionStatus{Configured: false, Connected: false, Degraded: false}, nil
-	}
-	status := r.ircStatus.Status()
-	return &IRCConnectionStatus{Configured: status.Configured, Connected: status.Connected, Degraded: status.Configured && !status.Connected, LastError: optionalString(status.LastError)}, nil
-}
-
 // AuditLog is the resolver for the auditLog field.
 func (r *refereeViewResolver) AuditLog(ctx context.Context, obj *RefereeView, limit *int) ([]*AuditEntry, error) {
 	if r.audit == nil {
@@ -834,34 +591,6 @@ func (r *refereeViewResolver) AuditLog(ctx context.Context, obj *RefereeView, li
 		}
 	}
 	return entries, nil
-}
-
-// AutomationIssues is the resolver for the automationIssues field.
-func (r *refereeViewResolver) AutomationIssues(ctx context.Context, obj *RefereeView, limit *int) ([]*MatchAutomationIssue, error) {
-	if r.automation == nil {
-		return nil, fmt.Errorf("match automation service is unavailable")
-	}
-	matchID, err := bson.ObjectIDFromHex(obj.MatchID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid match ID: %w", err)
-	}
-	requested := 50
-	if limit != nil {
-		requested = *limit
-	}
-	events, err := r.automation.ListFailedEvents(ctx, matchID, int64(requested))
-	if err != nil {
-		return nil, err
-	}
-	issues := make([]*MatchAutomationIssue, len(events))
-	for index, event := range events {
-		issues[index] = &MatchAutomationIssue{
-			EventID: event.EventID, Sequence: strconv.FormatUint(event.Sequence, 10),
-			EventType: MatchEventType(event.Type), Attempts: event.Attempts,
-			LastError: event.LastError, OccurredAt: event.OccurredAt,
-		}
-	}
-	return issues, nil
 }
 
 // Owner is the resolver for the owner field.

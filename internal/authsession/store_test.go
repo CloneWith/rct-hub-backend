@@ -99,7 +99,6 @@ func newTestStore(t *testing.T) (*Store, *redis.Client, *time.Time) {
 	client := redis.NewClient(&redis.Options{Addr: mini.Addr()})
 	t.Cleanup(func() { _ = client.Close() })
 	now := time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC)
-	mini.SetTime(now)
 	store := NewStore(client, 24*time.Hour, 7*24*time.Hour)
 	store.now = func() time.Time { return now }
 	randomBytes := make([]byte, 128)

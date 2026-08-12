@@ -39,18 +39,3 @@ func (r *Resolver) beatmapByID(ctx context.Context, beatmapID *string) (*Beatmap
 	}
 	return mapBeatmap(beatmap), nil
 }
-
-func (r *Resolver) persistedBeatmapMetadata(ctx context.Context, beatmapID *string) (*Beatmap, error) {
-	if beatmapID == nil || r == nil || r.metadata == nil {
-		return nil, nil
-	}
-	id, err := parsePositiveInt64ID(*beatmapID)
-	if err != nil {
-		return nil, err
-	}
-	beatmap, err := r.metadata.Beatmap(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return mapBeatmap(beatmap), nil
-}

@@ -129,15 +129,6 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 	if err := commandStore.EnsureIndexes(ctx); err != nil {
 		return err
 	}
-	if err := persistence.NewIRCJobStore(db.MongoDB).EnsureIndexes(ctx); err != nil {
-		return fmt.Errorf("IRC job indexes: %w", err)
-	}
-	if err := persistence.NewIRCObservationStore(db.MongoDB).EnsureIndexes(ctx); err != nil {
-		return fmt.Errorf("IRC observation indexes: %w", err)
-	}
-	if err := persistence.NewBeatmapMetadataStore(db.MongoDB).EnsureIndexes(ctx); err != nil {
-		return fmt.Errorf("beatmap metadata indexes: %w", err)
-	}
 
 	return nil
 }
@@ -146,14 +137,5 @@ func (db *DB) VerifySchema(ctx context.Context) error {
 	if err := persistence.NewSnapshotStore(db.MongoDB).VerifyValidator(ctx); err != nil {
 		return err
 	}
-	if err := persistence.NewCommandStore(db.Mongo, db.MongoDB).VerifyValidators(ctx); err != nil {
-		return err
-	}
-	if err := persistence.NewIRCJobStore(db.MongoDB).VerifyValidator(ctx); err != nil {
-		return err
-	}
-	if err := persistence.NewIRCObservationStore(db.MongoDB).VerifyValidator(ctx); err != nil {
-		return err
-	}
-	return persistence.NewBeatmapMetadataStore(db.MongoDB).VerifyValidator(ctx)
+	return persistence.NewCommandStore(db.Mongo, db.MongoDB).VerifyValidators(ctx)
 }

@@ -137,13 +137,7 @@ type MatchPoolSlotMetadata {
   poolSlotID: ID!
   beatmapID: ID
   beatmap: Beatmap @goField(forceResolver: true)
-  metadataStatus: BeatmapMetadataStatus! @goField(forceResolver: true)
-  metadataAttempts: Int! @goField(forceResolver: true)
-  metadataNextRetryAt: Time @goField(forceResolver: true)
-  metadataLastError: String @goField(forceResolver: true)
 }
-
-enum BeatmapMetadataStatus { NOT_CONFIGURED READY PENDING FAILED }
 
 enum MatchLifecycle {
   READY
@@ -425,7 +419,6 @@ type RefereeView {
   suspensionReason: String
   abortReason: String
   auditLog(limit: Int = 50): [AuditEntry!]! @goField(forceResolver: true)
-  automationIssues(limit: Int = 50): [MatchAutomationIssue!]! @goField(forceResolver: true)
 }
 
 type AuditEntry {
@@ -438,15 +431,6 @@ type AuditEntry {
   resultingVersion: UInt64!
   timestamp: Time!
   reason: String
-}
-
-type MatchAutomationIssue {
-  eventID: ID!
-  sequence: UInt64!
-  eventType: MatchEventType!
-  attempts: Int!
-  lastError: String!
-  occurredAt: Time!
 }
 
 # =============================================================================
@@ -526,27 +510,7 @@ type Query {
   # 公告
   announcements(page: Int = 1, perPage: Int = 20): AnnouncementPage!
   announcement(id: ID!): Announcement
-  ircObservations(matchId: ID!, channel: String!): [IRCObservation!]!
-  ircJobs(matchId: ID!): [IRCJob!]!
-  ircConnectionStatus(matchId: ID!): IRCConnectionStatus!
 }
-
-enum IRCReviewStatus { PENDING CONFIRMING CONFIRMED REJECTED }
-type IRCSuggestedResult { winningTeam: TeamSide!, boardPieceID: ID! }
-type IRCObservation {
-  id: ID!, channel: String!, sender: String!, command: String!, raw: String!, observedAt: Time!
-  reviewStatus: IRCReviewStatus!, reviewReason: String, suggestedResult: IRCSuggestedResult
-}
-type IRCConnectionStatus { configured: Boolean!, connected: Boolean!, degraded: Boolean!, lastError: String }
-enum IRCJobStatus { PENDING SENDING SENT ACKNOWLEDGED FAILED CANCELLED }
-type IRCJob {
-  id: ID!, matchID: ID!, channel: String!, kind: String!, payload: String!, status: IRCJobStatus!
-  attempts: Int!, automaticRetry: Boolean!, nextTryAt: Time, sentAt: Time, ackDeadline: Time, acknowledgedAt: Time, lastError: String
-}
-input RetryIRCJobInput { matchID: ID!, jobID: ID! }
-input RetryMatchAutomationInput { matchID: ID!, eventID: ID! }
-input RetryBeatmapMetadataInput { matchID: ID!, beatmapID: ID! }
-input ConfirmIRCResultInput { matchId: ID!, expectedVersion: UInt64!, commandId: String!, observationId: ID!, boardPieceId: ID!, winningTeam: TeamSide! }
 
 # =============================================================================
 # Authoritative formal-match commands
@@ -665,11 +629,6 @@ type MatchCommandResult {
 
 type Mutation {
   startMatch(input: CommandMeta!): MatchCommandResult!
-  confirmIRCResult(input: ConfirmIRCResultInput!): MatchCommandResult!
-  rejectIRCObservation(matchId: ID!, observationId: ID!, reason: String!): Boolean!
-  retryIRCJob(input: RetryIRCJobInput!): Boolean!
-  retryMatchAutomation(input: RetryMatchAutomationInput!): Boolean!
-  retryBeatmapMetadata(input: RetryBeatmapMetadataInput!): Boolean!
   banPoolSlot(input: BanPoolSlotInput!): MatchCommandResult!
   refereeBanPoolSlot(input: RefereeBanPoolSlotInput!): MatchCommandResult!
   placePiece(input: PlacePieceInput!): MatchCommandResult!

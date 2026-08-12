@@ -112,15 +112,6 @@ type ConfirmBeatmapResultInput struct {
 	WinningTeam  TeamSide     `json:"winningTeam"`
 }
 
-type ConfirmIRCResultInput struct {
-	MatchID         string   `json:"matchId"`
-	ExpectedVersion string   `json:"expectedVersion"`
-	CommandID       string   `json:"commandId"`
-	ObservationID   string   `json:"observationId"`
-	BoardPieceID    string   `json:"boardPieceId"`
-	WinningTeam     TeamSide `json:"winningTeam"`
-}
-
 type ConfirmTbResultInput struct {
 	Meta        *CommandMeta `json:"meta"`
 	WinningTeam TeamSide     `json:"winningTeam"`
@@ -179,46 +170,6 @@ type FormalTimer struct {
 	RemainingAtPauseMilliseconds *int       `json:"remainingAtPauseMilliseconds,omitempty"`
 }
 
-type IRCConnectionStatus struct {
-	Configured bool    `json:"configured"`
-	Connected  bool    `json:"connected"`
-	Degraded   bool    `json:"degraded"`
-	LastError  *string `json:"lastError,omitempty"`
-}
-
-type IRCJob struct {
-	ID             string       `json:"id"`
-	MatchID        string       `json:"matchID"`
-	Channel        string       `json:"channel"`
-	Kind           string       `json:"kind"`
-	Payload        string       `json:"payload"`
-	Status         IRCJobStatus `json:"status"`
-	Attempts       int          `json:"attempts"`
-	AutomaticRetry bool         `json:"automaticRetry"`
-	NextTryAt      *time.Time   `json:"nextTryAt,omitempty"`
-	SentAt         *time.Time   `json:"sentAt,omitempty"`
-	AckDeadline    *time.Time   `json:"ackDeadline,omitempty"`
-	AcknowledgedAt *time.Time   `json:"acknowledgedAt,omitempty"`
-	LastError      *string      `json:"lastError,omitempty"`
-}
-
-type IRCObservation struct {
-	ID              string              `json:"id"`
-	Channel         string              `json:"channel"`
-	Sender          string              `json:"sender"`
-	Command         string              `json:"command"`
-	Raw             string              `json:"raw"`
-	ObservedAt      time.Time           `json:"observedAt"`
-	ReviewStatus    IRCReviewStatus     `json:"reviewStatus"`
-	ReviewReason    *string             `json:"reviewReason,omitempty"`
-	SuggestedResult *IRCSuggestedResult `json:"suggestedResult,omitempty"`
-}
-
-type IRCSuggestedResult struct {
-	WinningTeam  TeamSide `json:"winningTeam"`
-	BoardPieceID string   `json:"boardPieceID"`
-}
-
 type LegalPlacement struct {
 	PoolSlotID string    `json:"poolSlotID"`
 	Cell       string    `json:"cell"`
@@ -259,15 +210,6 @@ type MatchActorAnalysis struct {
 	CanRejectTBRequest bool              `json:"canRejectTBRequest"`
 	TbRequestTeams     []TeamSide        `json:"tbRequestTeams"`
 	TbResponseTeams    []TeamSide        `json:"tbResponseTeams"`
-}
-
-type MatchAutomationIssue struct {
-	EventID    string         `json:"eventID"`
-	Sequence   string         `json:"sequence"`
-	EventType  MatchEventType `json:"eventType"`
-	Attempts   int            `json:"attempts"`
-	LastError  string         `json:"lastError"`
-	OccurredAt time.Time      `json:"occurredAt"`
 }
 
 type MatchCommandActor struct {
@@ -331,13 +273,9 @@ type MatchPage struct {
 }
 
 type MatchPoolSlotMetadata struct {
-	PoolSlotID          string                `json:"poolSlotID"`
-	BeatmapID           *string               `json:"beatmapID,omitempty"`
-	Beatmap             *Beatmap              `json:"beatmap,omitempty"`
-	MetadataStatus      BeatmapMetadataStatus `json:"metadataStatus"`
-	MetadataAttempts    int                   `json:"metadataAttempts"`
-	MetadataNextRetryAt *time.Time            `json:"metadataNextRetryAt,omitempty"`
-	MetadataLastError   *string               `json:"metadataLastError,omitempty"`
+	PoolSlotID string   `json:"poolSlotID"`
+	BeatmapID  *string  `json:"beatmapID,omitempty"`
+	Beatmap    *Beatmap `json:"beatmap,omitempty"`
 }
 
 type MatchSnapshot struct {
@@ -479,13 +417,12 @@ type RefereeRobPieceInput struct {
 }
 
 type RefereeView struct {
-	MatchID          string                  `json:"matchID"`
-	Snapshot         *MatchSnapshot          `json:"snapshot"`
-	Analysis         *MatchActorAnalysis     `json:"analysis"`
-	SuspensionReason *string                 `json:"suspensionReason,omitempty"`
-	AbortReason      *string                 `json:"abortReason,omitempty"`
-	AuditLog         []*AuditEntry           `json:"auditLog"`
-	AutomationIssues []*MatchAutomationIssue `json:"automationIssues"`
+	MatchID          string              `json:"matchID"`
+	Snapshot         *MatchSnapshot      `json:"snapshot"`
+	Analysis         *MatchActorAnalysis `json:"analysis"`
+	SuspensionReason *string             `json:"suspensionReason,omitempty"`
+	AbortReason      *string             `json:"abortReason,omitempty"`
+	AuditLog         []*AuditEntry       `json:"auditLog"`
 }
 
 type RequestTbInput struct {
@@ -497,21 +434,6 @@ type RespondTbRequestInput struct {
 	Meta      *CommandMeta `json:"meta"`
 	RequestID string       `json:"requestId"`
 	Accept    bool         `json:"accept"`
-}
-
-type RetryBeatmapMetadataInput struct {
-	MatchID   string `json:"matchID"`
-	BeatmapID string `json:"beatmapID"`
-}
-
-type RetryIRCJobInput struct {
-	MatchID string `json:"matchID"`
-	JobID   string `json:"jobID"`
-}
-
-type RetryMatchAutomationInput struct {
-	MatchID string `json:"matchID"`
-	EventID string `json:"eventID"`
 }
 
 type RobPieceInput struct {
@@ -621,65 +543,6 @@ type UserPage struct {
 	PerPage    int     `json:"perPage"`
 	Total      int     `json:"total"`
 	TotalPages int     `json:"totalPages"`
-}
-
-type BeatmapMetadataStatus string
-
-const (
-	BeatmapMetadataStatusNotConfigured BeatmapMetadataStatus = "NOT_CONFIGURED"
-	BeatmapMetadataStatusReady         BeatmapMetadataStatus = "READY"
-	BeatmapMetadataStatusPending       BeatmapMetadataStatus = "PENDING"
-	BeatmapMetadataStatusFailed        BeatmapMetadataStatus = "FAILED"
-)
-
-var AllBeatmapMetadataStatus = []BeatmapMetadataStatus{
-	BeatmapMetadataStatusNotConfigured,
-	BeatmapMetadataStatusReady,
-	BeatmapMetadataStatusPending,
-	BeatmapMetadataStatusFailed,
-}
-
-func (e BeatmapMetadataStatus) IsValid() bool {
-	switch e {
-	case BeatmapMetadataStatusNotConfigured, BeatmapMetadataStatusReady, BeatmapMetadataStatusPending, BeatmapMetadataStatusFailed:
-		return true
-	}
-	return false
-}
-
-func (e BeatmapMetadataStatus) String() string {
-	return string(e)
-}
-
-func (e *BeatmapMetadataStatus) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = BeatmapMetadataStatus(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid BeatmapMetadataStatus", str)
-	}
-	return nil
-}
-
-func (e BeatmapMetadataStatus) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *BeatmapMetadataStatus) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e BeatmapMetadataStatus) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
 }
 
 type BoardPieceOutcome string
@@ -913,128 +776,6 @@ func (e *FormalMatchPhase) UnmarshalJSON(b []byte) error {
 }
 
 func (e FormalMatchPhase) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
-}
-
-type IRCJobStatus string
-
-const (
-	IRCJobStatusPending      IRCJobStatus = "PENDING"
-	IRCJobStatusSending      IRCJobStatus = "SENDING"
-	IRCJobStatusSent         IRCJobStatus = "SENT"
-	IRCJobStatusAcknowledged IRCJobStatus = "ACKNOWLEDGED"
-	IRCJobStatusFailed       IRCJobStatus = "FAILED"
-	IRCJobStatusCancelled    IRCJobStatus = "CANCELLED"
-)
-
-var AllIRCJobStatus = []IRCJobStatus{
-	IRCJobStatusPending,
-	IRCJobStatusSending,
-	IRCJobStatusSent,
-	IRCJobStatusAcknowledged,
-	IRCJobStatusFailed,
-	IRCJobStatusCancelled,
-}
-
-func (e IRCJobStatus) IsValid() bool {
-	switch e {
-	case IRCJobStatusPending, IRCJobStatusSending, IRCJobStatusSent, IRCJobStatusAcknowledged, IRCJobStatusFailed, IRCJobStatusCancelled:
-		return true
-	}
-	return false
-}
-
-func (e IRCJobStatus) String() string {
-	return string(e)
-}
-
-func (e *IRCJobStatus) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = IRCJobStatus(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid IRCJobStatus", str)
-	}
-	return nil
-}
-
-func (e IRCJobStatus) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *IRCJobStatus) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e IRCJobStatus) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	e.MarshalGQL(&buf)
-	return buf.Bytes(), nil
-}
-
-type IRCReviewStatus string
-
-const (
-	IRCReviewStatusPending    IRCReviewStatus = "PENDING"
-	IRCReviewStatusConfirming IRCReviewStatus = "CONFIRMING"
-	IRCReviewStatusConfirmed  IRCReviewStatus = "CONFIRMED"
-	IRCReviewStatusRejected   IRCReviewStatus = "REJECTED"
-)
-
-var AllIRCReviewStatus = []IRCReviewStatus{
-	IRCReviewStatusPending,
-	IRCReviewStatusConfirming,
-	IRCReviewStatusConfirmed,
-	IRCReviewStatusRejected,
-}
-
-func (e IRCReviewStatus) IsValid() bool {
-	switch e {
-	case IRCReviewStatusPending, IRCReviewStatusConfirming, IRCReviewStatusConfirmed, IRCReviewStatusRejected:
-		return true
-	}
-	return false
-}
-
-func (e IRCReviewStatus) String() string {
-	return string(e)
-}
-
-func (e *IRCReviewStatus) UnmarshalGQL(v any) error {
-	str, ok := v.(string)
-	if !ok {
-		return fmt.Errorf("enums must be strings")
-	}
-
-	*e = IRCReviewStatus(str)
-	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid IRCReviewStatus", str)
-	}
-	return nil
-}
-
-func (e IRCReviewStatus) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
-}
-
-func (e *IRCReviewStatus) UnmarshalJSON(b []byte) error {
-	s, err := strconv.Unquote(string(b))
-	if err != nil {
-		return err
-	}
-	return e.UnmarshalGQL(s)
-}
-
-func (e IRCReviewStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

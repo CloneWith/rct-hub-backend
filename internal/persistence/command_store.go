@@ -111,14 +111,12 @@ func NewCommandStore(client *mongo.Client, db *mongo.Database) *CommandStore {
 func (s *CommandStore) EnsureIndexes(ctx context.Context) error {
 	if _, err := s.receipts.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "match_id", Value: 1}, {Key: "command_id", Value: 1}}, Options: options.Index().SetName("match_command_id_unique").SetUnique(true)},
-		{Keys: bson.D{{Key: "match_id", Value: 1}, {Key: "resulting_version", Value: 1}}, Options: options.Index().SetName("match_command_version_unique").SetUnique(true)},
 		{Keys: bson.D{{Key: "created_at", Value: 1}}, Options: options.Index().SetName("command_receipt_created_at")},
 	}); err != nil {
 		return fmt.Errorf("ensure command receipt indexes: %w", err)
 	}
 	if _, err := s.actions.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "match_id", Value: 1}, {Key: "resulting_version", Value: 1}}, Options: options.Index().SetName("match_action_version_unique").SetUnique(true)},
-		{Keys: bson.D{{Key: "match_id", Value: 1}, {Key: "command_id", Value: 1}}, Options: options.Index().SetName("match_action_command_unique").SetUnique(true)},
 		{Keys: bson.D{{Key: "actor.osu_id", Value: 1}, {Key: "created_at", Value: -1}}, Options: options.Index().SetName("match_action_actor_created_at")},
 	}); err != nil {
 		return fmt.Errorf("ensure match action indexes: %w", err)
@@ -234,24 +232,17 @@ func verifyCollectionValidator(ctx context.Context, db *mongo.Database, collecti
 	return nil
 }
 
-// ListUnpublishedEvents returns only the earliest non-published event per
-// match. A failed event therefore blocks later side effects for that match
-// until a referee explicitly retries it; external commands cannot overtake a
-// failed invite or an earlier map change.
+// ListUnpublishedEvents returns durable events in a deterministic order for a
+// future publisher. Ordering is guaranteed within each match by Sequence.
 func (s *CommandStore) ListUnpublishedEvents(ctx context.Context, limit int64) ([]MatchOutboxDocument, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
-	pipeline := mongo.Pipeline{
-		{{Key: "$match", Value: bson.M{"status": bson.M{"$ne": OutboxPublished}}}},
-		{{Key: "$sort", Value: bson.D{{Key: "match_id", Value: 1}, {Key: "sequence", Value: 1}}}},
-		{{Key: "$group", Value: bson.M{"_id": "$match_id", "event": bson.M{"$first": "$$ROOT"}}}},
-		{{Key: "$replaceRoot", Value: bson.M{"newRoot": "$event"}}},
-		{{Key: "$match", Value: bson.M{"status": OutboxPending}}},
-		{{Key: "$sort", Value: bson.D{{Key: "match_id", Value: 1}, {Key: "sequence", Value: 1}}}},
-		{{Key: "$limit", Value: limit}},
-	}
-	cursor, err := s.outbox.Aggregate(ctx, pipeline)
+	cursor, err := s.outbox.Find(
+		ctx,
+		bson.M{"status": bson.M{"$in": []OutboxStatus{OutboxPending, OutboxFailed}}},
+		options.Find().SetSort(bson.D{{Key: "match_id", Value: 1}, {Key: "sequence", Value: 1}}).SetLimit(limit),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("list unpublished match events: %w", err)
 	}
@@ -261,124 +252,6 @@ func (s *CommandStore) ListUnpublishedEvents(ctx context.Context, limit int64) (
 		return nil, fmt.Errorf("decode unpublished match events: %w", err)
 	}
 	return events, nil
-}
-
-// ListFailedEvents exposes IRC planning and enqueue failures to referee tools.
-func (s *CommandStore) ListFailedEvents(ctx context.Context, matchID bson.ObjectID, limit int64) ([]MatchOutboxDocument, error) {
-	if matchID.IsZero() {
-		return nil, fmt.Errorf("match ID is required")
-	}
-	if limit <= 0 || limit > 200 {
-		limit = 100
-	}
-	cursor, err := s.outbox.Find(ctx,
-		bson.M{"match_id": matchID, "status": OutboxFailed},
-		options.Find().SetSort(bson.D{{Key: "sequence", Value: -1}}).SetLimit(limit),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("list failed match automation events: %w", err)
-	}
-	defer cursor.Close(ctx)
-	var events []MatchOutboxDocument
-	if err := cursor.All(ctx, &events); err != nil {
-		return nil, fmt.Errorf("decode failed match automation events: %w", err)
-	}
-	if events == nil {
-		events = []MatchOutboxDocument{}
-	}
-	return events, nil
-}
-
-// RetryFailedEvent returns one failed event to the publisher queue without
-// changing the authoritative match state or version.
-func (s *CommandStore) RetryFailedEvent(ctx context.Context, matchID bson.ObjectID, eventID string) error {
-	if matchID.IsZero() || eventID == "" {
-		return fmt.Errorf("match ID and event ID are required")
-	}
-	result, err := s.outbox.UpdateOne(ctx,
-		bson.M{"match_id": matchID, "event_id": eventID, "status": OutboxFailed},
-		bson.M{"$set": bson.M{"status": OutboxPending}, "$unset": bson.M{"last_error": "", "published_at": ""}},
-	)
-	if err != nil {
-		return fmt.Errorf("retry failed match automation event: %w", err)
-	}
-	if result.MatchedCount == 0 {
-		return fmt.Errorf("failed match automation event was not found")
-	}
-	return nil
-}
-
-// ListEventsAfter returns committed events for reconnect and late-join replay.
-// Publication status is deliberately ignored: WebSocket recovery is based on
-// the durable sequence, not on whether a background delivery attempt ran.
-func (s *CommandStore) ListEventsAfter(ctx context.Context, matchID bson.ObjectID, sequence uint64, limit int64) ([]MatchOutboxDocument, error) {
-	if matchID.IsZero() {
-		return nil, fmt.Errorf("match ID is required")
-	}
-	if limit <= 0 || limit > 1000 {
-		limit = 100
-	}
-	cursor, err := s.outbox.Find(ctx,
-		bson.M{"match_id": matchID, "sequence": bson.M{"$gt": sequence}},
-		options.Find().SetSort(bson.D{{Key: "sequence", Value: 1}}).SetLimit(limit),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("list match events after sequence %d: %w", sequence, err)
-	}
-	defer cursor.Close(ctx)
-	var events []MatchOutboxDocument
-	if err := cursor.All(ctx, &events); err != nil {
-		return nil, fmt.Errorf("decode match events: %w", err)
-	}
-	return events, nil
-}
-
-// LatestEventSequenceAtVersion returns the event baseline represented by a
-// specific snapshot. Events from a newer command must be replayed after that
-// snapshot instead of being silently included in its baseline.
-func (s *CommandStore) LatestEventSequenceAtVersion(ctx context.Context, matchID bson.ObjectID, version uint64) (uint64, error) {
-	if matchID.IsZero() {
-		return 0, fmt.Errorf("match ID is required")
-	}
-	var event MatchOutboxDocument
-	err := s.outbox.FindOne(ctx, bson.M{"match_id": matchID, "resulting_version": bson.M{"$lte": version}}, options.FindOne().SetSort(bson.D{{Key: "sequence", Value: -1}})).Decode(&event)
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("load match event sequence at version %d: %w", version, err)
-	}
-	return event.Sequence, nil
-}
-
-// LoadStateAtVersion returns the authoritative state committed with one
-// command version. Realtime delivery uses it so clients never reconstruct
-// match state from partial event facts.
-func (s *CommandStore) LoadStateAtVersion(ctx context.Context, matchID bson.ObjectID, version uint64) (matchengine.State, error) {
-	if matchID.IsZero() || version == 0 {
-		return matchengine.State{}, fmt.Errorf("match ID and positive version are required")
-	}
-	var receipt struct {
-		StateJSON []byte `bson:"state_json"`
-	}
-	err := s.receipts.FindOne(ctx, bson.M{"match_id": matchID, "resulting_version": version}, options.FindOne().SetProjection(bson.M{"state_json": 1})).Decode(&receipt)
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		return matchengine.State{}, fmt.Errorf("authoritative match state at version %d was not found", version)
-	}
-	if err != nil {
-		return matchengine.State{}, fmt.Errorf("load authoritative match state at version %d: %w", version, err)
-	}
-	var state matchengine.State
-	if err := json.Unmarshal(receipt.StateJSON, &state); err != nil {
-		return matchengine.State{}, fmt.Errorf("decode authoritative match state at version %d: %w", version, err)
-	}
-	if state.Version != version {
-		return matchengine.State{}, fmt.Errorf("authoritative match state version is %d, want %d", state.Version, version)
-	}
-	if err := matchengine.ValidateState(state); err != nil {
-		return matchengine.State{}, fmt.Errorf("validate authoritative match state at version %d: %w", version, err)
-	}
-	return state, nil
 }
 
 func (s *CommandStore) MarkEventPublished(ctx context.Context, eventID string, publishedAt time.Time) error {
@@ -413,44 +286,6 @@ func (s *CommandStore) MarkEventFailed(ctx context.Context, eventID, message str
 		return fmt.Errorf("unpublished event %q was not found", eventID)
 	}
 	return nil
-}
-
-type ConfirmationReceipt struct {
-	CommandType  string
-	BoardPieceID string
-	WinningTeam  matchengine.TeamSide
-}
-
-// LoadConfirmationReceipt returns the exact result confirmation committed by
-// a command. The action payload is checked because a command ID alone cannot
-// prove that external evidence belongs to the same piece and winner.
-func (s *CommandStore) LoadConfirmationReceipt(ctx context.Context, matchID bson.ObjectID, commandID string) (*ConfirmationReceipt, error) {
-	if matchID.IsZero() || commandID == "" {
-		return nil, fmt.Errorf("match ID and command ID are required")
-	}
-	var action struct {
-		CommandType    string   `bson:"command_type"`
-		CommandPayload bson.Raw `bson:"command_payload"`
-	}
-	err := s.actions.FindOne(ctx, bson.M{"match_id": matchID, "command_id": commandID}, options.FindOne().SetProjection(bson.M{
-		"command_type": 1, "command_payload": 1,
-	})).Decode(&action)
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("inspect confirmation action: %w", err)
-	}
-	var payload struct {
-		BoardPieceID string               `bson:"boardPieceId"`
-		WinningTeam  matchengine.TeamSide `bson:"winningTeam"`
-	}
-	if err := bson.Unmarshal(action.CommandPayload, &payload); err != nil {
-		return nil, fmt.Errorf("decode confirmation action payload: %w", err)
-	}
-	return &ConfirmationReceipt{
-		CommandType: action.CommandType, BoardPieceID: payload.BoardPieceID, WinningTeam: payload.WinningTeam,
-	}, nil
 }
 
 // ListActions returns the newest durable audit entries for one match.

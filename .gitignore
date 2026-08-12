@@ -30,4 +30,3 @@ coverage.out
 # Agents
 .agents/
 .workbuddy/
-/.gocache
