@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -150,3 +151,8 @@ func int64IDs(ids []string) ([]int64, error) {
 }
 
 func milliseconds(value int) time.Duration { return time.Duration(value) * time.Millisecond }
+
+func ircResultMatches(command string, team TeamSide, piece string) bool {
+	parts := strings.Fields(strings.TrimPrefix(strings.TrimSpace(command), ":"))
+	return len(parts) == 3 && strings.EqualFold(parts[0], "!result") && strings.EqualFold(parts[1], string(team)) && parts[2] == piece
+}

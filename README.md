@@ -55,7 +55,7 @@ The system follows a layered design with a three-channel API surface:
               ┌───────────┼───────────┐
               │           │           │
         REST (Gin)   GraphQL     WebSocket
-        /api/v1/*    /graphql    (planned)
+        /api/v1/*    /graphql    /ws/match
               │           │
     ┌─────────┴───────────┴─────────┐
     │          Middleware            │
@@ -93,7 +93,7 @@ The system follows a layered design with a three-channel API surface:
 |---------|---------------|
 | **REST** | OAuth callbacks, health checks, pre-match room configuration, admin CRUD |
 | **GraphQL** | All read operations, client-tailored views (Read Model), in-match board command mutations |
-| **WebSocket** *(planned)* | Real-time board sync, timer ticks, reconnection & version recovery |
+| **WebSocket** | Read-only board sync, server timer anchors, reconnection & version recovery (`/ws/match`) |
 
 ## Quick Start
 
@@ -122,8 +122,9 @@ make initdb-drop   # Drop and rebuild with sample data
 ```
 
 Run `make initdb` after upgrading an existing environment. The server now
-checks the snapshot, command receipt, action log, and outbox validators at
-startup and will fail closed if they have not been installed. Match commands
+checks the snapshot, command receipt, action log, outbox, IRC job, IRC
+observation, and beatmap metadata validators at startup and will fail closed if they have not been
+installed. Match commands
 use MongoDB transactions, so MongoDB must run as a replica set; the bundled
 single-node Docker setup already does this.
 
@@ -173,6 +174,66 @@ All configuration is loaded from environment variables (with `.env` file support
 | `OSU_REDIRECT_URI` | `http://localhost:8080/auth/osu/callback` | OAuth callback URL |
 | `OSU_API_BASE` | `https://osu.ppy.sh` | osu! API base URL |
 | `ALLOWED_ORIGINS` | value of `FRONTEND_URI` | Comma-separated exact browser origins; wildcard is rejected |
+| `BANCHO_IRC_ADDR` | *(empty)* | Optional Bancho IRC server address; empty disables IRC automation |
+| `BANCHO_IRC_USERNAME` | *(empty)* | Bancho IRC account name |
+| `BANCHO_IRC_PASSWORD` | *(empty)* | Bancho IRC password/token |
+| `BANCHO_IRC_CHANNEL` | *(empty)* | Channel joined by the optional IRC adapter |
+
+IRC automation is optional. Set `BANCHO_IRC_ADDR` and `BANCHO_IRC_USERNAME`
+together to enable it; `BANCHO_IRC_CHANNEL` may name the default room channel
+and must look like `#mp_42` when set. Referees create the Bancho lobby and
+persist its official
+`https://osu.ppy.sh/community/matches/<room-id>` link, from which the backend
+derives the channel; this service does not create the lobby itself. IRC
+messages are evidence only: a referee must review a
+pending `!result RED|BLUE <piece-id>` observation before the existing match
+command is executed. Failed or unacknowledged jobs remain visible; after an
+unacknowledged attempt times out into `FAILED`, a referee can retry it. If a
+referee changes `mpLink` after a job was queued, that old-room
+job becomes `CANCELLED`; it stays visible for auditing and is never sent or
+retried. Planning failures that happen before a job can be created are exposed
+through `refereeView.automationIssues` and can be requeued with
+`retryMatchAutomation` after the room configuration is corrected. IRC being
+offline never blocks manual match commands.
+When more than one backend instance runs the same Bancho account, all
+instances must use the same Redis database: it coordinates command spacing and
+the one-outstanding-delivery gate used to safely match generic BanchoBot ACKs.
+
+### Realtime WebSocket
+
+Connect to `/ws/match` with a bearer JWT or the browser session cookie. The
+first message must be `{"type":"subscribe","schemaVersion":1,"matchId":"<match-id>"}`. The
+versioned machine-readable contract is `contracts/realtime-v1.schema.json`.
+The server responds with one authoritative `snapshot` and then ordered `event`
+messages carrying `schemaVersion`, `serverTime`, `sequence`, `version`, and the authoritative public snapshot
+committed at that version. Clients replace local state with that snapshot only
+after accepting the next sequence; they do not reconstruct turns or timers from
+event facts. Clients must use the snapshot's
+server timer anchor and never invent authoritative per-second ticks. A missing
+sequence returns `resync_required`; close the socket and subscribe again to
+obtain a fresh snapshot. The subscription handshake expires after ten seconds.
+The stream currently requires any verified, non-banned account and contains
+only the same public match facts used by spectator and overlay views; publication
+and embargo controls are not part of this milestone. Timer durations use
+milliseconds. Messages are capped at 64 KiB and writes time out
+after five seconds, so a slow browser cannot hold the match open indefinitely.
+One account may hold at most eight realtime connections and one process accepts
+at most 256; excess handshakes receive HTTP 429.
+
+Bancho transport failures retry automatically with bounded backoff and stop
+after five failed attempts. An explicit Bancho rejection stops immediately.
+Both cases remain visible through `ircJobs`; `automaticRetry` tells the referee
+whether another attempt is scheduled, and `retryIRCJob` resumes a parked job.
+
+### Beatmap metadata refresh
+
+Formal pool slots expose `metadataStatus`, `metadataAttempts`,
+`metadataNextRetryAt`, and `metadataLastError`. A missing BID is persisted as a
+background job rather than making the GraphQL request wait on osu!. The worker
+retries failures with bounded backoff, and an assigned referee can call
+`retryBeatmapMetadata` for a failed BID in that match. Metadata refresh never
+executes a match command and therefore never changes the authoritative match
+version.
 
 ## Authentication
 
@@ -306,7 +367,11 @@ they do not represent valid MatchEngine commands.
 query MatchDashboard($id: ID!) {
   match(id: $id) {
     id
-    pool { poolSlotID beatmapID beatmap { title artist } }
+    pool {
+      poolSlotID beatmapID metadataStatus metadataAttempts
+      metadataNextRetryAt metadataLastError
+      beatmap { title artist }
+    }
     snapshot {
       version lifecycle phase activeTeam turn
       board { cells { cell row col zone piece { id mod outcome owner } } }
@@ -497,10 +562,11 @@ Suppressed categories return a no-op logger — their logs are silently dropped.
 
 ## Roadmap
 
-- [ ] **WebSocket Gateway** — Real-time board synchronization, timer push, reconnection & version recovery
-- [ ] **Realtime Delivery** — Publish committed outbox events, reconnect by sequence, and resync snapshots
-- [ ] **Bancho IRC Adapter** — Multiplayer-room commands, acknowledgements, degraded mode, and referee takeover
-- [ ] **osu! Metadata Refresh** — Background refresh policy for beatmaps and users
+- [x] **WebSocket Gateway** — Implemented with timer anchors, reconnect snapshots, ordered events, and gap resync; production browser acceptance remains in M7
+- [x] **Realtime Delivery** — Durable replay and resync behavior are covered by automated tests
+- [x] **Bancho IRC Adapter** — Optional side effects, evidence review, retry, and manual takeover are implemented; real Bancho acceptance remains in M7
+- [x] **osu! Metadata Refresh** — Durable pending/ready/failed jobs, automatic backoff, and referee retry are implemented; real osu! acceptance remains in M7
+- [x] **Automation failure visibility** — Failed IRC planning/enqueue events remain visible in the referee view and can be manually requeued without changing match state
 - [ ] **Dockerfile & CI** — Production container image and CI/CD pipeline
 
 ## License

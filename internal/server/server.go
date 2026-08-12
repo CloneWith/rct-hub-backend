@@ -2,26 +2,36 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.uber.org/zap"
 
 	"rctHubBackend/internal/authsession"
+	"rctHubBackend/internal/beatmapmetadata"
 	"rctHubBackend/internal/config"
 	"rctHubBackend/internal/database"
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/fetcher"
 	"rctHubBackend/internal/graphql"
 	"rctHubBackend/internal/handler"
+	"rctHubBackend/internal/irc"
+	"rctHubBackend/internal/ircpublisher"
+	"rctHubBackend/internal/ircreview"
 	"rctHubBackend/internal/logger"
 	"rctHubBackend/internal/matchcommand"
 	"rctHubBackend/internal/middleware"
 	"rctHubBackend/internal/oauth"
+	"rctHubBackend/internal/persistence"
+	"rctHubBackend/internal/realtime"
 	"rctHubBackend/internal/repository"
 	"rctHubBackend/internal/service"
 	"rctHubBackend/pkg/jwtutil"
@@ -29,11 +39,18 @@ import (
 
 // Server wraps the HTTP server and its dependencies.
 type Server struct {
-	httpServer *http.Server
-	router     *gin.Engine
-	deps       *Deps
-	logs       *logger.Provider
-	logger     *zap.Logger
+	httpServer       *http.Server
+	router           *gin.Engine
+	deps             *Deps
+	logs             *logger.Provider
+	logger           *zap.Logger
+	metadata         *beatmapmetadata.Manager
+	ircClient        *irc.Client
+	ircJobs          *persistence.IRCJobStore
+	backgroundCancel context.CancelFunc
+	backgroundDone   chan struct{}
+	backgroundStart  func()
+	backgroundOnce   sync.Once
 }
 
 // Deps aggregates repositories, services, and utilities used by handlers.
@@ -129,6 +146,98 @@ func New(cfg *config.Config, db *database.DB, logs *logger.Provider) *Server {
 			Handler: router,
 		},
 	}
+	// Keep the durable job reader available even when live IRC automation is
+	// disabled. Referees must still be able to inspect and retry jobs that were
+	// written by an earlier process or by a manually operated deployment.
+	jobStore := persistence.NewIRCJobStore(db.MongoDB)
+	s.ircJobs = jobStore
+	publisher := ircpublisher.New(repos.MatchCommands, jobStore, repos.Matches, repos.Rooms, repos.Users)
+	observationStore := persistence.NewIRCObservationStore(db.MongoDB)
+	reviewReconciler := ircreview.New(observationStore, repos.MatchCommands, time.Minute)
+	metadataManager := beatmapmetadata.New(persistence.NewBeatmapMetadataStore(db.MongoDB), repos.Beatmaps, osuFetcher)
+	s.metadata = metadataManager
+	var worker *irc.Worker
+	if cfg.Bancho.Addr != "" && cfg.Bancho.Username != "" {
+		client := irc.NewClient(&net.Dialer{Timeout: 10 * time.Second}, cfg.Bancho.Addr, cfg.Bancho.Username, cfg.Bancho.Password, cfg.Bancho.Channel)
+		client.WithDeliveryGate(irc.NewRedisDeliveryGate(db.Redis, "rct:bancho:delivery:", 30*time.Second))
+		worker = irc.NewWorker(jobStore, client, time.Second).WithRateLimiter(
+			irc.NewRedisRateLimiter(db.Redis, "rct:bancho:rate:"+cfg.Bancho.Username, time.Second),
+		).WithValidator(func(ctx context.Context, job irc.Job) error {
+			matchID, err := bson.ObjectIDFromHex(job.MatchID)
+			if err != nil {
+				return fmt.Errorf("IRC job match ID is invalid")
+			}
+			match, err := repos.Matches.ByID(ctx, matchID)
+			if err != nil {
+				return fmt.Errorf("reload match before IRC delivery: %w", err)
+			}
+			room, err := repos.Rooms.ByID(ctx, match.RoomID)
+			if err != nil {
+				return fmt.Errorf("reload room before IRC delivery: %w", err)
+			}
+			if room.Settings.MPLink == nil {
+				return fmt.Errorf("%w: multiplayer link is no longer configured", irc.ErrJobObsolete)
+			}
+			channel, err := irc.ChannelFromMPLink(*room.Settings.MPLink)
+			if err != nil || channel != job.Channel {
+				return fmt.Errorf("%w: job channel %q is no longer current", irc.ErrJobObsolete, job.Channel)
+			}
+			return nil
+		})
+		s.ircClient = client
+	}
+	s.backgroundStart = func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		s.backgroundCancel = cancel
+		s.backgroundDone = make(chan struct{})
+		var workers sync.WaitGroup
+		if s.ircClient != nil {
+			workers.Add(1)
+			client := s.ircClient
+			client.SetReceiptHandler(func(receipt irc.DeliveryReceipt) {
+				var err error
+				if receipt.Acknowledged {
+					err = jobStore.Ack(ctx, receipt.JobID, receipt.LeaseToken, receipt.ReceivedAt)
+				} else {
+					err = jobStore.Reject(ctx, receipt.JobID, receipt.LeaseToken, "Bancho rejected the requested operation")
+				}
+				if err != nil {
+					s.logger.Error("IRC delivery receipt could not be persisted", zap.String("job_id", receipt.JobID), zap.Error(err))
+					return
+				}
+				client.ReleaseDelivery(receipt)
+			})
+			go func() {
+				defer workers.Done()
+				err := client.Run(ctx, func(observation irc.Observation) {
+					if err := observationStore.Save(ctx, observation); err != nil {
+						s.logger.Error("IRC observation could not be persisted", zap.String("observation_id", observation.ID), zap.Error(err))
+					}
+				})
+				if err != nil && !errors.Is(err, context.Canceled) {
+					s.logger.Error("IRC reader stopped", zap.Error(err))
+				}
+			}()
+		}
+		startPeriodicTask(ctx, &workers, time.Second, metadataManager.RunOnce, func(err error) {
+			s.logger.Error("beatmap metadata worker failed", zap.Error(err))
+		})
+		startPeriodicTask(ctx, &workers, time.Second, reviewReconciler.RunOnce, func(err error) {
+			s.logger.Error("IRC evidence reconciliation failed", zap.Error(err))
+		})
+		startPeriodicTask(ctx, &workers, time.Second, publisher.RunOnce, func(err error) {
+			s.logger.Error("IRC outbox publisher failed", zap.Error(err))
+		})
+		if worker != nil {
+			startPeriodicTask(ctx, &workers, time.Second, worker.RunOnce, func(err error) {
+				s.logger.Error("IRC side-effect worker failed", zap.Error(err))
+			})
+		}
+		go func() {
+			workers.Wait()
+			close(s.backgroundDone)
+		}()
+	}
 
 	s.registerRoutes(auditLog, authLog, matchEngineLog)
 	return s
@@ -158,10 +267,33 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 		nil,
 		matchEngineLog,
 	)
-	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands)
+	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands).WithAutomationIssues(s.deps.Repos.MatchCommands).WithBeatmapMetadata(s.metadata).WithIRCReader(persistence.NewIRCObservationStore(s.deps.DB.MongoDB)).WithIRCJobs(s.ircJobs).WithIRCStatus(s.ircClient)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
 	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Services, s.deps.Cfg.AuthCookie.Name))
+	// WebSocket is read-only: commands still enter through GraphQL's
+	// authoritative Orchestrator. The gateway rehydrates a snapshot first and
+	// then streams only durable outbox events in sequence order.
+	realtimeGateway := realtime.NewGateway(
+		s.deps.Repos.MatchSnapshots,
+		s.deps.Repos.MatchCommands,
+		s.deps.JWTSigner,
+		s.deps.AuthSessions,
+		s.deps.Cfg.AuthCookie.Name,
+		s.deps.Cfg.CORS.AllowedOrigins,
+		func(ctx context.Context, claims *jwtutil.Claims, _ bson.ObjectID) error {
+			if claims == nil || claims.UserID == "" {
+				return fmt.Errorf("missing authenticated user")
+			}
+			user, err := s.deps.UserSvc.GetByOsuID(ctx, claims.OsuID)
+			if err != nil || user == nil || user.IsBanned || user.VerifyStatus != domain.Verified {
+				return fmt.Errorf("current user is not allowed to subscribe")
+			}
+			return nil
+		},
+		matchEngineLog,
+	)
+	s.router.GET("/ws/match", gin.WrapH(realtimeGateway))
 
 	users := handler.NewUserHandler(s.deps.UserSvc, auditLog)
 	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc, auditLog)
@@ -218,10 +350,32 @@ func authSameSite(value string) http.SameSite {
 
 // Start runs the HTTP server.
 func (s *Server) Start() error {
+	if s.backgroundStart != nil {
+		s.backgroundOnce.Do(s.backgroundStart)
+	}
 	return s.httpServer.ListenAndServe()
 }
 
 // Stop gracefully shuts down the HTTP server.
 func (s *Server) Stop(ctx context.Context) error {
-	return s.httpServer.Shutdown(ctx)
+	var shutdownErrors []error
+	httpDone := make(chan error, 1)
+	go func() { httpDone <- s.httpServer.Shutdown(ctx) }()
+	if s.backgroundCancel != nil {
+		s.backgroundCancel()
+	}
+	if s.ircClient != nil {
+		_ = s.ircClient.Close()
+	}
+	if s.backgroundDone != nil {
+		select {
+		case <-s.backgroundDone:
+		case <-ctx.Done():
+			shutdownErrors = append(shutdownErrors, ctx.Err())
+		}
+	}
+	if err := <-httpDone; err != nil {
+		shutdownErrors = append(shutdownErrors, err)
+	}
+	return errors.Join(shutdownErrors...)
 }

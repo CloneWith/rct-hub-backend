@@ -62,6 +62,7 @@ func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, sessions aut
 	}
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
+		ctx = withMetadataRequestCache(ctx)
 
 		// Public GraphQL queries remain available without credentials. Valid
 		// Bearer tokens or browser sessions add the authenticated viewer.

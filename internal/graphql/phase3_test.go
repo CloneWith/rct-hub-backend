@@ -53,11 +53,11 @@ func TestFormalMutationSchemaMatchesEngineCommands(t *testing.T) {
 	}
 	sort.Strings(got)
 	want := []string{
-		"abortMatch", "banPoolSlot", "calibrateTimer", "confirmBeatmapResult", "confirmTbResult",
+		"abortMatch", "banPoolSlot", "calibrateTimer", "confirmBeatmapResult", "confirmIRCResult", "confirmTbResult",
 		"grantAdditionalTime", "pauseTimer", "placePiece", "placeShiro", "recordSurrender",
 		"refereeBanPoolSlot", "refereePlacePiece", "refereePlaceShiro", "refereeRequestTb",
 		"refereeRespondTbRequest", "refereeRobPiece", "requestTb", "respondTbRequest", "resumeMatch",
-		"resumeTimer", "robPiece", "skipCurrentAction", "startMatch", "startTb", "suspendMatch",
+		"rejectIRCObservation", "resumeTimer", "retryBeatmapMetadata", "retryIRCJob", "retryMatchAutomation", "robPiece", "skipCurrentAction", "startMatch", "startTb", "suspendMatch",
 	}
 	sort.Strings(want)
 	if strings.Join(got, ",") != strings.Join(want, ",") {

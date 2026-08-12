@@ -18,10 +18,27 @@ func isolateConfigEnv(t *testing.T) {
 		"AUTH_SESSION_IDLE_HOURS", "AUTH_SESSION_MAX_HOURS",
 		"OSU_CLIENT_ID", "OSU_CLIENT_SECRET", "OSU_REDIRECT_URI", "OSU_API_BASE",
 		"OSU_FETCHER_USER_CACHE_TTL_MIN", "OSU_FETCHER_BEATMAP_CACHE_TTL_HR",
+		"BANCHO_IRC_ADDR", "BANCHO_IRC_USERNAME", "BANCHO_IRC_PASSWORD", "BANCHO_IRC_CHANNEL",
 		"ALLOWED_ORIGINS",
 	}
 	for _, key := range keys {
 		t.Setenv(key, "")
+	}
+}
+
+func TestLoadRejectsPartialOrInvalidBanchoConfig(t *testing.T) {
+	base := "JWT_SECRET=this-is-a-32-byte-secret-key-for-test!\n"
+	tests := []string{
+		"BANCHO_IRC_ADDR=irc.ppy.sh:6667\n",
+		"BANCHO_IRC_USERNAME=bot\n",
+		"BANCHO_IRC_ADDR=irc.ppy.sh:6667\nBANCHO_IRC_USERNAME=bot\nBANCHO_IRC_CHANNEL=#wrong\n",
+	}
+	for _, settings := range tests {
+		isolateConfigEnv(t)
+		t.Setenv("ENV_FILE", writeTempEnv(t, base+settings))
+		if _, err := Load(); err == nil {
+			t.Fatalf("invalid Bancho configuration was accepted: %q", settings)
+		}
 	}
 }
 
