@@ -68,3 +68,51 @@ func MatchOutboxValidator() bson.M {
 		},
 	}}
 }
+
+func IRCJobValidator() bson.M {
+	return bson.M{"$jsonSchema": bson.M{
+		"bsonType": "object",
+		"required": []string{"_id", "match_id", "channel", "kind", "payload", "attempts", "next_try_at", "automatic_retry", "status", "created_at", "updated_at"},
+		"properties": bson.M{
+			"_id": bson.M{"bsonType": "string", "minLength": 1}, "match_id": bson.M{"bsonType": "objectId"},
+			"channel": bson.M{"bsonType": "string", "pattern": "^#mp_[1-9][0-9]*$"}, "kind": bson.M{"bsonType": "string", "minLength": 1},
+			"ack_target": bson.M{"bsonType": "string"},
+			"payload":    bson.M{"bsonType": "binData"}, "attempts": bson.M{"bsonType": []string{"int", "long"}, "minimum": 0}, "automatic_retry": bson.M{"bsonType": "bool"},
+			"next_try_at": bson.M{"bsonType": "date"}, "status": bson.M{"enum": []string{"PENDING", "SENDING", "SENT", "ACKNOWLEDGED", "FAILED", "CANCELLED"}},
+			"last_error": bson.M{"bsonType": "string"}, "sent_at": bson.M{"bsonType": "date"}, "ack_deadline": bson.M{"bsonType": "date"},
+			"acknowledged_at": bson.M{"bsonType": "date"}, "lease_until": bson.M{"bsonType": "date"}, "lease_token": bson.M{"bsonType": "string"},
+			"created_at": bson.M{"bsonType": "date"}, "updated_at": bson.M{"bsonType": "date"},
+		},
+	}}
+}
+
+func IRCObservationValidator() bson.M {
+	return bson.M{"$jsonSchema": bson.M{
+		"bsonType": "object",
+		"required": []string{"_id", "channel", "sender", "command", "raw", "observed_at", "review_status"},
+		"properties": bson.M{
+			"_id": bson.M{"bsonType": "string", "minLength": 1}, "channel": bson.M{"bsonType": "string", "pattern": "^#mp_[1-9][0-9]*$"},
+			"sender": bson.M{"bsonType": "string", "minLength": 1}, "command": bson.M{"bsonType": "string", "minLength": 1},
+			"raw": bson.M{"bsonType": "string", "minLength": 1}, "observed_at": bson.M{"bsonType": "date"},
+			"review_status": bson.M{"enum": []string{"PENDING", "CONFIRMING", "CONFIRMED", "REJECTED"}}, "review_reason": bson.M{"bsonType": "string"},
+			"match_id": bson.M{"bsonType": "objectId"}, "confirmation_command_id": bson.M{"bsonType": "string"},
+			"confirmation_board_piece_id": bson.M{"bsonType": "string"}, "confirmation_winning_team": bson.M{"enum": []string{"RED", "BLUE"}},
+			"reviewer_osu_id": bson.M{"bsonType": "long"}, "review_started_at": bson.M{"bsonType": "date"},
+			"suggested_winning_team": bson.M{"enum": []string{"RED", "BLUE"}}, "suggested_board_piece_id": bson.M{"bsonType": "string"},
+		},
+	}}
+}
+
+func BeatmapMetadataValidator() bson.M {
+	return bson.M{"$jsonSchema": bson.M{
+		"bsonType": "object",
+		"required": []string{"_id", "status", "attempts", "next_try_at", "created_at", "updated_at"},
+		"properties": bson.M{
+			"_id":         bson.M{"bsonType": "long", "minimum": 1},
+			"status":      bson.M{"enum": []string{"PENDING", "READY", "FAILED"}},
+			"attempts":    bson.M{"bsonType": []string{"int", "long"}, "minimum": 0},
+			"next_try_at": bson.M{"bsonType": "date"}, "last_error": bson.M{"bsonType": "string"},
+			"lease_until": bson.M{"bsonType": "date"}, "lease_token": bson.M{"bsonType": "string"}, "created_at": bson.M{"bsonType": "date"}, "updated_at": bson.M{"bsonType": "date"},
+		},
+	}}
+}

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"rctHubBackend/internal/domain"
+	"rctHubBackend/internal/irc"
 	"rctHubBackend/internal/matchengine"
 	"rctHubBackend/internal/repository"
 	"rctHubBackend/pkg/errs"
@@ -163,9 +164,14 @@ func (s *RoomService) SetPlayers(ctx context.Context, callerID int64, roomID bso
 
 // SetMPLink sets the multiplayer link for a room.
 func (s *RoomService) SetMPLink(ctx context.Context, callerID int64, roomID bson.ObjectID, link string) (*domain.Room, error) {
-	_, err := s.authorizedRoom(ctx, callerID, roomID)
+	room, err := s.authorizedRoom(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
+	}
+	if room.Type == domain.RoomTypeMatch {
+		if _, err := irc.ChannelFromMPLink(link); err != nil {
+			return nil, fmt.Errorf("%w: formal match multiplayer link must use https://osu.ppy.sh/community/matches/<room-id>", errs.ErrInvalidInput)
+		}
 	}
 	return s.updateRoomFields(ctx, roomID, bson.M{"settings.mp_link": &link}, false)
 }

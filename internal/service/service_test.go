@@ -384,18 +384,21 @@ func TestRoomConfigurationUsesCurrentAccountAndOwnership(t *testing.T) {
 	if _, err := svc.SetMPLink(ctx, owner.OnlineID, casual.ID, "https://example.test/mp"); err != nil {
 		t.Fatalf("casual owner: %v", err)
 	}
-	if _, err := svc.SetMPLink(ctx, owner.OnlineID, formal.ID, "https://example.test/formal"); !errors.Is(err, errs.ErrForbidden) {
+	if _, err := svc.SetMPLink(ctx, owner.OnlineID, formal.ID, "https://osu.ppy.sh/community/matches/41"); !errors.Is(err, errs.ErrForbidden) {
 		t.Fatalf("formal owner without referee role error = %v", err)
 	}
 	owner.Roles = []domain.UserRole{domain.RoleReferee}
-	if _, err := svc.SetMPLink(ctx, owner.OnlineID, formal.ID, "https://example.test/formal"); err != nil {
+	if _, err := svc.SetMPLink(ctx, owner.OnlineID, formal.ID, "https://example.test/community/matches/42"); !errors.Is(err, errs.ErrInvalidInput) {
+		t.Fatalf("invalid formal multiplayer link error = %v", err)
+	}
+	if _, err := svc.SetMPLink(ctx, owner.OnlineID, formal.ID, "https://osu.ppy.sh/community/matches/42"); err != nil {
 		t.Fatalf("assigned referee: %v", err)
 	}
-	if _, err := svc.SetMPLink(ctx, admin.OnlineID, formal.ID, "https://example.test/admin"); err != nil {
+	if _, err := svc.SetMPLink(ctx, admin.OnlineID, formal.ID, "https://osu.ppy.sh/community/matches/43"); err != nil {
 		t.Fatalf("admin: %v", err)
 	}
 	owner.IsBanned = true
-	if _, err := svc.SetMPLink(ctx, owner.OnlineID, formal.ID, "https://example.test/banned"); !errors.Is(err, errs.ErrForbidden) {
+	if _, err := svc.SetMPLink(ctx, owner.OnlineID, formal.ID, "https://osu.ppy.sh/community/matches/44"); !errors.Is(err, errs.ErrForbidden) {
 		t.Fatalf("banned owner error = %v", err)
 	}
 }

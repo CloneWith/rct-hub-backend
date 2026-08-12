@@ -175,6 +175,46 @@ type ComplexityRoot struct {
 		StartedAt                    func(childComplexity int) int
 	}
 
+	IRCConnectionStatus struct {
+		Configured func(childComplexity int) int
+		Connected  func(childComplexity int) int
+		Degraded   func(childComplexity int) int
+		LastError  func(childComplexity int) int
+	}
+
+	IRCJob struct {
+		AckDeadline    func(childComplexity int) int
+		AcknowledgedAt func(childComplexity int) int
+		Attempts       func(childComplexity int) int
+		AutomaticRetry func(childComplexity int) int
+		Channel        func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Kind           func(childComplexity int) int
+		LastError      func(childComplexity int) int
+		MatchID        func(childComplexity int) int
+		NextTryAt      func(childComplexity int) int
+		Payload        func(childComplexity int) int
+		SentAt         func(childComplexity int) int
+		Status         func(childComplexity int) int
+	}
+
+	IRCObservation struct {
+		Channel         func(childComplexity int) int
+		Command         func(childComplexity int) int
+		ID              func(childComplexity int) int
+		ObservedAt      func(childComplexity int) int
+		Raw             func(childComplexity int) int
+		ReviewReason    func(childComplexity int) int
+		ReviewStatus    func(childComplexity int) int
+		Sender          func(childComplexity int) int
+		SuggestedResult func(childComplexity int) int
+	}
+
+	IRCSuggestedResult struct {
+		BoardPieceID func(childComplexity int) int
+		WinningTeam  func(childComplexity int) int
+	}
+
 	LegalPlacement struct {
 		Cell       func(childComplexity int) int
 		ForceMod   func(childComplexity int) int
@@ -213,6 +253,15 @@ type ComplexityRoot struct {
 		ShiroCells         func(childComplexity int) int
 		TbRequestTeams     func(childComplexity int) int
 		TbResponseTeams    func(childComplexity int) int
+	}
+
+	MatchAutomationIssue struct {
+		Attempts   func(childComplexity int) int
+		EventID    func(childComplexity int) int
+		EventType  func(childComplexity int) int
+		LastError  func(childComplexity int) int
+		OccurredAt func(childComplexity int) int
+		Sequence   func(childComplexity int) int
 	}
 
 	MatchCommandActor struct {
@@ -276,9 +325,13 @@ type ComplexityRoot struct {
 	}
 
 	MatchPoolSlotMetadata struct {
-		Beatmap    func(childComplexity int) int
-		BeatmapID  func(childComplexity int) int
-		PoolSlotID func(childComplexity int) int
+		Beatmap             func(childComplexity int) int
+		BeatmapID           func(childComplexity int) int
+		MetadataAttempts    func(childComplexity int) int
+		MetadataLastError   func(childComplexity int) int
+		MetadataNextRetryAt func(childComplexity int) int
+		MetadataStatus      func(childComplexity int) int
+		PoolSlotID          func(childComplexity int) int
 	}
 
 	MatchSnapshot struct {
@@ -309,6 +362,7 @@ type ComplexityRoot struct {
 		BanPoolSlot             func(childComplexity int, input BanPoolSlotInput) int
 		CalibrateTimer          func(childComplexity int, input CalibrateTimerInput) int
 		ConfirmBeatmapResult    func(childComplexity int, input ConfirmBeatmapResultInput) int
+		ConfirmIRCResult        func(childComplexity int, input ConfirmIRCResultInput) int
 		ConfirmTbResult         func(childComplexity int, input ConfirmTbResultInput) int
 		GrantAdditionalTime     func(childComplexity int, input ReasonCommandInput) int
 		PauseTimer              func(childComplexity int, input ReasonCommandInput) int
@@ -321,10 +375,14 @@ type ComplexityRoot struct {
 		RefereeRequestTb        func(childComplexity int, input RefereeRequestTbInput) int
 		RefereeRespondTbRequest func(childComplexity int, input RefereeRespondTbRequestInput) int
 		RefereeRobPiece         func(childComplexity int, input RefereeRobPieceInput) int
+		RejectIRCObservation    func(childComplexity int, matchID string, observationID string, reason string) int
 		RequestTb               func(childComplexity int, input RequestTbInput) int
 		RespondTbRequest        func(childComplexity int, input RespondTbRequestInput) int
 		ResumeMatch             func(childComplexity int, input ReasonCommandInput) int
 		ResumeTimer             func(childComplexity int, input ReasonCommandInput) int
+		RetryBeatmapMetadata    func(childComplexity int, input RetryBeatmapMetadataInput) int
+		RetryIRCJob             func(childComplexity int, input RetryIRCJobInput) int
+		RetryMatchAutomation    func(childComplexity int, input RetryMatchAutomationInput) int
 		RobPiece                func(childComplexity int, input RobPieceInput) int
 		SkipCurrentAction       func(childComplexity int, input ReasonCommandInput) int
 		StartMatch              func(childComplexity int, input CommandMeta) int
@@ -369,27 +427,31 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Announcement   func(childComplexity int, id string) int
-		Announcements  func(childComplexity int, page *int, perPage *int) int
-		Beatmap        func(childComplexity int, id string) int
-		BeatmapByOsuID func(childComplexity int, osuID string) int
-		Beatmaps       func(childComplexity int, page *int, perPage *int) int
-		Match          func(childComplexity int, id string) int
-		MatchByCode    func(childComplexity int, code string) int
-		Matches        func(childComplexity int, page *int, perPage *int) int
-		Me             func(childComplexity int) int
-		Ping           func(childComplexity int) int
-		Room           func(childComplexity int, id string) int
-		RoomByCode     func(childComplexity int, code string) int
-		Rooms          func(childComplexity int, typeArg *RoomType, page *int, perPage *int) int
-		User           func(childComplexity int, id string) int
-		Users          func(childComplexity int, page *int, perPage *int) int
+		Announcement        func(childComplexity int, id string) int
+		Announcements       func(childComplexity int, page *int, perPage *int) int
+		Beatmap             func(childComplexity int, id string) int
+		BeatmapByOsuID      func(childComplexity int, osuID string) int
+		Beatmaps            func(childComplexity int, page *int, perPage *int) int
+		IrcConnectionStatus func(childComplexity int, matchID string) int
+		IrcJobs             func(childComplexity int, matchID string) int
+		IrcObservations     func(childComplexity int, matchID string, channel string) int
+		Match               func(childComplexity int, id string) int
+		MatchByCode         func(childComplexity int, code string) int
+		Matches             func(childComplexity int, page *int, perPage *int) int
+		Me                  func(childComplexity int) int
+		Ping                func(childComplexity int) int
+		Room                func(childComplexity int, id string) int
+		RoomByCode          func(childComplexity int, code string) int
+		Rooms               func(childComplexity int, typeArg *RoomType, page *int, perPage *int) int
+		User                func(childComplexity int, id string) int
+		Users               func(childComplexity int, page *int, perPage *int) int
 	}
 
 	RefereeView struct {
 		AbortReason      func(childComplexity int) int
 		Analysis         func(childComplexity int) int
 		AuditLog         func(childComplexity int, limit *int) int
+		AutomationIssues func(childComplexity int, limit *int) int
 		MatchID          func(childComplexity int) int
 		Snapshot         func(childComplexity int) int
 		SuspensionReason func(childComplexity int) int
@@ -524,9 +586,18 @@ type MatchResolver interface {
 }
 type MatchPoolSlotMetadataResolver interface {
 	Beatmap(ctx context.Context, obj *MatchPoolSlotMetadata) (*Beatmap, error)
+	MetadataStatus(ctx context.Context, obj *MatchPoolSlotMetadata) (BeatmapMetadataStatus, error)
+	MetadataAttempts(ctx context.Context, obj *MatchPoolSlotMetadata) (int, error)
+	MetadataNextRetryAt(ctx context.Context, obj *MatchPoolSlotMetadata) (*time.Time, error)
+	MetadataLastError(ctx context.Context, obj *MatchPoolSlotMetadata) (*string, error)
 }
 type MutationResolver interface {
 	StartMatch(ctx context.Context, input CommandMeta) (*MatchCommandResult, error)
+	ConfirmIRCResult(ctx context.Context, input ConfirmIRCResultInput) (*MatchCommandResult, error)
+	RejectIRCObservation(ctx context.Context, matchID string, observationID string, reason string) (bool, error)
+	RetryIRCJob(ctx context.Context, input RetryIRCJobInput) (bool, error)
+	RetryMatchAutomation(ctx context.Context, input RetryMatchAutomationInput) (bool, error)
+	RetryBeatmapMetadata(ctx context.Context, input RetryBeatmapMetadataInput) (bool, error)
 	BanPoolSlot(ctx context.Context, input BanPoolSlotInput) (*MatchCommandResult, error)
 	RefereeBanPoolSlot(ctx context.Context, input RefereeBanPoolSlotInput) (*MatchCommandResult, error)
 	PlacePiece(ctx context.Context, input PlacePieceInput) (*MatchCommandResult, error)
@@ -571,9 +642,13 @@ type QueryResolver interface {
 	Users(ctx context.Context, page *int, perPage *int) (*UserPage, error)
 	Announcements(ctx context.Context, page *int, perPage *int) (*AnnouncementPage, error)
 	Announcement(ctx context.Context, id string) (*Announcement, error)
+	IrcObservations(ctx context.Context, matchID string, channel string) ([]*IRCObservation, error)
+	IrcJobs(ctx context.Context, matchID string) ([]*IRCJob, error)
+	IrcConnectionStatus(ctx context.Context, matchID string) (*IRCConnectionStatus, error)
 }
 type RefereeViewResolver interface {
 	AuditLog(ctx context.Context, obj *RefereeView, limit *int) ([]*AuditEntry, error)
+	AutomationIssues(ctx context.Context, obj *RefereeView, limit *int) ([]*MatchAutomationIssue, error)
 }
 type RoomResolver interface {
 	Owner(ctx context.Context, obj *Room) (*User, error)
@@ -1154,6 +1229,178 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.FormalTimer.StartedAt(childComplexity), true
 
+	case "IRCConnectionStatus.configured":
+		if e.ComplexityRoot.IRCConnectionStatus.Configured == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCConnectionStatus.Configured(childComplexity), true
+	case "IRCConnectionStatus.connected":
+		if e.ComplexityRoot.IRCConnectionStatus.Connected == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCConnectionStatus.Connected(childComplexity), true
+	case "IRCConnectionStatus.degraded":
+		if e.ComplexityRoot.IRCConnectionStatus.Degraded == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCConnectionStatus.Degraded(childComplexity), true
+	case "IRCConnectionStatus.lastError":
+		if e.ComplexityRoot.IRCConnectionStatus.LastError == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCConnectionStatus.LastError(childComplexity), true
+
+	case "IRCJob.ackDeadline":
+		if e.ComplexityRoot.IRCJob.AckDeadline == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.AckDeadline(childComplexity), true
+	case "IRCJob.acknowledgedAt":
+		if e.ComplexityRoot.IRCJob.AcknowledgedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.AcknowledgedAt(childComplexity), true
+	case "IRCJob.attempts":
+		if e.ComplexityRoot.IRCJob.Attempts == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.Attempts(childComplexity), true
+	case "IRCJob.automaticRetry":
+		if e.ComplexityRoot.IRCJob.AutomaticRetry == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.AutomaticRetry(childComplexity), true
+	case "IRCJob.channel":
+		if e.ComplexityRoot.IRCJob.Channel == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.Channel(childComplexity), true
+	case "IRCJob.id":
+		if e.ComplexityRoot.IRCJob.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.ID(childComplexity), true
+	case "IRCJob.kind":
+		if e.ComplexityRoot.IRCJob.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.Kind(childComplexity), true
+	case "IRCJob.lastError":
+		if e.ComplexityRoot.IRCJob.LastError == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.LastError(childComplexity), true
+	case "IRCJob.matchID":
+		if e.ComplexityRoot.IRCJob.MatchID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.MatchID(childComplexity), true
+	case "IRCJob.nextTryAt":
+		if e.ComplexityRoot.IRCJob.NextTryAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.NextTryAt(childComplexity), true
+	case "IRCJob.payload":
+		if e.ComplexityRoot.IRCJob.Payload == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.Payload(childComplexity), true
+	case "IRCJob.sentAt":
+		if e.ComplexityRoot.IRCJob.SentAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.SentAt(childComplexity), true
+	case "IRCJob.status":
+		if e.ComplexityRoot.IRCJob.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCJob.Status(childComplexity), true
+
+	case "IRCObservation.channel":
+		if e.ComplexityRoot.IRCObservation.Channel == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCObservation.Channel(childComplexity), true
+	case "IRCObservation.command":
+		if e.ComplexityRoot.IRCObservation.Command == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCObservation.Command(childComplexity), true
+	case "IRCObservation.id":
+		if e.ComplexityRoot.IRCObservation.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCObservation.ID(childComplexity), true
+	case "IRCObservation.observedAt":
+		if e.ComplexityRoot.IRCObservation.ObservedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCObservation.ObservedAt(childComplexity), true
+	case "IRCObservation.raw":
+		if e.ComplexityRoot.IRCObservation.Raw == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCObservation.Raw(childComplexity), true
+	case "IRCObservation.reviewReason":
+		if e.ComplexityRoot.IRCObservation.ReviewReason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCObservation.ReviewReason(childComplexity), true
+	case "IRCObservation.reviewStatus":
+		if e.ComplexityRoot.IRCObservation.ReviewStatus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCObservation.ReviewStatus(childComplexity), true
+	case "IRCObservation.sender":
+		if e.ComplexityRoot.IRCObservation.Sender == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCObservation.Sender(childComplexity), true
+	case "IRCObservation.suggestedResult":
+		if e.ComplexityRoot.IRCObservation.SuggestedResult == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCObservation.SuggestedResult(childComplexity), true
+
+	case "IRCSuggestedResult.boardPieceID":
+		if e.ComplexityRoot.IRCSuggestedResult.BoardPieceID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCSuggestedResult.BoardPieceID(childComplexity), true
+	case "IRCSuggestedResult.winningTeam":
+		if e.ComplexityRoot.IRCSuggestedResult.WinningTeam == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IRCSuggestedResult.WinningTeam(childComplexity), true
+
 	case "LegalPlacement.cell":
 		if e.ComplexityRoot.LegalPlacement.Cell == nil {
 			break
@@ -1325,6 +1572,43 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchActorAnalysis.TbResponseTeams(childComplexity), true
+
+	case "MatchAutomationIssue.attempts":
+		if e.ComplexityRoot.MatchAutomationIssue.Attempts == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchAutomationIssue.Attempts(childComplexity), true
+	case "MatchAutomationIssue.eventID":
+		if e.ComplexityRoot.MatchAutomationIssue.EventID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchAutomationIssue.EventID(childComplexity), true
+	case "MatchAutomationIssue.eventType":
+		if e.ComplexityRoot.MatchAutomationIssue.EventType == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchAutomationIssue.EventType(childComplexity), true
+	case "MatchAutomationIssue.lastError":
+		if e.ComplexityRoot.MatchAutomationIssue.LastError == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchAutomationIssue.LastError(childComplexity), true
+	case "MatchAutomationIssue.occurredAt":
+		if e.ComplexityRoot.MatchAutomationIssue.OccurredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchAutomationIssue.OccurredAt(childComplexity), true
+	case "MatchAutomationIssue.sequence":
+		if e.ComplexityRoot.MatchAutomationIssue.Sequence == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchAutomationIssue.Sequence(childComplexity), true
 
 	case "MatchCommandActor.adminOverride":
 		if e.ComplexityRoot.MatchCommandActor.AdminOverride == nil {
@@ -1596,6 +1880,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MatchPoolSlotMetadata.BeatmapID(childComplexity), true
+	case "MatchPoolSlotMetadata.metadataAttempts":
+		if e.ComplexityRoot.MatchPoolSlotMetadata.MetadataAttempts == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchPoolSlotMetadata.MetadataAttempts(childComplexity), true
+	case "MatchPoolSlotMetadata.metadataLastError":
+		if e.ComplexityRoot.MatchPoolSlotMetadata.MetadataLastError == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchPoolSlotMetadata.MetadataLastError(childComplexity), true
+	case "MatchPoolSlotMetadata.metadataNextRetryAt":
+		if e.ComplexityRoot.MatchPoolSlotMetadata.MetadataNextRetryAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchPoolSlotMetadata.MetadataNextRetryAt(childComplexity), true
+	case "MatchPoolSlotMetadata.metadataStatus":
+		if e.ComplexityRoot.MatchPoolSlotMetadata.MetadataStatus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MatchPoolSlotMetadata.MetadataStatus(childComplexity), true
 	case "MatchPoolSlotMetadata.poolSlotID":
 		if e.ComplexityRoot.MatchPoolSlotMetadata.PoolSlotID == nil {
 			break
@@ -1768,6 +2076,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ConfirmBeatmapResult(childComplexity, args["input"].(ConfirmBeatmapResultInput)), true
+	case "Mutation.confirmIRCResult":
+		if e.ComplexityRoot.Mutation.ConfirmIRCResult == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_confirmIRCResult_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ConfirmIRCResult(childComplexity, args["input"].(ConfirmIRCResultInput)), true
 	case "Mutation.confirmTbResult":
 		if e.ComplexityRoot.Mutation.ConfirmTbResult == nil {
 			break
@@ -1900,6 +2219,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RefereeRobPiece(childComplexity, args["input"].(RefereeRobPieceInput)), true
+	case "Mutation.rejectIRCObservation":
+		if e.ComplexityRoot.Mutation.RejectIRCObservation == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_rejectIRCObservation_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RejectIRCObservation(childComplexity, args["matchId"].(string), args["observationId"].(string), args["reason"].(string)), true
 	case "Mutation.requestTb":
 		if e.ComplexityRoot.Mutation.RequestTb == nil {
 			break
@@ -1944,6 +2274,39 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ResumeTimer(childComplexity, args["input"].(ReasonCommandInput)), true
+	case "Mutation.retryBeatmapMetadata":
+		if e.ComplexityRoot.Mutation.RetryBeatmapMetadata == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_retryBeatmapMetadata_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RetryBeatmapMetadata(childComplexity, args["input"].(RetryBeatmapMetadataInput)), true
+	case "Mutation.retryIRCJob":
+		if e.ComplexityRoot.Mutation.RetryIRCJob == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_retryIRCJob_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RetryIRCJob(childComplexity, args["input"].(RetryIRCJobInput)), true
+	case "Mutation.retryMatchAutomation":
+		if e.ComplexityRoot.Mutation.RetryMatchAutomation == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_retryMatchAutomation_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RetryMatchAutomation(childComplexity, args["input"].(RetryMatchAutomationInput)), true
 	case "Mutation.robPiece":
 		if e.ComplexityRoot.Mutation.RobPiece == nil {
 			break
@@ -2187,6 +2550,39 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.Beatmaps(childComplexity, args["page"].(*int), args["perPage"].(*int)), true
 
+	case "Query.ircConnectionStatus":
+		if e.ComplexityRoot.Query.IrcConnectionStatus == nil {
+			break
+		}
+
+		args, err := ec.field_Query_ircConnectionStatus_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.IrcConnectionStatus(childComplexity, args["matchId"].(string)), true
+	case "Query.ircJobs":
+		if e.ComplexityRoot.Query.IrcJobs == nil {
+			break
+		}
+
+		args, err := ec.field_Query_ircJobs_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.IrcJobs(childComplexity, args["matchId"].(string)), true
+	case "Query.ircObservations":
+		if e.ComplexityRoot.Query.IrcObservations == nil {
+			break
+		}
+
+		args, err := ec.field_Query_ircObservations_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.IrcObservations(childComplexity, args["matchId"].(string), args["channel"].(string)), true
 	case "Query.match":
 		if e.ComplexityRoot.Query.Match == nil {
 			break
@@ -2311,6 +2707,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RefereeView.AuditLog(childComplexity, args["limit"].(*int)), true
+	case "RefereeView.automationIssues":
+		if e.ComplexityRoot.RefereeView.AutomationIssues == nil {
+			break
+		}
+
+		args, err := ec.field_RefereeView_automationIssues_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.RefereeView.AutomationIssues(childComplexity, args["limit"].(*int)), true
 	case "RefereeView.matchID":
 		if e.ComplexityRoot.RefereeView.MatchID == nil {
 			break
@@ -2756,6 +3163,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCalibrateTimerInput,
 		ec.unmarshalInputCommandMeta,
 		ec.unmarshalInputConfirmBeatmapResultInput,
+		ec.unmarshalInputConfirmIRCResultInput,
 		ec.unmarshalInputConfirmTbResultInput,
 		ec.unmarshalInputPlacePieceInput,
 		ec.unmarshalInputPlaceShiroInput,
@@ -2770,6 +3178,9 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputRefereeRobPieceInput,
 		ec.unmarshalInputRequestTbInput,
 		ec.unmarshalInputRespondTbRequestInput,
+		ec.unmarshalInputRetryBeatmapMetadataInput,
+		ec.unmarshalInputRetryIRCJobInput,
+		ec.unmarshalInputRetryMatchAutomationInput,
 		ec.unmarshalInputRobPieceInput,
 	)
 	first := true
@@ -2985,7 +3396,13 @@ type MatchPoolSlotMetadata {
   poolSlotID: ID!
   beatmapID: ID
   beatmap: Beatmap @goField(forceResolver: true)
+  metadataStatus: BeatmapMetadataStatus! @goField(forceResolver: true)
+  metadataAttempts: Int! @goField(forceResolver: true)
+  metadataNextRetryAt: Time @goField(forceResolver: true)
+  metadataLastError: String @goField(forceResolver: true)
 }
+
+enum BeatmapMetadataStatus { NOT_CONFIGURED READY PENDING FAILED }
 
 enum MatchLifecycle {
   READY
@@ -3267,6 +3684,7 @@ type RefereeView {
   suspensionReason: String
   abortReason: String
   auditLog(limit: Int = 50): [AuditEntry!]! @goField(forceResolver: true)
+  automationIssues(limit: Int = 50): [MatchAutomationIssue!]! @goField(forceResolver: true)
 }
 
 type AuditEntry {
@@ -3279,6 +3697,15 @@ type AuditEntry {
   resultingVersion: UInt64!
   timestamp: Time!
   reason: String
+}
+
+type MatchAutomationIssue {
+  eventID: ID!
+  sequence: UInt64!
+  eventType: MatchEventType!
+  attempts: Int!
+  lastError: String!
+  occurredAt: Time!
 }
 
 # =============================================================================
@@ -3358,7 +3785,27 @@ type Query {
   # 公告
   announcements(page: Int = 1, perPage: Int = 20): AnnouncementPage!
   announcement(id: ID!): Announcement
+  ircObservations(matchId: ID!, channel: String!): [IRCObservation!]!
+  ircJobs(matchId: ID!): [IRCJob!]!
+  ircConnectionStatus(matchId: ID!): IRCConnectionStatus!
 }
+
+enum IRCReviewStatus { PENDING CONFIRMING CONFIRMED REJECTED }
+type IRCSuggestedResult { winningTeam: TeamSide!, boardPieceID: ID! }
+type IRCObservation {
+  id: ID!, channel: String!, sender: String!, command: String!, raw: String!, observedAt: Time!
+  reviewStatus: IRCReviewStatus!, reviewReason: String, suggestedResult: IRCSuggestedResult
+}
+type IRCConnectionStatus { configured: Boolean!, connected: Boolean!, degraded: Boolean!, lastError: String }
+enum IRCJobStatus { PENDING SENDING SENT ACKNOWLEDGED FAILED CANCELLED }
+type IRCJob {
+  id: ID!, matchID: ID!, channel: String!, kind: String!, payload: String!, status: IRCJobStatus!
+  attempts: Int!, automaticRetry: Boolean!, nextTryAt: Time, sentAt: Time, ackDeadline: Time, acknowledgedAt: Time, lastError: String
+}
+input RetryIRCJobInput { matchID: ID!, jobID: ID! }
+input RetryMatchAutomationInput { matchID: ID!, eventID: ID! }
+input RetryBeatmapMetadataInput { matchID: ID!, beatmapID: ID! }
+input ConfirmIRCResultInput { matchId: ID!, expectedVersion: UInt64!, commandId: String!, observationId: ID!, boardPieceId: ID!, winningTeam: TeamSide! }
 
 # =============================================================================
 # Authoritative formal-match commands
@@ -3477,6 +3924,11 @@ type MatchCommandResult {
 
 type Mutation {
   startMatch(input: CommandMeta!): MatchCommandResult!
+  confirmIRCResult(input: ConfirmIRCResultInput!): MatchCommandResult!
+  rejectIRCObservation(matchId: ID!, observationId: ID!, reason: String!): Boolean!
+  retryIRCJob(input: RetryIRCJobInput!): Boolean!
+  retryMatchAutomation(input: RetryMatchAutomationInput!): Boolean!
+  retryBeatmapMetadata(input: RetryBeatmapMetadataInput!): Boolean!
   banPoolSlot(input: BanPoolSlotInput!): MatchCommandResult!
   refereeBanPoolSlot(input: RefereeBanPoolSlotInput!): MatchCommandResult!
   placePiece(input: PlacePieceInput!): MatchCommandResult!
@@ -3772,6 +4224,86 @@ func (ec *executionContext) childFields_FormalTimer(ctx context.Context, field g
 	return nil, fmt.Errorf("no field named %q was found under type FormalTimer", field.Name)
 }
 
+func (ec *executionContext) childFields_IRCConnectionStatus(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "configured":
+		return ec.fieldContext_IRCConnectionStatus_configured(ctx, field)
+	case "connected":
+		return ec.fieldContext_IRCConnectionStatus_connected(ctx, field)
+	case "degraded":
+		return ec.fieldContext_IRCConnectionStatus_degraded(ctx, field)
+	case "lastError":
+		return ec.fieldContext_IRCConnectionStatus_lastError(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IRCConnectionStatus", field.Name)
+}
+
+func (ec *executionContext) childFields_IRCJob(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_IRCJob_id(ctx, field)
+	case "matchID":
+		return ec.fieldContext_IRCJob_matchID(ctx, field)
+	case "channel":
+		return ec.fieldContext_IRCJob_channel(ctx, field)
+	case "kind":
+		return ec.fieldContext_IRCJob_kind(ctx, field)
+	case "payload":
+		return ec.fieldContext_IRCJob_payload(ctx, field)
+	case "status":
+		return ec.fieldContext_IRCJob_status(ctx, field)
+	case "attempts":
+		return ec.fieldContext_IRCJob_attempts(ctx, field)
+	case "automaticRetry":
+		return ec.fieldContext_IRCJob_automaticRetry(ctx, field)
+	case "nextTryAt":
+		return ec.fieldContext_IRCJob_nextTryAt(ctx, field)
+	case "sentAt":
+		return ec.fieldContext_IRCJob_sentAt(ctx, field)
+	case "ackDeadline":
+		return ec.fieldContext_IRCJob_ackDeadline(ctx, field)
+	case "acknowledgedAt":
+		return ec.fieldContext_IRCJob_acknowledgedAt(ctx, field)
+	case "lastError":
+		return ec.fieldContext_IRCJob_lastError(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IRCJob", field.Name)
+}
+
+func (ec *executionContext) childFields_IRCObservation(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_IRCObservation_id(ctx, field)
+	case "channel":
+		return ec.fieldContext_IRCObservation_channel(ctx, field)
+	case "sender":
+		return ec.fieldContext_IRCObservation_sender(ctx, field)
+	case "command":
+		return ec.fieldContext_IRCObservation_command(ctx, field)
+	case "raw":
+		return ec.fieldContext_IRCObservation_raw(ctx, field)
+	case "observedAt":
+		return ec.fieldContext_IRCObservation_observedAt(ctx, field)
+	case "reviewStatus":
+		return ec.fieldContext_IRCObservation_reviewStatus(ctx, field)
+	case "reviewReason":
+		return ec.fieldContext_IRCObservation_reviewReason(ctx, field)
+	case "suggestedResult":
+		return ec.fieldContext_IRCObservation_suggestedResult(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IRCObservation", field.Name)
+}
+
+func (ec *executionContext) childFields_IRCSuggestedResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "winningTeam":
+		return ec.fieldContext_IRCSuggestedResult_winningTeam(ctx, field)
+	case "boardPieceID":
+		return ec.fieldContext_IRCSuggestedResult_boardPieceID(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IRCSuggestedResult", field.Name)
+}
+
 func (ec *executionContext) childFields_LegalPlacement(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "poolSlotID":
@@ -3850,6 +4382,24 @@ func (ec *executionContext) childFields_MatchActorAnalysis(ctx context.Context, 
 		return ec.fieldContext_MatchActorAnalysis_tbResponseTeams(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type MatchActorAnalysis", field.Name)
+}
+
+func (ec *executionContext) childFields_MatchAutomationIssue(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "eventID":
+		return ec.fieldContext_MatchAutomationIssue_eventID(ctx, field)
+	case "sequence":
+		return ec.fieldContext_MatchAutomationIssue_sequence(ctx, field)
+	case "eventType":
+		return ec.fieldContext_MatchAutomationIssue_eventType(ctx, field)
+	case "attempts":
+		return ec.fieldContext_MatchAutomationIssue_attempts(ctx, field)
+	case "lastError":
+		return ec.fieldContext_MatchAutomationIssue_lastError(ctx, field)
+	case "occurredAt":
+		return ec.fieldContext_MatchAutomationIssue_occurredAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type MatchAutomationIssue", field.Name)
 }
 
 func (ec *executionContext) childFields_MatchCommandActor(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -3980,6 +4530,14 @@ func (ec *executionContext) childFields_MatchPoolSlotMetadata(ctx context.Contex
 		return ec.fieldContext_MatchPoolSlotMetadata_beatmapID(ctx, field)
 	case "beatmap":
 		return ec.fieldContext_MatchPoolSlotMetadata_beatmap(ctx, field)
+	case "metadataStatus":
+		return ec.fieldContext_MatchPoolSlotMetadata_metadataStatus(ctx, field)
+	case "metadataAttempts":
+		return ec.fieldContext_MatchPoolSlotMetadata_metadataAttempts(ctx, field)
+	case "metadataNextRetryAt":
+		return ec.fieldContext_MatchPoolSlotMetadata_metadataNextRetryAt(ctx, field)
+	case "metadataLastError":
+		return ec.fieldContext_MatchPoolSlotMetadata_metadataLastError(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type MatchPoolSlotMetadata", field.Name)
 }
@@ -4116,6 +4674,8 @@ func (ec *executionContext) childFields_RefereeView(ctx context.Context, field g
 		return ec.fieldContext_RefereeView_abortReason(ctx, field)
 	case "auditLog":
 		return ec.fieldContext_RefereeView_auditLog(ctx, field)
+	case "automationIssues":
+		return ec.fieldContext_RefereeView_automationIssues(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type RefereeView", field.Name)
 }
@@ -4498,6 +5058,20 @@ func (ec *executionContext) field_Mutation_confirmBeatmapResult_args(ctx context
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_confirmIRCResult_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (ConfirmIRCResultInput, error) {
+			return ec.unmarshalNConfirmIRCResultInput2rctHubBackendᚋinternalᚋgraphqlᚐConfirmIRCResultInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_confirmTbResult_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -4666,6 +5240,36 @@ func (ec *executionContext) field_Mutation_refereeRobPiece_args(ctx context.Cont
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_rejectIRCObservation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "matchId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["matchId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "observationId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["observationId"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "reason",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["reason"] = arg2
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_requestTb_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -4714,6 +5318,48 @@ func (ec *executionContext) field_Mutation_resumeTimer_args(ctx context.Context,
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (ReasonCommandInput, error) {
 			return ec.unmarshalNReasonCommandInput2rctHubBackendᚋinternalᚋgraphqlᚐReasonCommandInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_retryBeatmapMetadata_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (RetryBeatmapMetadataInput, error) {
+			return ec.unmarshalNRetryBeatmapMetadataInput2rctHubBackendᚋinternalᚋgraphqlᚐRetryBeatmapMetadataInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_retryIRCJob_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (RetryIRCJobInput, error) {
+			return ec.unmarshalNRetryIRCJobInput2rctHubBackendᚋinternalᚋgraphqlᚐRetryIRCJobInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_retryMatchAutomation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (RetryMatchAutomationInput, error) {
+			return ec.unmarshalNRetryMatchAutomationInput2rctHubBackendᚋinternalᚋgraphqlᚐRetryMatchAutomationInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -4892,6 +5538,56 @@ func (ec *executionContext) field_Query_beatmaps_args(ctx context.Context, rawAr
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_ircConnectionStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "matchId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["matchId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_ircJobs_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "matchId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["matchId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_ircObservations_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "matchId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["matchId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "channel",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["channel"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_matchByCode_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -5037,6 +5733,20 @@ func (ec *executionContext) field_Query_users_args(ctx context.Context, rawArgs 
 }
 
 func (ec *executionContext) field_RefereeView_auditLog_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "limit",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_RefereeView_automationIssues_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "limit",
@@ -7274,6 +7984,659 @@ func (ec *executionContext) fieldContext_FormalTimer_remainingAtPauseMillisecond
 	return graphql.NewScalarFieldContext("FormalTimer", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _IRCConnectionStatus_configured(ctx context.Context, field graphql.CollectedField, obj *IRCConnectionStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCConnectionStatus_configured(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Configured, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCConnectionStatus_configured(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCConnectionStatus", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _IRCConnectionStatus_connected(ctx context.Context, field graphql.CollectedField, obj *IRCConnectionStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCConnectionStatus_connected(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Connected, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCConnectionStatus_connected(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCConnectionStatus", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _IRCConnectionStatus_degraded(ctx context.Context, field graphql.CollectedField, obj *IRCConnectionStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCConnectionStatus_degraded(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Degraded, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCConnectionStatus_degraded(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCConnectionStatus", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _IRCConnectionStatus_lastError(ctx context.Context, field graphql.CollectedField, obj *IRCConnectionStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCConnectionStatus_lastError(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LastError, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IRCConnectionStatus_lastError(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCConnectionStatus", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_id(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_matchID(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_matchID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MatchID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_matchID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_channel(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_channel(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Channel, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_channel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_kind(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_payload(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_payload(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Payload, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_payload(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_status(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v IRCJobStatus) graphql.Marshaler {
+			return ec.marshalNIRCJobStatus2rctHubBackendᚋinternalᚋgraphqlᚐIRCJobStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type IRCJobStatus does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_attempts(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_attempts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Attempts, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_attempts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_automaticRetry(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_automaticRetry(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AutomaticRetry, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_automaticRetry(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_nextTryAt(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_nextTryAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.NextTryAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_nextTryAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_sentAt(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_sentAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SentAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_sentAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_ackDeadline(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_ackDeadline(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AckDeadline, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_ackDeadline(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_acknowledgedAt(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_acknowledgedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AcknowledgedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_acknowledgedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _IRCJob_lastError(ctx context.Context, field graphql.CollectedField, obj *IRCJob) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCJob_lastError(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LastError, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IRCJob_lastError(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCJob", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IRCObservation_id(ctx context.Context, field graphql.CollectedField, obj *IRCObservation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCObservation_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCObservation_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCObservation", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _IRCObservation_channel(ctx context.Context, field graphql.CollectedField, obj *IRCObservation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCObservation_channel(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Channel, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCObservation_channel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCObservation", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IRCObservation_sender(ctx context.Context, field graphql.CollectedField, obj *IRCObservation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCObservation_sender(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Sender, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCObservation_sender(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCObservation", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IRCObservation_command(ctx context.Context, field graphql.CollectedField, obj *IRCObservation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCObservation_command(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Command, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCObservation_command(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCObservation", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IRCObservation_raw(ctx context.Context, field graphql.CollectedField, obj *IRCObservation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCObservation_raw(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Raw, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCObservation_raw(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCObservation", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IRCObservation_observedAt(ctx context.Context, field graphql.CollectedField, obj *IRCObservation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCObservation_observedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ObservedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCObservation_observedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCObservation", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _IRCObservation_reviewStatus(ctx context.Context, field graphql.CollectedField, obj *IRCObservation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCObservation_reviewStatus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReviewStatus, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v IRCReviewStatus) graphql.Marshaler {
+			return ec.marshalNIRCReviewStatus2rctHubBackendᚋinternalᚋgraphqlᚐIRCReviewStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCObservation_reviewStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCObservation", field, false, false, errors.New("field of type IRCReviewStatus does not have child fields"))
+}
+
+func (ec *executionContext) _IRCObservation_reviewReason(ctx context.Context, field graphql.CollectedField, obj *IRCObservation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCObservation_reviewReason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReviewReason, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IRCObservation_reviewReason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCObservation", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _IRCObservation_suggestedResult(ctx context.Context, field graphql.CollectedField, obj *IRCObservation) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCObservation_suggestedResult(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SuggestedResult, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *IRCSuggestedResult) graphql.Marshaler {
+			return ec.marshalOIRCSuggestedResult2ᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCSuggestedResult(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IRCObservation_suggestedResult(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IRCObservation",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IRCSuggestedResult(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IRCSuggestedResult_winningTeam(ctx context.Context, field graphql.CollectedField, obj *IRCSuggestedResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCSuggestedResult_winningTeam(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.WinningTeam, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v TeamSide) graphql.Marshaler {
+			return ec.marshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCSuggestedResult_winningTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCSuggestedResult", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _IRCSuggestedResult_boardPieceID(ctx context.Context, field graphql.CollectedField, obj *IRCSuggestedResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IRCSuggestedResult_boardPieceID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BoardPieceID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IRCSuggestedResult_boardPieceID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IRCSuggestedResult", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
 func (ec *executionContext) _LegalPlacement_poolSlotID(ctx context.Context, field graphql.CollectedField, obj *LegalPlacement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8015,6 +9378,144 @@ func (ec *executionContext) _MatchActorAnalysis_tbResponseTeams(ctx context.Cont
 }
 func (ec *executionContext) fieldContext_MatchActorAnalysis_tbResponseTeams(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("MatchActorAnalysis", field, false, false, errors.New("field of type TeamSide does not have child fields"))
+}
+
+func (ec *executionContext) _MatchAutomationIssue_eventID(ctx context.Context, field graphql.CollectedField, obj *MatchAutomationIssue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchAutomationIssue_eventID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EventID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchAutomationIssue_eventID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchAutomationIssue", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _MatchAutomationIssue_sequence(ctx context.Context, field graphql.CollectedField, obj *MatchAutomationIssue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchAutomationIssue_sequence(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Sequence, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNUInt642string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchAutomationIssue_sequence(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchAutomationIssue", field, false, false, errors.New("field of type UInt64 does not have child fields"))
+}
+
+func (ec *executionContext) _MatchAutomationIssue_eventType(ctx context.Context, field graphql.CollectedField, obj *MatchAutomationIssue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchAutomationIssue_eventType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EventType, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v MatchEventType) graphql.Marshaler {
+			return ec.marshalNMatchEventType2rctHubBackendᚋinternalᚋgraphqlᚐMatchEventType(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchAutomationIssue_eventType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchAutomationIssue", field, false, false, errors.New("field of type MatchEventType does not have child fields"))
+}
+
+func (ec *executionContext) _MatchAutomationIssue_attempts(ctx context.Context, field graphql.CollectedField, obj *MatchAutomationIssue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchAutomationIssue_attempts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Attempts, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchAutomationIssue_attempts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchAutomationIssue", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _MatchAutomationIssue_lastError(ctx context.Context, field graphql.CollectedField, obj *MatchAutomationIssue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchAutomationIssue_lastError(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LastError, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchAutomationIssue_lastError(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchAutomationIssue", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _MatchAutomationIssue_occurredAt(ctx context.Context, field graphql.CollectedField, obj *MatchAutomationIssue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchAutomationIssue_occurredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OccurredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchAutomationIssue_occurredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchAutomationIssue", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
 func (ec *executionContext) _MatchCommandActor_osuID(ctx context.Context, field graphql.CollectedField, obj *MatchCommandActor) (ret graphql.Marshaler) {
@@ -9115,6 +10616,98 @@ func (ec *executionContext) fieldContext_MatchPoolSlotMetadata_beatmap(_ context
 	return fc, nil
 }
 
+func (ec *executionContext) _MatchPoolSlotMetadata_metadataStatus(ctx context.Context, field graphql.CollectedField, obj *MatchPoolSlotMetadata) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchPoolSlotMetadata_metadataStatus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MatchPoolSlotMetadata().MetadataStatus(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v BeatmapMetadataStatus) graphql.Marshaler {
+			return ec.marshalNBeatmapMetadataStatus2rctHubBackendᚋinternalᚋgraphqlᚐBeatmapMetadataStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchPoolSlotMetadata_metadataStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchPoolSlotMetadata", field, true, true, errors.New("field of type BeatmapMetadataStatus does not have child fields"))
+}
+
+func (ec *executionContext) _MatchPoolSlotMetadata_metadataAttempts(ctx context.Context, field graphql.CollectedField, obj *MatchPoolSlotMetadata) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchPoolSlotMetadata_metadataAttempts(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MatchPoolSlotMetadata().MetadataAttempts(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MatchPoolSlotMetadata_metadataAttempts(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchPoolSlotMetadata", field, true, true, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _MatchPoolSlotMetadata_metadataNextRetryAt(ctx context.Context, field graphql.CollectedField, obj *MatchPoolSlotMetadata) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchPoolSlotMetadata_metadataNextRetryAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MatchPoolSlotMetadata().MetadataNextRetryAt(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchPoolSlotMetadata_metadataNextRetryAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchPoolSlotMetadata", field, true, true, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _MatchPoolSlotMetadata_metadataLastError(ctx context.Context, field graphql.CollectedField, obj *MatchPoolSlotMetadata) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MatchPoolSlotMetadata_metadataLastError(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MatchPoolSlotMetadata().MetadataLastError(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MatchPoolSlotMetadata_metadataLastError(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MatchPoolSlotMetadata", field, true, true, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _MatchSnapshot_version(ctx context.Context, field graphql.CollectedField, obj *MatchSnapshot) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9712,6 +11305,226 @@ func (ec *executionContext) fieldContext_Mutation_startMatch(ctx context.Context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_startMatch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_confirmIRCResult(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_confirmIRCResult(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ConfirmIRCResult(ctx, fc.Args["input"].(ConfirmIRCResultInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *MatchCommandResult) graphql.Marshaler {
+			return ec.marshalNMatchCommandResult2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchCommandResult(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_confirmIRCResult(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchCommandResult(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_confirmIRCResult_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_rejectIRCObservation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_rejectIRCObservation(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RejectIRCObservation(ctx, fc.Args["matchId"].(string), fc.Args["observationId"].(string), fc.Args["reason"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_rejectIRCObservation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_rejectIRCObservation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_retryIRCJob(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_retryIRCJob(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RetryIRCJob(ctx, fc.Args["input"].(RetryIRCJobInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_retryIRCJob(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_retryIRCJob_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_retryMatchAutomation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_retryMatchAutomation(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RetryMatchAutomation(ctx, fc.Args["input"].(RetryMatchAutomationInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_retryMatchAutomation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_retryMatchAutomation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_retryBeatmapMetadata(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_retryBeatmapMetadata(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RetryBeatmapMetadata(ctx, fc.Args["input"].(RetryBeatmapMetadataInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_retryBeatmapMetadata(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_retryBeatmapMetadata_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -11938,6 +13751,138 @@ func (ec *executionContext) fieldContext_Query_announcement(ctx context.Context,
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_ircObservations(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_ircObservations(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().IrcObservations(ctx, fc.Args["matchId"].(string), fc.Args["channel"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*IRCObservation) graphql.Marshaler {
+			return ec.marshalNIRCObservation2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCObservationᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_ircObservations(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IRCObservation(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_ircObservations_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_ircJobs(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_ircJobs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().IrcJobs(ctx, fc.Args["matchId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*IRCJob) graphql.Marshaler {
+			return ec.marshalNIRCJob2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCJobᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_ircJobs(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IRCJob(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_ircJobs_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_ircConnectionStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_ircConnectionStatus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().IrcConnectionStatus(ctx, fc.Args["matchId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *IRCConnectionStatus) graphql.Marshaler {
+			return ec.marshalNIRCConnectionStatus2ᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCConnectionStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_ircConnectionStatus(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IRCConnectionStatus(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_ircConnectionStatus_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12185,6 +14130,50 @@ func (ec *executionContext) fieldContext_RefereeView_auditLog(ctx context.Contex
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_RefereeView_auditLog_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RefereeView_automationIssues(ctx context.Context, field graphql.CollectedField, obj *RefereeView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RefereeView_automationIssues(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.RefereeView().AutomationIssues(ctx, obj, fc.Args["limit"].(*int))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*MatchAutomationIssue) graphql.Marshaler {
+			return ec.marshalNMatchAutomationIssue2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchAutomationIssueᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_RefereeView_automationIssues(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RefereeView",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_MatchAutomationIssue(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_RefereeView_automationIssues_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -15077,6 +17066,71 @@ func (ec *executionContext) unmarshalInputConfirmBeatmapResultInput(ctx context.
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputConfirmIRCResultInput(ctx context.Context, obj any) (ConfirmIRCResultInput, error) {
+	var it ConfirmIRCResultInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"matchId", "expectedVersion", "commandId", "observationId", "boardPieceId", "winningTeam"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "matchId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("matchId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MatchID = data
+		case "expectedVersion":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("expectedVersion"))
+			data, err := ec.unmarshalNUInt642string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ExpectedVersion = data
+		case "commandId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("commandId"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CommandID = data
+		case "observationId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("observationId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ObservationID = data
+		case "boardPieceId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("boardPieceId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BoardPieceID = data
+		case "winningTeam":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("winningTeam"))
+			data, err := ec.unmarshalNTeamSide2rctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.WinningTeam = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputConfirmTbResultInput(ctx context.Context, obj any) (ConfirmTbResultInput, error) {
 	var it ConfirmTbResultInput
 	if obj == nil {
@@ -15723,6 +17777,117 @@ func (ec *executionContext) unmarshalInputRespondTbRequestInput(ctx context.Cont
 				return it, err
 			}
 			it.Accept = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRetryBeatmapMetadataInput(ctx context.Context, obj any) (RetryBeatmapMetadataInput, error) {
+	var it RetryBeatmapMetadataInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"matchID", "beatmapID"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "matchID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("matchID"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MatchID = data
+		case "beatmapID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("beatmapID"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BeatmapID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRetryIRCJobInput(ctx context.Context, obj any) (RetryIRCJobInput, error) {
+	var it RetryIRCJobInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"matchID", "jobID"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "matchID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("matchID"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MatchID = data
+		case "jobID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("jobID"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.JobID = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRetryMatchAutomationInput(ctx context.Context, obj any) (RetryMatchAutomationInput, error) {
+	var it RetryMatchAutomationInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"matchID", "eventID"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "matchID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("matchID"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MatchID = data
+		case "eventID":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("eventID"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.EventID = data
 		}
 	}
 	return it, nil
@@ -16819,6 +18984,278 @@ func (ec *executionContext) _FormalTimer(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
+var iRCConnectionStatusImplementors = []string{"IRCConnectionStatus"}
+
+func (ec *executionContext) _IRCConnectionStatus(ctx context.Context, sel ast.SelectionSet, obj *IRCConnectionStatus) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, iRCConnectionStatusImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IRCConnectionStatus")
+		case "configured":
+			out.Values[i] = ec._IRCConnectionStatus_configured(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "connected":
+			out.Values[i] = ec._IRCConnectionStatus_connected(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "degraded":
+			out.Values[i] = ec._IRCConnectionStatus_degraded(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "lastError":
+			out.Values[i] = ec._IRCConnectionStatus_lastError(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var iRCJobImplementors = []string{"IRCJob"}
+
+func (ec *executionContext) _IRCJob(ctx context.Context, sel ast.SelectionSet, obj *IRCJob) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, iRCJobImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IRCJob")
+		case "id":
+			out.Values[i] = ec._IRCJob_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "matchID":
+			out.Values[i] = ec._IRCJob_matchID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "channel":
+			out.Values[i] = ec._IRCJob_channel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "kind":
+			out.Values[i] = ec._IRCJob_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "payload":
+			out.Values[i] = ec._IRCJob_payload(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._IRCJob_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "attempts":
+			out.Values[i] = ec._IRCJob_attempts(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "automaticRetry":
+			out.Values[i] = ec._IRCJob_automaticRetry(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "nextTryAt":
+			out.Values[i] = ec._IRCJob_nextTryAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "sentAt":
+			out.Values[i] = ec._IRCJob_sentAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "ackDeadline":
+			out.Values[i] = ec._IRCJob_ackDeadline(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "acknowledgedAt":
+			out.Values[i] = ec._IRCJob_acknowledgedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "lastError":
+			out.Values[i] = ec._IRCJob_lastError(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var iRCObservationImplementors = []string{"IRCObservation"}
+
+func (ec *executionContext) _IRCObservation(ctx context.Context, sel ast.SelectionSet, obj *IRCObservation) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, iRCObservationImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IRCObservation")
+		case "id":
+			out.Values[i] = ec._IRCObservation_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "channel":
+			out.Values[i] = ec._IRCObservation_channel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sender":
+			out.Values[i] = ec._IRCObservation_sender(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "command":
+			out.Values[i] = ec._IRCObservation_command(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "raw":
+			out.Values[i] = ec._IRCObservation_raw(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "observedAt":
+			out.Values[i] = ec._IRCObservation_observedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "reviewStatus":
+			out.Values[i] = ec._IRCObservation_reviewStatus(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "reviewReason":
+			out.Values[i] = ec._IRCObservation_reviewReason(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "suggestedResult":
+			out.Values[i] = ec._IRCObservation_suggestedResult(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var iRCSuggestedResultImplementors = []string{"IRCSuggestedResult"}
+
+func (ec *executionContext) _IRCSuggestedResult(ctx context.Context, sel ast.SelectionSet, obj *IRCSuggestedResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, iRCSuggestedResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IRCSuggestedResult")
+		case "winningTeam":
+			out.Values[i] = ec._IRCSuggestedResult_winningTeam(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "boardPieceID":
+			out.Values[i] = ec._IRCSuggestedResult_boardPieceID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var legalPlacementImplementors = []string{"LegalPlacement"}
 
 func (ec *executionContext) _LegalPlacement(ctx context.Context, sel ast.SelectionSet, obj *LegalPlacement) graphql.Marshaler {
@@ -17265,6 +19702,69 @@ func (ec *executionContext) _MatchActorAnalysis(ctx context.Context, sel ast.Sel
 			}
 		case "tbResponseTeams":
 			out.Values[i] = ec._MatchActorAnalysis_tbResponseTeams(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var matchAutomationIssueImplementors = []string{"MatchAutomationIssue"}
+
+func (ec *executionContext) _MatchAutomationIssue(ctx context.Context, sel ast.SelectionSet, obj *MatchAutomationIssue) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, matchAutomationIssueImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MatchAutomationIssue")
+		case "eventID":
+			out.Values[i] = ec._MatchAutomationIssue_eventID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "sequence":
+			out.Values[i] = ec._MatchAutomationIssue_sequence(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "eventType":
+			out.Values[i] = ec._MatchAutomationIssue_eventType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "attempts":
+			out.Values[i] = ec._MatchAutomationIssue_attempts(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "lastError":
+			out.Values[i] = ec._MatchAutomationIssue_lastError(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "occurredAt":
+			out.Values[i] = ec._MatchAutomationIssue_occurredAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -17757,6 +20257,158 @@ func (ec *executionContext) _MatchPoolSlotMetadata(ctx context.Context, sel ast.
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "metadataStatus":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._MatchPoolSlotMetadata_metadataStatus(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "metadataAttempts":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._MatchPoolSlotMetadata_metadataAttempts(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "metadataNextRetryAt":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._MatchPoolSlotMetadata_metadataNextRetryAt(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "metadataLastError":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._MatchPoolSlotMetadata_metadataLastError(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -17934,6 +20586,41 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "startMatch":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_startMatch(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "confirmIRCResult":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_confirmIRCResult(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rejectIRCObservation":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_rejectIRCObservation(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "retryIRCJob":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_retryIRCJob(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "retryMatchAutomation":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_retryMatchAutomation(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "retryBeatmapMetadata":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_retryBeatmapMetadata(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -18780,6 +21467,72 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "ircObservations":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_ircObservations(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "ircJobs":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_ircJobs(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "ircConnectionStatus":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_ircConnectionStatus(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -18862,6 +21615,44 @@ func (ec *executionContext) _RefereeView(ctx context.Context, sel ast.SelectionS
 					}
 				}()
 				res = ec._RefereeView_auditLog(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "automationIssues":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._RefereeView_automationIssues(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -20296,6 +23087,16 @@ func (ec *executionContext) marshalNBeatmap2ᚖrctHubBackendᚋinternalᚋgraphq
 	return ec._Beatmap(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNBeatmapMetadataStatus2rctHubBackendᚋinternalᚋgraphqlᚐBeatmapMetadataStatus(ctx context.Context, v any) (BeatmapMetadataStatus, error) {
+	var res BeatmapMetadataStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNBeatmapMetadataStatus2rctHubBackendᚋinternalᚋgraphqlᚐBeatmapMetadataStatus(ctx context.Context, sel ast.SelectionSet, v BeatmapMetadataStatus) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalNBeatmapPage2rctHubBackendᚋinternalᚋgraphqlᚐBeatmapPage(ctx context.Context, sel ast.SelectionSet, v BeatmapPage) graphql.Marshaler {
 	return ec._BeatmapPage(ctx, sel, &v)
 }
@@ -20353,6 +23154,11 @@ func (ec *executionContext) unmarshalNCommandMeta2ᚖrctHubBackendᚋinternalᚋ
 
 func (ec *executionContext) unmarshalNConfirmBeatmapResultInput2rctHubBackendᚋinternalᚋgraphqlᚐConfirmBeatmapResultInput(ctx context.Context, v any) (ConfirmBeatmapResultInput, error) {
 	res, err := ec.unmarshalInputConfirmBeatmapResultInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNConfirmIRCResultInput2rctHubBackendᚋinternalᚋgraphqlᚐConfirmIRCResultInput(ctx context.Context, v any) (ConfirmIRCResultInput, error) {
+	res, err := ec.unmarshalInputConfirmIRCResultInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -20563,6 +23369,92 @@ func (ec *executionContext) marshalNID2ᚕᚕstringᚄ(ctx context.Context, sel 
 	return ret
 }
 
+func (ec *executionContext) marshalNIRCConnectionStatus2rctHubBackendᚋinternalᚋgraphqlᚐIRCConnectionStatus(ctx context.Context, sel ast.SelectionSet, v IRCConnectionStatus) graphql.Marshaler {
+	return ec._IRCConnectionStatus(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNIRCConnectionStatus2ᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCConnectionStatus(ctx context.Context, sel ast.SelectionSet, v *IRCConnectionStatus) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._IRCConnectionStatus(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNIRCJob2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCJobᚄ(ctx context.Context, sel ast.SelectionSet, v []*IRCJob) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNIRCJob2ᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCJob(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNIRCJob2ᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCJob(ctx context.Context, sel ast.SelectionSet, v *IRCJob) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._IRCJob(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNIRCJobStatus2rctHubBackendᚋinternalᚋgraphqlᚐIRCJobStatus(ctx context.Context, v any) (IRCJobStatus, error) {
+	var res IRCJobStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNIRCJobStatus2rctHubBackendᚋinternalᚋgraphqlᚐIRCJobStatus(ctx context.Context, sel ast.SelectionSet, v IRCJobStatus) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) marshalNIRCObservation2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCObservationᚄ(ctx context.Context, sel ast.SelectionSet, v []*IRCObservation) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNIRCObservation2ᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCObservation(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNIRCObservation2ᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCObservation(ctx context.Context, sel ast.SelectionSet, v *IRCObservation) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._IRCObservation(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNIRCReviewStatus2rctHubBackendᚋinternalᚋgraphqlᚐIRCReviewStatus(ctx context.Context, v any) (IRCReviewStatus, error) {
+	var res IRCReviewStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNIRCReviewStatus2rctHubBackendᚋinternalᚋgraphqlᚐIRCReviewStatus(ctx context.Context, sel ast.SelectionSet, v IRCReviewStatus) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
 	res, err := graphql.UnmarshalInt(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -20699,6 +23591,32 @@ func (ec *executionContext) unmarshalNMatchActorCapability2rctHubBackendᚋinter
 
 func (ec *executionContext) marshalNMatchActorCapability2rctHubBackendᚋinternalᚋgraphqlᚐMatchActorCapability(ctx context.Context, sel ast.SelectionSet, v MatchActorCapability) graphql.Marshaler {
 	return v
+}
+
+func (ec *executionContext) marshalNMatchAutomationIssue2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchAutomationIssueᚄ(ctx context.Context, sel ast.SelectionSet, v []*MatchAutomationIssue) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMatchAutomationIssue2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchAutomationIssue(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNMatchAutomationIssue2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchAutomationIssue(ctx context.Context, sel ast.SelectionSet, v *MatchAutomationIssue) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._MatchAutomationIssue(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNMatchCommandActor2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchCommandActor(ctx context.Context, sel ast.SelectionSet, v *MatchCommandActor) graphql.Marshaler {
@@ -21025,6 +23943,21 @@ func (ec *executionContext) unmarshalNRequestTbInput2rctHubBackendᚋinternalᚋ
 
 func (ec *executionContext) unmarshalNRespondTbRequestInput2rctHubBackendᚋinternalᚋgraphqlᚐRespondTbRequestInput(ctx context.Context, v any) (RespondTbRequestInput, error) {
 	res, err := ec.unmarshalInputRespondTbRequestInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNRetryBeatmapMetadataInput2rctHubBackendᚋinternalᚋgraphqlᚐRetryBeatmapMetadataInput(ctx context.Context, v any) (RetryBeatmapMetadataInput, error) {
+	res, err := ec.unmarshalInputRetryBeatmapMetadataInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNRetryIRCJobInput2rctHubBackendᚋinternalᚋgraphqlᚐRetryIRCJobInput(ctx context.Context, v any) (RetryIRCJobInput, error) {
+	res, err := ec.unmarshalInputRetryIRCJobInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNRetryMatchAutomationInput2rctHubBackendᚋinternalᚋgraphqlᚐRetryMatchAutomationInput(ctx context.Context, v any) (RetryMatchAutomationInput, error) {
+	res, err := ec.unmarshalInputRetryMatchAutomationInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -21653,6 +24586,13 @@ func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.Se
 	_ = ctx
 	res := graphql.MarshalID(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOIRCSuggestedResult2ᚖrctHubBackendᚋinternalᚋgraphqlᚐIRCSuggestedResult(ctx context.Context, sel ast.SelectionSet, v *IRCSuggestedResult) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._IRCSuggestedResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v any) (*int, error) {

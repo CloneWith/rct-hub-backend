@@ -67,6 +67,10 @@ func main() {
 		"match_command_receipts",
 		"match_action_log",
 		"match_outbox",
+		persistence.IRCJobsCollection,
+		persistence.IRCJobsCollection + "_locks",
+		persistence.IRCObservationsCollection,
+		persistence.BeatmapMetadataCollection,
 		"moves",
 		"results",
 		"announcements",
@@ -173,6 +177,15 @@ func ensureSchemaValidation(ctx context.Context, db *mongo.Database) error {
 		return err
 	}
 	if err := persistence.NewCommandStore(db.Client(), db).InstallValidators(ctx); err != nil {
+		return err
+	}
+	if err := persistence.NewIRCJobStore(db).InstallValidator(ctx); err != nil {
+		return err
+	}
+	if err := persistence.NewIRCObservationStore(db).InstallValidator(ctx); err != nil {
+		return err
+	}
+	if err := persistence.NewBeatmapMetadataStore(db).InstallValidator(ctx); err != nil {
 		return err
 	}
 

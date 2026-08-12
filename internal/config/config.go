@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+
+	"rctHubBackend/internal/irc"
 )
 
 // Config holds all runtime configuration for the application.
@@ -24,6 +26,7 @@ type Config struct {
 	Redis       RedisConfig
 	JWT         JWTConfig
 	Osu         OsuConfig
+	Bancho      BanchoConfig
 	CORS        CORSConfig
 	AuthCookie  AuthCookieConfig
 	AuthSession AuthSessionConfig
@@ -66,6 +69,13 @@ type OsuConfig struct {
 
 type CORSConfig struct {
 	AllowedOrigins []string
+}
+
+type BanchoConfig struct {
+	Addr     string
+	Username string
+	Password string
+	Channel  string
 }
 
 type AuthCookieConfig struct {
@@ -124,6 +134,7 @@ func Load() (*Config, error) {
 			FetcherUserCacheTTL:    time.Duration(mustAtoi(getEnv("OSU_FETCHER_USER_CACHE_TTL_MIN", "30"))) * time.Minute,
 			FetcherBeatmapCacheTTL: time.Duration(mustAtoi(getEnv("OSU_FETCHER_BEATMAP_CACHE_TTL_HR", "24"))) * time.Hour,
 		},
+		Bancho: BanchoConfig{Addr: getEnv("BANCHO_IRC_ADDR", ""), Username: getEnv("BANCHO_IRC_USERNAME", ""), Password: getEnv("BANCHO_IRC_PASSWORD", ""), Channel: getEnv("BANCHO_IRC_CHANNEL", "")},
 		CORS: CORSConfig{
 			AllowedOrigins: splitTrimmed(getEnv("ALLOWED_ORIGINS", frontEndURI)),
 		},
@@ -210,6 +221,13 @@ func (c *Config) validate() error {
 	}
 	if c.Osu.FetcherBeatmapCacheTTL <= 0 {
 		return fmt.Errorf("OSU_FETCHER_BEATMAP_CACHE_TTL_HR must be greater than zero")
+	}
+	banchoConfigured := c.Bancho.Addr != "" || c.Bancho.Username != "" || c.Bancho.Password != "" || c.Bancho.Channel != ""
+	if banchoConfigured && (c.Bancho.Addr == "" || c.Bancho.Username == "") {
+		return fmt.Errorf("BANCHO_IRC_ADDR and BANCHO_IRC_USERNAME must both be set when IRC automation is enabled")
+	}
+	if c.Bancho.Channel != "" && !irc.MatchChannel(c.Bancho.Channel) {
+		return fmt.Errorf("BANCHO_IRC_CHANNEL must use #mp_<positive room ID>")
 	}
 	if c.AuthCookie.Name == "" || strings.ContainsAny(c.AuthCookie.Name, "=; ,\t\r\n") {
 		return fmt.Errorf("AUTH_COOKIE_NAME is invalid")

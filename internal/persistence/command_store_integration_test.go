@@ -67,9 +67,19 @@ func TestMongoIntegrationCommandStoreIsAtomicIdempotentAndOrdered(t *testing.T) 
 	assertCommandCollectionCount(t, ctx, db, persistence.MatchCommandReceiptsCollection, 1)
 	assertCommandCollectionCount(t, ctx, db, persistence.MatchActionLogCollection, 1)
 	assertCommandCollectionCount(t, ctx, db, persistence.MatchOutboxCollection, int64(len(first.Events)))
+	if baseline, err := store.LatestEventSequenceAtVersion(ctx, matchID, 0); err != nil || baseline != 0 {
+		t.Fatalf("version 0 event baseline=%d err=%v", baseline, err)
+	}
+	if baseline, err := store.LatestEventSequenceAtVersion(ctx, matchID, first.ResultingVersion); err != nil || baseline != uint64(len(first.Events)) {
+		t.Fatalf("version %d event baseline=%d err=%v", first.ResultingVersion, baseline, err)
+	}
 	actions, err := store.ListActions(ctx, matchID, 50)
 	if err != nil || len(actions) != 1 || actions[0].Actor.OsuID != actor.OsuID || actions[0].ResultingVersion != 1 {
 		t.Fatalf("action log = %+v, err=%v", actions, err)
+	}
+	storedState, err := store.LoadStateAtVersion(ctx, matchID, first.ResultingVersion)
+	if err != nil || storedState.Version != first.ResultingVersion || storedState.Lifecycle != first.State.Lifecycle {
+		t.Fatalf("state at version=%+v err=%v", storedState, err)
 	}
 
 	mismatch := startEnvelope
@@ -97,23 +107,34 @@ func TestMongoIntegrationCommandStoreIsAtomicIdempotentAndOrdered(t *testing.T) 
 		}
 	}
 	unpublished, err := store.ListUnpublishedEvents(ctx, 100)
-	if err != nil || len(unpublished) != len(first.Events) {
-		t.Fatalf("unpublished events=%d err=%v", len(unpublished), err)
+	if err != nil || len(unpublished) != 1 || unpublished[0].Sequence != 1 {
+		t.Fatalf("earliest unpublished event=%+v err=%v", unpublished, err)
 	}
 	failedEventID := unpublished[0].EventID
 	if err := store.MarkEventFailed(ctx, failedEventID, "injected publisher outage"); err != nil {
 		t.Fatalf("MarkEventFailed: %v", err)
 	}
 	unpublished, err = store.ListUnpublishedEvents(ctx, 100)
-	if err != nil || unpublished[0].Status != persistence.OutboxFailed || unpublished[0].Attempts != 1 {
-		t.Fatalf("failed event retry state=%+v err=%v", unpublished, err)
+	if err != nil || len(unpublished) != 0 {
+		t.Fatalf("later event bypassed failed predecessor=%+v err=%v", unpublished, err)
+	}
+	failed, err := store.ListFailedEvents(ctx, matchID, 100)
+	if err != nil || len(failed) != 1 || failed[0].EventID != failedEventID || failed[0].Attempts != 1 {
+		t.Fatalf("visible failed event=%+v err=%v", failed, err)
+	}
+	if err := store.RetryFailedEvent(ctx, matchID, failedEventID); err != nil {
+		t.Fatalf("RetryFailedEvent: %v", err)
+	}
+	unpublished, err = store.ListUnpublishedEvents(ctx, 100)
+	if err != nil || len(unpublished) != 1 || unpublished[0].EventID != failedEventID {
+		t.Fatalf("manually retried event queue=%+v err=%v", unpublished, err)
 	}
 	if err := store.MarkEventPublished(ctx, failedEventID, now.Add(time.Minute)); err != nil {
 		t.Fatalf("MarkEventPublished: %v", err)
 	}
 	unpublished, err = store.ListUnpublishedEvents(ctx, 100)
-	if err != nil || len(unpublished) != len(first.Events)-1 {
-		t.Fatalf("unpublished after acknowledgement=%d err=%v", len(unpublished), err)
+	if err != nil || len(unpublished) != 1 || unpublished[0].Sequence != 2 {
+		t.Fatalf("next event after acknowledgement=%+v err=%v", unpublished, err)
 	}
 	loaded, err = snapshots.Load(ctx, matchID)
 	if err != nil || loaded.Version != 1 {
