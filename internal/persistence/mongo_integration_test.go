@@ -304,7 +304,7 @@ func TestMongoIntegrationFormalMatchScenarioReachesNegotiatedTB(t *testing.T) {
 	opening := []struct {
 		cell   matchengine.Cell
 		winner matchengine.TeamSide
-	}{{"A1", matchengine.TeamBlue}, {"D4", matchengine.TeamRed}, {"B1", matchengine.TeamBlue}, {"D2", matchengine.TeamBlue}, {"C1", matchengine.TeamBlue}, {"D3", matchengine.TeamBlue}}
+	}{{"A1", matchengine.TeamRed}, {"D4", matchengine.TeamBlue}, {"B1", matchengine.TeamRed}, {"D2", matchengine.TeamRed}, {"C1", matchengine.TeamRed}, {"D3", matchengine.TeamRed}}
 	state = snapshotsState(t, ctx, snapshots, seed.LegacyMatch.ID)
 	for index, placement := range opening {
 		caller := int64(101)
@@ -318,7 +318,11 @@ func TestMongoIntegrationFormalMatchScenarioReachesNegotiatedTB(t *testing.T) {
 	}
 	apply(refereeID, matchengine.PauseTimer{Reason: "network verification"})
 	apply(refereeID, matchengine.ResumeTimer{Reason: "network stable"})
-	apply(201, matchengine.RobPiece{TargetPieceID: "scenario-piece-2", SacrificeSets: [][]string{{"scenario-piece-1", "scenario-piece-3", "scenario-piece-5"}}})
+	caller := int64(101)
+	if state.ActiveTeam == matchengine.TeamBlue {
+		caller = 201
+	}
+	apply(caller, matchengine.RobPiece{TargetPieceID: "scenario-piece-2", SacrificeSets: [][]string{{"scenario-piece-1", "scenario-piece-3", "scenario-piece-5"}}})
 	closing := []struct {
 		cell   matchengine.Cell
 		winner matchengine.TeamSide
