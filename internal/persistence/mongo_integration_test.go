@@ -131,12 +131,15 @@ func TestMongoIntegrationFormalOrchestratorSurvivesRestart(t *testing.T) {
 		t.Fatalf("started result = version %d phase %s", started.ResultingVersion, started.State.Phase)
 	}
 	version := started.ResultingVersion
-	for index, ban := range []struct {
-		caller int64
-		slot   string
-	}{{101, "NM1"}, {201, "NM2"}, {201, "NM3"}, {101, "NM4"}} {
-		result := command(version, ban.caller, matchengine.BanPoolSlot{PoolSlotID: ban.slot})
+	state := started.State
+	for index, slot := range []string{"NM-1", "NM-2", "NM-3", "NM-4"} {
+		caller := int64(101)
+		if state.ActiveTeam == matchengine.TeamBlue {
+			caller = 201
+		}
+		result := command(version, caller, matchengine.BanPoolSlot{PoolSlotID: slot})
 		version = result.ResultingVersion
+		state = result.State
 		if result.State.Phase != matchengine.PhasePick && index == 3 {
 			t.Fatalf("after final ban phase = %s, want PICK", result.State.Phase)
 		}
@@ -153,7 +156,7 @@ func TestMongoIntegrationFormalOrchestratorSurvivesRestart(t *testing.T) {
 	}
 	placed, err := restartedOrchestrator.Execute(ctx, matchcommand.Request{
 		MatchID: seed.LegacyMatch.ID, ExpectedVersion: version, CommandID: uuid.NewString(), CallerOsuID: 101,
-		Command: matchengine.PlacePiece{PoolSlotID: "NM5", PieceID: "restart-piece-1", Cell: "A1"},
+		Command: matchengine.PlacePiece{PoolSlotID: "NM-5", PieceID: "restart-piece-1", Cell: "A1"},
 	})
 	if err != nil || placed.State.Phase != matchengine.PhaseWaitingForResult || placed.State.PendingPieceID != "restart-piece-1" {
 		t.Fatalf("restart pick = %+v err=%v", placed, err)
@@ -167,11 +170,11 @@ func TestMongoIntegrationFormalOrchestratorSurvivesRestart(t *testing.T) {
 		t.Fatalf("restart result confirmation = %+v err=%v", confirmed, err)
 	}
 	version = confirmed.ResultingVersion
-	state := confirmed.State
+	state = confirmed.State
 	for index, turn := range []struct {
 		cell matchengine.Cell
 		slot string
-	}{{"B1", "DT1"}, {"C1", "HD1"}, {"D1", "FM1"}} {
+	}{{"B1", "DT-1"}, {"C1", "HD-1"}, {"D1", "FM-1"}} {
 		pieceID := fmt.Sprintf("restart-piece-%d", index+2)
 		caller := int64(101)
 		if state.ActiveTeam == matchengine.TeamBlue {
@@ -200,7 +203,7 @@ func TestMongoIntegrationFormalOrchestratorSurvivesRestart(t *testing.T) {
 	}
 
 	stale, err := restartedOrchestrator.Execute(ctx, matchcommand.Request{
-		MatchID: seed.LegacyMatch.ID, ExpectedVersion: 1, CommandID: uuid.NewString(), CallerOsuID: 201, Command: matchengine.BanPoolSlot{PoolSlotID: "NM5"},
+		MatchID: seed.LegacyMatch.ID, ExpectedVersion: 1, CommandID: uuid.NewString(), CallerOsuID: 201, Command: matchengine.BanPoolSlot{PoolSlotID: "NM-5"},
 	})
 	commandErr := matchcommand.ErrorOf(err)
 	if err == nil || stale.ResultingVersion != 0 || commandErr == nil || commandErr.Code != matchcommand.CodeMatchVersionConflict {
@@ -290,25 +293,26 @@ func TestMongoIntegrationFormalMatchScenarioReachesNegotiatedTB(t *testing.T) {
 		return result
 	}
 
-	apply(refereeID, matchengine.StartMatch{})
-	for _, ban := range []struct {
-		caller int64
-		slot   string
-	}{{101, "NM1"}, {201, "NM2"}, {201, "NM3"}, {101, "NM4"}} {
-		apply(ban.caller, matchengine.BanPoolSlot{PoolSlotID: ban.slot})
+	state := apply(refereeID, matchengine.StartMatch{}).State
+	for _, slot := range []string{"NM-1", "NM-2", "NM-3", "NM-4"} {
+		caller := int64(101)
+		if state.ActiveTeam == matchengine.TeamBlue {
+			caller = 201
+		}
+		state = apply(caller, matchengine.BanPoolSlot{PoolSlotID: slot}).State
 	}
 	opening := []struct {
 		cell   matchengine.Cell
 		winner matchengine.TeamSide
 	}{{"A1", matchengine.TeamBlue}, {"D4", matchengine.TeamRed}, {"B1", matchengine.TeamBlue}, {"D2", matchengine.TeamBlue}, {"C1", matchengine.TeamBlue}, {"D3", matchengine.TeamBlue}}
-	state := snapshotsState(t, ctx, snapshots, seed.LegacyMatch.ID)
+	state = snapshotsState(t, ctx, snapshots, seed.LegacyMatch.ID)
 	for index, placement := range opening {
 		caller := int64(101)
 		if state.ActiveTeam == matchengine.TeamBlue {
 			caller = 201
 		}
 		pieceID := fmt.Sprintf("scenario-piece-%d", index+1)
-		apply(caller, matchengine.PlacePiece{PoolSlotID: fmt.Sprintf("NM%d", index+5), PieceID: pieceID, Cell: placement.cell})
+		apply(caller, matchengine.PlacePiece{PoolSlotID: fmt.Sprintf("NM-%d", index+5), PieceID: pieceID, Cell: placement.cell})
 		apply(refereeID, matchengine.ConfirmBeatmapResult{BoardPieceID: pieceID, WinningTeam: placement.winner})
 		state = snapshotsState(t, ctx, snapshots, seed.LegacyMatch.ID)
 	}
@@ -326,7 +330,7 @@ func TestMongoIntegrationFormalMatchScenarioReachesNegotiatedTB(t *testing.T) {
 			caller = 201
 		}
 		pieceID := fmt.Sprintf("scenario-piece-%d", index+7)
-		apply(caller, matchengine.PlacePiece{PoolSlotID: fmt.Sprintf("NM%d", index+11), PieceID: pieceID, Cell: placement.cell})
+		apply(caller, matchengine.PlacePiece{PoolSlotID: fmt.Sprintf("NM-%d", index+11), PieceID: pieceID, Cell: placement.cell})
 		apply(refereeID, matchengine.ConfirmBeatmapResult{BoardPieceID: pieceID, WinningTeam: placement.winner})
 		state = snapshotsState(t, ctx, snapshots, seed.LegacyMatch.ID)
 	}
