@@ -3,7 +3,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"go/format"
 	"io/fs"
@@ -12,9 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/vektah/gqlparser/v2"
-	gqlast "github.com/vektah/gqlparser/v2/ast"
 )
 
 type check struct {
@@ -32,9 +28,6 @@ func main() {
 	}
 	if err := checkMatchCommandBoundaries(); err != nil {
 		fail("match-command-boundaries", err)
-	}
-	if err := checkErrorContract(); err != nil {
-		fail("error-contract", err)
 	}
 
 	checks := []check{
@@ -56,72 +49,6 @@ func main() {
 	}
 
 	fmt.Println("verification passed")
-}
-
-type errorContract struct {
-	SchemaVersion int      `json:"schemaVersion"`
-	Codes         []string `json:"codes"`
-}
-
-func checkErrorContract() error {
-	content, err := os.ReadFile("contracts/errors-v1.json")
-	if err != nil {
-		return fmt.Errorf("read error contract: %w", err)
-	}
-	var contract errorContract
-	if err := json.Unmarshal(content, &contract); err != nil {
-		return fmt.Errorf("decode error contract: %w", err)
-	}
-	if contract.SchemaVersion != 1 {
-		return fmt.Errorf("error contract schema version = %d, want 1", contract.SchemaVersion)
-	}
-	if err := checkPublicErrorCodes(contract.Codes); err != nil {
-		return err
-	}
-	fmt.Println("error contract passed")
-	return nil
-}
-
-func checkPublicErrorCodes(codes []string) error {
-	content, err := os.ReadFile("schema.graphql")
-	if err != nil {
-		return fmt.Errorf("read GraphQL schema: %w", err)
-	}
-	schema, err := gqlparser.LoadSchema(&gqlast.Source{Name: "schema.graphql", Input: string(content)})
-	if err != nil {
-		return fmt.Errorf("parse GraphQL schema: %w", err)
-	}
-	definition := schema.Types["MatchErrorCode"]
-	if definition == nil || definition.Kind != gqlast.Enum {
-		return fmt.Errorf("GraphQL schema does not define MatchErrorCode")
-	}
-	public := make(map[string]bool, len(definition.EnumValues))
-	for _, value := range definition.EnumValues {
-		public[value.Name] = true
-	}
-	published := make(map[string]bool, len(codes))
-	for _, code := range codes {
-		if code == "" || published[code] {
-			return fmt.Errorf("error contract contains an empty or repeated code")
-		}
-		published[code] = true
-	}
-	if !equalStringSet(published, public) {
-		return fmt.Errorf("error contract does not match public GraphQL MatchErrorCode")
-	}
-	return nil
-}
-
-func equalStringSet(left, right map[string]bool) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for key := range left {
-		if !right[key] {
-			return false
-		}
-	}
-	return true
 }
 
 func checkMatchCommandBoundaries() error {

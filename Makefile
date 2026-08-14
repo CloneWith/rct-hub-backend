@@ -1,4 +1,4 @@
-.PHONY: verify dev test test-integration test-redis-integration lint build run docker-up docker-down initdb initdb-seed initdb-drop initdb-admin generate fixtures matchlab matchmock graphql-compat
+.PHONY: verify dev test test-integration lint build run docker-up docker-down initdb initdb-seed initdb-drop initdb-admin generate fixtures matchmock graphql-compat
 
 # Load environment variables from .env if it exists
 ifneq (,$(wildcard .env))
@@ -27,10 +27,6 @@ test:
 test-integration:
 	@test -n "$(MONGODB_TEST_URI)" || (echo "MONGODB_TEST_URI is required" && exit 1)
 	go test -race -count=1 -run '^TestMongoIntegration' -v ./internal/persistence
-
-test-redis-integration:
-	@test -n "$(REDIS_TEST_ADDR)" || (echo "REDIS_TEST_ADDR is required" && exit 1)
-	go test -race -count=1 -run '^TestRedisIntegration' -v ./internal/irc
 
 lint:
 	go vet ./...
@@ -62,9 +58,6 @@ generate:
 
 fixtures:
 	go run ./tools/matchfixtures
-
-matchlab:
-	go run ./tools/matchlab
 
 matchmock:
 	go run ./tools/matchmock

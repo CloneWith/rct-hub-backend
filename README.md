@@ -128,24 +128,6 @@ installed. Match commands
 use MongoDB transactions, so MongoDB must run as a replica set; the bundled
 single-node Docker setup already does this.
 
-For the real dependency checks used during M7 handoff, start the local services
-with `make docker-up`, then run:
-
-```bash
-MONGODB_TEST_URI='mongodb://localhost:27017/?replicaSet=rs0&directConnection=true' make test-integration
-REDIS_TEST_ADDR='localhost:6379' make test-redis-integration
-```
-
-The MongoDB suite uses a real single-node replica set. The Redis suite uses a
-real Redis server and checks cross-instance IRC delivery locking and rate
-limiting. Unit tests use an in-memory Redis substitute and are not a replacement
-for these two commands.
-
-The stable business error list is published in `contracts/errors-v1.json`.
-`go run ./tools/verify` checks that the list exactly matches the public GraphQL
-`MatchErrorCode` enum. Existing GraphQL tests also ensure that engine and command
-errors are present in that enum.
-
 The `cmd/initdb` tool accepts flags:
 - `-drop` — drop existing collections before rebuilding
 - `-seed` — insert sample admin user, beatmaps, rooms, and announcements
@@ -469,17 +451,6 @@ Row 3  HR      HR      DT      DT
 
 Win condition: align four won pieces in a row (horizontal, vertical, or diagonal).
 
-Run the local Match Lab to inspect rules with a virtual clock and deterministic
-READY, first-pick, robbery, turn-13, and adjudication scenarios:
-
-```bash
-make matchlab
-```
-
-Open `http://127.0.0.1:8091`. Match Lab calls the pure MatchEngine directly; it
-does not test authentication, MongoDB, GraphQL, or WebSocket behavior. Stop the
-GraphQL mock before starting Match Lab because both use port 8091 by default.
-
 ## Project Structure
 
 ```
@@ -509,7 +480,6 @@ pkg/
 
 contracts/
   graphql-v1.graphql        # Frozen compatibility baseline
-  errors-v1.json            # Stable formal-match error catalogue
   fixtures/                 # Engine-generated Web responses
 
 deploy/
@@ -531,7 +501,6 @@ make test          # Run all tests
 make lint          # go vet + staticcheck
 make generate      # Regenerate GraphQL code (gqlgen)
 make fixtures      # Regenerate deterministic Web fixtures
-make matchlab      # Start the deterministic MatchEngine lab on :8091
 make matchmock     # Start the fixture-backed GraphQL mock on :8091
 make graphql-compat # Reject breaking GraphQL v1 changes
 make docker-up     # Start MongoDB + Redis containers

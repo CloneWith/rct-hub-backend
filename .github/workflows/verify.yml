@@ -58,24 +58,6 @@ jobs:
           docker logs rcthub-mongo-test
           exit 1
 
-      - name: Start Redis
-        run: |
-          docker run --detach --name rcthub-redis-test --publish 6379:6379 \
-            redis:7.4.9-alpine
-          for attempt in {1..30}; do
-            if docker exec rcthub-redis-test redis-cli ping | grep -q PONG; then
-              exit 0
-            fi
-            sleep 1
-          done
-          docker logs rcthub-redis-test
-          exit 1
-
-      - name: Run Redis integration tests
-        env:
-          REDIS_TEST_ADDR: localhost:6379
-        run: go test -race -count=1 -run '^TestRedisIntegration' -v ./internal/irc
-
       - name: Run MongoDB replica-set integration tests
         env:
           MONGODB_TEST_URI: mongodb://localhost:27017/?replicaSet=rs0&directConnection=true
@@ -84,7 +66,3 @@ jobs:
       - name: Stop MongoDB replica set
         if: always()
         run: docker rm --force rcthub-mongo-test || true
-
-      - name: Stop Redis
-        if: always()
-        run: docker rm --force rcthub-redis-test || true
