@@ -14,12 +14,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"rctHubBackend/internal/database"
 	"rctHubBackend/internal/domain"
+	"rctHubBackend/internal/matchcommand"
 	"rctHubBackend/internal/matchengine"
 	"rctHubBackend/internal/persistence"
 	"rctHubBackend/internal/repository"
@@ -56,6 +58,328 @@ func TestReplicaSetHostFromURI(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMongoIntegrationFormalOrchestratorSurvivesRestart(t *testing.T) {
+	client, db := integrationMongo(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
+
+	users := repository.NewUserRepository(db)
+	rooms := repository.NewRoomRepository(db)
+	matches := repository.NewMatchRepository(db)
+	room := integrationFormalRoom()
+	room.Settings.Mappool.Slots[domain.PieceModNM] = make([]domain.Piece, 20)
+	refereeID := room.OwnerID
+	for _, user := range []*domain.User{
+		{ID: bson.NewObjectID(), OnlineID: refereeID, Username: "referee", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}},
+		{ID: bson.NewObjectID(), OnlineID: 101, Username: "red-strategist", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleStrategist}},
+		{ID: bson.NewObjectID(), OnlineID: 201, Username: "blue-strategist", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleStrategist}},
+	} {
+		if err := users.Create(ctx, user); err != nil {
+			t.Fatalf("create user %d: %v", user.OnlineID, err)
+		}
+	}
+	if err := rooms.Create(ctx, &room); err != nil {
+		t.Fatalf("create room: %v", err)
+	}
+
+	snapshots := persistence.NewSnapshotStore(db)
+	if err := ensureIntegrationCollection(ctx, db, persistence.MatchSnapshotsCollection); err != nil {
+		t.Fatal(err)
+	}
+	if err := snapshots.InstallValidator(ctx); err != nil {
+		t.Fatalf("install snapshot validator: %v", err)
+	}
+	commandStore := persistence.NewCommandStore(client, db)
+	if err := commandStore.EnsureIndexes(ctx); err != nil {
+		t.Fatalf("ensure command indexes: %v", err)
+	}
+	if err := commandStore.InstallValidators(ctx); err != nil {
+		t.Fatalf("install command validators: %v", err)
+	}
+
+	seedTime := time.Date(2026, time.August, 14, 12, 0, 0, 0, time.UTC)
+	seed, err := service.BuildFormalMatchSeed(room, seedTime)
+	if err != nil {
+		t.Fatalf("BuildFormalMatchSeed: %v", err)
+	}
+	if err := persistence.NewFormalMatchBootstrapStore(client, db).Create(ctx, room.ID, seed.LegacyMatch, seed.State, seedTime); err != nil {
+		t.Fatalf("bootstrap formal match: %v", err)
+	}
+
+	newOrchestrator := func() *matchcommand.Orchestrator {
+		return matchcommand.NewOrchestrator(
+			persistence.NewCommandStore(client, db), users, matches, rooms,
+			func() time.Time { return time.Date(2026, time.August, 14, 12, 0, 0, 0, time.UTC) }, nil,
+		)
+	}
+	orchestrator := newOrchestrator()
+	command := func(version uint64, caller int64, value matchengine.Command) matchcommand.Result {
+		t.Helper()
+		result, executeErr := orchestrator.Execute(ctx, matchcommand.Request{
+			MatchID: seed.LegacyMatch.ID, ExpectedVersion: version, CommandID: uuid.NewString(), CallerOsuID: caller, Command: value,
+		})
+		if executeErr != nil {
+			t.Fatalf("execute %T at version %d: %v", value, version, executeErr)
+		}
+		return result
+	}
+
+	started := command(0, refereeID, matchengine.StartMatch{})
+	if started.ResultingVersion != 1 || started.State.Phase != matchengine.PhaseBan {
+		t.Fatalf("started result = version %d phase %s", started.ResultingVersion, started.State.Phase)
+	}
+	version := started.ResultingVersion
+	state := started.State
+	for index, slot := range []string{"NM-1", "NM-2", "NM-3", "NM-4"} {
+		caller := int64(101)
+		if state.ActiveTeam == matchengine.TeamBlue {
+			caller = 201
+		}
+		result := command(version, caller, matchengine.BanPoolSlot{PoolSlotID: slot})
+		version = result.ResultingVersion
+		state = result.State
+		if result.State.Phase != matchengine.PhasePick && index == 3 {
+			t.Fatalf("after final ban phase = %s, want PICK", result.State.Phase)
+		}
+	}
+
+	// Rebuild all collaborators to model a process restart, then replay the
+	// exact StartMatch command from its durable receipt.
+	restartedOrchestrator := newOrchestrator()
+	replayed, err := restartedOrchestrator.Execute(ctx, matchcommand.Request{
+		MatchID: seed.LegacyMatch.ID, ExpectedVersion: 0, CommandID: started.CommandID, CallerOsuID: refereeID, Command: matchengine.StartMatch{},
+	})
+	if err != nil || replayed.Disposition != matchcommand.DispositionReplayed || replayed.ResultingVersion != 1 {
+		t.Fatalf("restart replay = %+v, err=%v", replayed, err)
+	}
+	placed, err := restartedOrchestrator.Execute(ctx, matchcommand.Request{
+		MatchID: seed.LegacyMatch.ID, ExpectedVersion: version, CommandID: uuid.NewString(), CallerOsuID: 101,
+		Command: matchengine.PlacePiece{PoolSlotID: "NM-5", PieceID: "restart-piece-1", Cell: "A1"},
+	})
+	if err != nil || placed.State.Phase != matchengine.PhaseWaitingForResult || placed.State.PendingPieceID != "restart-piece-1" {
+		t.Fatalf("restart pick = %+v err=%v", placed, err)
+	}
+	version = placed.ResultingVersion
+	confirmed, err := restartedOrchestrator.Execute(ctx, matchcommand.Request{
+		MatchID: seed.LegacyMatch.ID, ExpectedVersion: version, CommandID: uuid.NewString(), CallerOsuID: refereeID,
+		Command: matchengine.ConfirmBeatmapResult{BoardPieceID: "restart-piece-1", WinningTeam: matchengine.TeamRed},
+	})
+	if err != nil || confirmed.State.Phase != matchengine.PhasePick || confirmed.State.PendingPieceID != "" {
+		t.Fatalf("restart result confirmation = %+v err=%v", confirmed, err)
+	}
+	version = confirmed.ResultingVersion
+	state = confirmed.State
+	for index, turn := range []struct {
+		cell matchengine.Cell
+		slot string
+	}{{"B1", "DT-1"}, {"C1", "HD-1"}, {"D1", "FM-1"}} {
+		pieceID := fmt.Sprintf("restart-piece-%d", index+2)
+		caller := int64(101)
+		if state.ActiveTeam == matchengine.TeamBlue {
+			caller = 201
+		}
+		placed, err = restartedOrchestrator.Execute(ctx, matchcommand.Request{
+			MatchID: seed.LegacyMatch.ID, ExpectedVersion: version, CommandID: uuid.NewString(), CallerOsuID: caller,
+			Command: matchengine.PlacePiece{PoolSlotID: turn.slot, PieceID: pieceID, Cell: turn.cell},
+		})
+		if err != nil || placed.State.Phase != matchengine.PhaseWaitingForResult {
+			t.Fatalf("follow-up pick %s = %+v err=%v", turn.cell, placed, err)
+		}
+		version = placed.ResultingVersion
+		confirmed, err = restartedOrchestrator.Execute(ctx, matchcommand.Request{
+			MatchID: seed.LegacyMatch.ID, ExpectedVersion: version, CommandID: uuid.NewString(), CallerOsuID: refereeID,
+			Command: matchengine.ConfirmBeatmapResult{BoardPieceID: pieceID, WinningTeam: matchengine.TeamRed},
+		})
+		if err != nil {
+			t.Fatalf("follow-up result %s = %+v err=%v", turn.cell, confirmed, err)
+		}
+		version = confirmed.ResultingVersion
+		state = confirmed.State
+	}
+	if state.Lifecycle != matchengine.LifecycleFinished || state.Winner == nil || *state.Winner != matchengine.TeamRed {
+		t.Fatalf("terminal state = lifecycle %s winner %v", state.Lifecycle, state.Winner)
+	}
+
+	stale, err := restartedOrchestrator.Execute(ctx, matchcommand.Request{
+		MatchID: seed.LegacyMatch.ID, ExpectedVersion: 1, CommandID: uuid.NewString(), CallerOsuID: 201, Command: matchengine.BanPoolSlot{PoolSlotID: "NM-5"},
+	})
+	commandErr := matchcommand.ErrorOf(err)
+	if err == nil || stale.ResultingVersion != 0 || commandErr == nil || commandErr.Code != matchcommand.CodeMatchVersionConflict {
+		t.Fatalf("stale command result=%+v err=%v", stale, err)
+	}
+
+	loaded, err := snapshots.Load(ctx, seed.LegacyMatch.ID)
+	persistedPiece, persisted := loaded.Board.PieceAt("A1")
+	if err != nil || loaded.Version != version || loaded.Lifecycle != matchengine.LifecycleFinished || !persisted || persistedPiece.ID != "restart-piece-1" {
+		t.Fatalf("durable state = version %d lifecycle %s err=%v", loaded.Version, loaded.Lifecycle, err)
+	}
+	actions, err := commandStore.ListActions(ctx, seed.LegacyMatch.ID, 20)
+	if err != nil || len(actions) != 13 {
+		t.Fatalf("audit actions = %d err=%v", len(actions), err)
+	}
+	events, err := commandStore.ListEventsAfter(ctx, seed.LegacyMatch.ID, 0, 100)
+	if err != nil || len(events) == 0 || events[0].Sequence != 1 {
+		t.Fatalf("durable events = %d first=%+v err=%v", len(events), events, err)
+	}
+}
+
+func TestMongoIntegrationFormalMatchScenarioReachesNegotiatedTB(t *testing.T) {
+	client, db := integrationMongo(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	users := repository.NewUserRepository(db)
+	rooms := repository.NewRoomRepository(db)
+	matches := repository.NewMatchRepository(db)
+	room := integrationFormalRoom()
+	room.Settings.Mappool.Slots[domain.PieceModNM] = make([]domain.Piece, 20)
+	refereeID := room.OwnerID
+	for _, user := range []*domain.User{
+		{ID: bson.NewObjectID(), OnlineID: refereeID, Username: "referee", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}},
+		{ID: bson.NewObjectID(), OnlineID: 101, Username: "red-strategist", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleStrategist}},
+		{ID: bson.NewObjectID(), OnlineID: 201, Username: "blue-strategist", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleStrategist}},
+		{ID: bson.NewObjectID(), OnlineID: 1, Username: "red-captain", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RolePlayer}},
+		{ID: bson.NewObjectID(), OnlineID: 11, Username: "blue-captain", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RolePlayer}},
+	} {
+		if err := users.Create(ctx, user); err != nil {
+			t.Fatalf("create user %d: %v", user.OnlineID, err)
+		}
+	}
+	if err := rooms.Create(ctx, &room); err != nil {
+		t.Fatalf("create room: %v", err)
+	}
+	snapshots := persistence.NewSnapshotStore(db)
+	if err := ensureIntegrationCollection(ctx, db, persistence.MatchSnapshotsCollection); err != nil {
+		t.Fatal(err)
+	}
+	if err := snapshots.InstallValidator(ctx); err != nil {
+		t.Fatalf("install snapshot validator: %v", err)
+	}
+	commandStore := persistence.NewCommandStore(client, db)
+	if err := commandStore.EnsureIndexes(ctx); err != nil {
+		t.Fatalf("ensure command indexes: %v", err)
+	}
+	if err := commandStore.InstallValidators(ctx); err != nil {
+		t.Fatalf("install command validators: %v", err)
+	}
+
+	seedTime := time.Date(2026, time.August, 14, 13, 0, 0, 0, time.UTC)
+	seed, err := service.BuildFormalMatchSeed(room, seedTime)
+	if err != nil {
+		t.Fatalf("BuildFormalMatchSeed: %v", err)
+	}
+	if err := persistence.NewFormalMatchBootstrapStore(client, db).Create(ctx, room.ID, seed.LegacyMatch, seed.State, seedTime); err != nil {
+		t.Fatalf("bootstrap formal match: %v", err)
+	}
+	newOrchestrator := func() *matchcommand.Orchestrator {
+		return matchcommand.NewOrchestrator(
+			persistence.NewCommandStore(client, db), users, matches, rooms,
+			func() time.Time { return seedTime.Add(time.Minute) }, nil,
+		)
+	}
+	orchestrator := newOrchestrator()
+	version := uint64(0)
+	apply := func(caller int64, command matchengine.Command) matchcommand.Result {
+		t.Helper()
+		result, executeErr := orchestrator.Execute(ctx, matchcommand.Request{
+			MatchID: seed.LegacyMatch.ID, ExpectedVersion: version, CommandID: uuid.NewString(), CallerOsuID: caller, Command: command,
+		})
+		if executeErr != nil {
+			t.Fatalf("execute %T at version %d: %v", command, version, executeErr)
+		}
+		version = result.ResultingVersion
+		return result
+	}
+
+	state := apply(refereeID, matchengine.StartMatch{}).State
+	for _, slot := range []string{"NM-1", "NM-2", "NM-3", "NM-4"} {
+		caller := int64(101)
+		if state.ActiveTeam == matchengine.TeamBlue {
+			caller = 201
+		}
+		state = apply(caller, matchengine.BanPoolSlot{PoolSlotID: slot}).State
+	}
+	opening := []struct {
+		cell   matchengine.Cell
+		winner matchengine.TeamSide
+	}{{"A1", matchengine.TeamRed}, {"D4", matchengine.TeamBlue}, {"B1", matchengine.TeamRed}, {"D2", matchengine.TeamRed}, {"C1", matchengine.TeamRed}, {"D3", matchengine.TeamRed}}
+	state = snapshotsState(t, ctx, snapshots, seed.LegacyMatch.ID)
+	for index, placement := range opening {
+		caller := int64(101)
+		if state.ActiveTeam == matchengine.TeamBlue {
+			caller = 201
+		}
+		pieceID := fmt.Sprintf("scenario-piece-%d", index+1)
+		apply(caller, matchengine.PlacePiece{PoolSlotID: fmt.Sprintf("NM-%d", index+5), PieceID: pieceID, Cell: placement.cell})
+		apply(refereeID, matchengine.ConfirmBeatmapResult{BoardPieceID: pieceID, WinningTeam: placement.winner})
+		state = snapshotsState(t, ctx, snapshots, seed.LegacyMatch.ID)
+	}
+	apply(refereeID, matchengine.PauseTimer{Reason: "network verification"})
+	apply(refereeID, matchengine.ResumeTimer{Reason: "network stable"})
+	caller := int64(101)
+	if state.ActiveTeam == matchengine.TeamBlue {
+		caller = 201
+	}
+	apply(caller, matchengine.RobPiece{TargetPieceID: "scenario-piece-2", SacrificeSets: [][]string{{"scenario-piece-1", "scenario-piece-3", "scenario-piece-5"}}})
+	closing := []struct {
+		cell   matchengine.Cell
+		winner matchengine.TeamSide
+	}{{"A2", matchengine.TeamRed}, {"B2", matchengine.TeamBlue}, {"C2", matchengine.TeamRed}, {"A3", matchengine.TeamRed}, {"B3", matchengine.TeamBlue}, {"C3", matchengine.TeamRed}}
+	state = snapshotsState(t, ctx, snapshots, seed.LegacyMatch.ID)
+	for index, placement := range closing {
+		caller := int64(101)
+		if state.ActiveTeam == matchengine.TeamBlue {
+			caller = 201
+		}
+		pieceID := fmt.Sprintf("scenario-piece-%d", index+7)
+		apply(caller, matchengine.PlacePiece{PoolSlotID: fmt.Sprintf("NM-%d", index+11), PieceID: pieceID, Cell: placement.cell})
+		apply(refereeID, matchengine.ConfirmBeatmapResult{BoardPieceID: pieceID, WinningTeam: placement.winner})
+		state = snapshotsState(t, ctx, snapshots, seed.LegacyMatch.ID)
+	}
+
+	// Recreate the application service before terminal operations to verify that
+	// the same Mongo aggregate is sufficient after a process restart.
+	orchestrator = newOrchestrator()
+	apply(1, matchengine.RequestTB{RequestID: "mongo-scenario-tb", Basis: matchengine.TBBasisCaptainAgreement})
+	apply(11, matchengine.RespondTBRequest{RequestID: "mongo-scenario-tb", Accept: true})
+	apply(refereeID, matchengine.StartTB{Reason: "lobby ready"})
+	final := apply(refereeID, matchengine.ConfirmTBResult{WinningTeam: matchengine.TeamRed})
+	if final.State.Lifecycle != matchengine.LifecycleFinished || final.State.Winner == nil || *final.State.Winner != matchengine.TeamRed {
+		t.Fatalf("scenario terminal state = %+v", final.State)
+	}
+	if version != 36 {
+		t.Fatalf("scenario version = %d, want 36", version)
+	}
+	actions, err := commandStore.ListActions(ctx, seed.LegacyMatch.ID, 100)
+	if err != nil || len(actions) != 36 {
+		t.Fatalf("scenario audit actions = %d err=%v", len(actions), err)
+	}
+	events, err := commandStore.ListEventsAfter(ctx, seed.LegacyMatch.ID, 0, 200)
+	if err != nil || len(events) == 0 || events[len(events)-1].Sequence == 0 {
+		t.Fatalf("scenario durable events = %d err=%v", len(events), err)
+	}
+}
+
+func snapshotsState(t *testing.T, ctx context.Context, snapshots *persistence.SnapshotStore, matchID bson.ObjectID) matchengine.State {
+	t.Helper()
+	state, err := snapshots.Load(ctx, matchID)
+	if err != nil {
+		t.Fatalf("load scenario state: %v", err)
+	}
+	return state
+}
+
+func ensureIntegrationCollection(ctx context.Context, db *mongo.Database, name string) error {
+	if err := db.CreateCollection(ctx, name); err != nil {
+		var commandErr mongo.CommandError
+		if errors.As(err, &commandErr) && commandErr.Code == 48 {
+			return nil
+		}
+		return fmt.Errorf("create %s: %w", name, err)
+	}
+	return nil
 }
 
 func TestMongoIntegrationSnapshotStoreCASAndCompatibility(t *testing.T) {
