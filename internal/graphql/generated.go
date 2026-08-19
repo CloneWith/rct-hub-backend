@@ -430,7 +430,7 @@ type ComplexityRoot struct {
 		Announcement        func(childComplexity int, id string) int
 		Announcements       func(childComplexity int, page *int, perPage *int) int
 		Beatmap             func(childComplexity int, id string) int
-		BeatmapByOsuID      func(childComplexity int, osuID string) int
+		BeatmapByOsuID      func(childComplexity int, osuID int) int
 		Beatmaps            func(childComplexity int, page *int, perPage *int) int
 		IrcConnectionStatus func(childComplexity int, matchID string) int
 		IrcJobs             func(childComplexity int, matchID string) int
@@ -636,7 +636,7 @@ type QueryResolver interface {
 	RoomByCode(ctx context.Context, code string) (*Room, error)
 	Rooms(ctx context.Context, typeArg *RoomType, page *int, perPage *int) (*RoomPage, error)
 	Beatmap(ctx context.Context, id string) (*Beatmap, error)
-	BeatmapByOsuID(ctx context.Context, osuID string) (*Beatmap, error)
+	BeatmapByOsuID(ctx context.Context, osuID int) (*Beatmap, error)
 	Beatmaps(ctx context.Context, page *int, perPage *int) (*BeatmapPage, error)
 	User(ctx context.Context, id string) (*User, error)
 	Users(ctx context.Context, page *int, perPage *int) (*UserPage, error)
@@ -2537,7 +2537,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.BeatmapByOsuID(childComplexity, args["osuId"].(string)), true
+		return e.ComplexityRoot.Query.BeatmapByOsuID(childComplexity, args["osuId"].(int)), true
 	case "Query.beatmaps":
 		if e.ComplexityRoot.Query.Beatmaps == nil {
 			break
@@ -3775,7 +3775,7 @@ type Query {
 
   # 谱面
   beatmap(id: ID!): Beatmap
-  beatmapByOsuId(osuId: ID!): Beatmap
+  beatmapByOsuId(osuId: Int!): Beatmap
   beatmaps(page: Int = 1, perPage: Int = 20): BeatmapPage!
 
   # 用户
@@ -5492,8 +5492,8 @@ func (ec *executionContext) field_Query_beatmapByOsuId_args(ctx context.Context,
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "osuId",
-		func(ctx context.Context, v any) (string, error) {
-			return ec.unmarshalNID2string(ctx, v)
+		func(ctx context.Context, v any) (int, error) {
+			return ec.unmarshalNInt2int(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -13497,7 +13497,7 @@ func (ec *executionContext) _Query_beatmapByOsuId(ctx context.Context, field gra
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().BeatmapByOsuID(ctx, fc.Args["osuId"].(string))
+			return ec.Resolvers.Query().BeatmapByOsuID(ctx, fc.Args["osuId"].(int))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *Beatmap) graphql.Marshaler {

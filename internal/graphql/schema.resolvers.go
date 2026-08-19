@@ -646,12 +646,11 @@ func (r *queryResolver) Beatmap(ctx context.Context, id string) (*Beatmap, error
 }
 
 // BeatmapByOsuID is the resolver for the beatmapByOsuId field.
-func (r *queryResolver) BeatmapByOsuID(ctx context.Context, osuID string) (*Beatmap, error) {
-	parsedID, err := parsePositiveInt64ID(osuID)
-	if err != nil {
-		return nil, err
+func (r *queryResolver) BeatmapByOsuID(ctx context.Context, osuID int) (*Beatmap, error) {
+	if osuID <= 0 {
+		return nil, fmt.Errorf("osuId must be a positive integer")
 	}
-	b, err := r.svc.Beatmaps.GetByOsuID(ctx, parsedID)
+	b, err := r.svc.Beatmaps.GetByOsuID(ctx, int64(osuID))
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, nil

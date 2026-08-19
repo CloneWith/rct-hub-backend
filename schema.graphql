@@ -516,7 +516,7 @@ type Query {
 
   # 谱面
   beatmap(id: ID!): Beatmap
-  beatmapByOsuId(osuId: ID!): Beatmap
+  beatmapByOsuId(osuId: Int!): Beatmap
   beatmaps(page: Int = 1, perPage: Int = 20): BeatmapPage!
 
   # 用户
