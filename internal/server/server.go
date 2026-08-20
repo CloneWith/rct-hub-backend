@@ -252,6 +252,14 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 		Secure: s.deps.Cfg.AuthCookie.Secure, SameSite: authSameSite(s.deps.Cfg.AuthCookie.SameSite),
 		TTL: s.deps.Cfg.AuthSession.AbsoluteExpiry,
 	})
+	// Sliding cookie refresh: whenever the server-side session is renewed, the
+	// browser cookie Max-Age restarts to the idle window, so active users are
+	// never logged out by a stale cookie. The absolute deadline still bounds it.
+	sessionCookie := authsession.CookieConfig{
+		Name: s.deps.Cfg.AuthCookie.Name, Domain: s.deps.Cfg.AuthCookie.Domain,
+		Secure: s.deps.Cfg.AuthCookie.Secure, SameSite: authSameSite(s.deps.Cfg.AuthCookie.SameSite),
+		TTL: s.deps.Cfg.AuthSession.IdleExpiry,
+	}
 	s.router.GET("/auth/osu", auth.OsuLogin)
 	s.router.GET("/auth/osu/callback", auth.OsuCallback)
 	s.router.POST("/auth/logout", auth.Logout)
@@ -270,7 +278,7 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands).WithAutomationIssues(s.deps.Repos.MatchCommands).WithBeatmapMetadata(s.metadata).WithIRCReader(persistence.NewIRCObservationStore(s.deps.DB.MongoDB)).WithIRCJobs(s.ircJobs).WithIRCStatus(s.ircClient)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
-	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Services, s.deps.Cfg.AuthCookie.Name))
+	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Services, sessionCookie))
 	// WebSocket is read-only: commands still enter through GraphQL's
 	// authoritative Orchestrator. The gateway rehydrates a snapshot first and
 	// then streams only durable outbox events in sequence order.
@@ -307,7 +315,7 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 		// Authenticated endpoints — room configuration (pre-game setup)
 		// All read operations and in-game commands are served via GraphQL (/graphql).
 		authorized := api.Group("")
-		authorized.Use(middleware.Auth(s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Cfg.AuthCookie.Name))
+		authorized.Use(middleware.Auth(s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Cfg.AuthCookie.Name, sessionCookie))
 		{
 			authorized.POST("/rooms", rooms.Create)
 			authorized.PATCH("/rooms/:id/strategists", rooms.SetStrategists)

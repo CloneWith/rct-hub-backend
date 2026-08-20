@@ -18,13 +18,21 @@ const (
 )
 
 // Auth accepts script Bearer JWTs and revocable browser session cookies.
-func Auth(signer *jwtutil.Signer, sessions authsession.Resolver, cookieName string) gin.HandlerFunc {
+// When a browser session is slid (renewed) during resolution and a cookie
+// config is provided, the response carries a refreshed Set-Cookie so active
+// users are never logged out by a stale Max-Age.
+func Auth(signer *jwtutil.Signer, sessions authsession.Resolver, cookieName string, cookieConfigs ...authsession.CookieConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		claims, err := authsession.ClaimsFromRequest(c.Request, signer, sessions, cookieName)
+		claims, renewed, err := authsession.ClaimsFromRequest(c.Request, signer, sessions, cookieName)
 		if err != nil {
 			response.Error(c, http.StatusUnauthorized, "invalid or expired authentication")
 			c.Abort()
 			return
+		}
+		if renewed && len(cookieConfigs) > 0 && cookieConfigs[0].Name != "" {
+			if secret, cookieErr := c.Cookie(cookieName); cookieErr == nil {
+				authsession.RefreshCookie(c.Writer, cookieConfigs[0], secret)
+			}
 		}
 
 		c.Set(ContextKeyClaims, claims)

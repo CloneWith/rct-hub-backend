@@ -53,12 +53,18 @@ func NewHandler(resolver *Resolver) *handler.Server {
 //   - 如果 header 不存在或 JWT 无效 → 请求继续但不带 claims
 //   - ping 等公开查询不需要 token；me 等查询在 resolver 中检查 claims 是否存在
 //
+// 可选 cookie 配置：传入 authsession.CookieConfig 时，浏览器会话被滑动续期
+// 的响应会附带刷新后的 Set-Cookie（与 middleware.Auth 行为一致）。
+//
 // DataLoader 策略：
 //   - 每个请求创建独立的 BeatmapLoader 与 UserLoader，防止 N+1 重复查询
-func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, sessions authsession.Resolver, services *service.Services, cookieNames ...string) gin.HandlerFunc {
+func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, sessions authsession.Resolver, services *service.Services, cookieConfigs ...authsession.CookieConfig) gin.HandlerFunc {
 	cookieName := "rcthub_session"
-	if len(cookieNames) > 0 && cookieNames[0] != "" {
-		cookieName = cookieNames[0]
+	var refresh *authsession.CookieConfig
+	if len(cookieConfigs) > 0 && cookieConfigs[0].Name != "" {
+		cookieName = cookieConfigs[0].Name
+		cfg := cookieConfigs[0]
+		refresh = &cfg
 	}
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
@@ -66,7 +72,12 @@ func GinGraphQL(gqlHandler *handler.Server, signer *jwtutil.Signer, sessions aut
 
 		// Public GraphQL queries remain available without credentials. Valid
 		// Bearer tokens or browser sessions add the authenticated viewer.
-		if claims, err := authsession.ClaimsFromRequest(c.Request, signer, sessions, cookieName); err == nil {
+		if claims, renewed, err := authsession.ClaimsFromRequest(c.Request, signer, sessions, cookieName); err == nil {
+			if renewed && refresh != nil {
+				if secret, cookieErr := c.Cookie(cookieName); cookieErr == nil {
+					authsession.RefreshCookie(c.Writer, *refresh, secret)
+				}
+			}
 			ctx = WithClaims(ctx, claims)
 		}
 

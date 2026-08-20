@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
+	"rctHubBackend/internal/authsession"
 	"rctHubBackend/internal/domain"
 	rctgraphql "rctHubBackend/internal/graphql"
 	"rctHubBackend/internal/matchcommand"
@@ -74,7 +75,7 @@ func TestMongoIntegrationGraphQLAndRealtimeConverge(t *testing.T) {
 	}
 	gql := rctgraphql.NewHandler(rctgraphql.NewResolver(nil, orchestrator))
 	router := gin.New()
-	router.POST("/graphql", rctgraphql.GinGraphQL(gql, signer, nil, nil, "session"))
+	router.POST("/graphql", rctgraphql.GinGraphQL(gql, signer, nil, nil, authsession.CookieConfig{Name: "session"}))
 	commandID := "018f4f2c-8f4f-7fd0-a55e-34a7f1a09409"
 	query := `mutation { startMatch(input: {matchId: "` + seed.LegacyMatch.ID.Hex() + `", expectedVersion: "0", commandId: "` + commandID + `"}) { success resultingVersion snapshot { lifecycle phase version } error { code message } } }`
 	body, _ := json.Marshal(map[string]string{"query": query})

@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
+	"rctHubBackend/internal/authsession"
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/matchcommand"
 	"rctHubBackend/internal/matchengine"
@@ -142,7 +143,7 @@ func TestGinGraphQLAcceptsHttpOnlySessionCookie(t *testing.T) {
 	signer := jwtutil.NewSigner("this-is-a-32-byte-secret-key-for-test!", "test")
 	sessions := fixedSessionResolver{claims: &jwtutil.Claims{UserID: bson.NewObjectID().Hex(), OsuID: 9876543210, Username: "captain", Roles: []domain.UserRole{domain.RoleReferee}}}
 	router := gin.New()
-	router.POST("/graphql", GinGraphQL(server, signer, sessions, nil, "test_session"))
+	router.POST("/graphql", GinGraphQL(server, signer, sessions, nil, authsession.CookieConfig{Name: "test_session"}))
 	query := `mutation { startMatch(input: {matchId: "` + matchID.Hex() + `", expectedVersion: "0", commandId: "` + graphqlCommandID + `"}) { success } }`
 	payload, _ := json.Marshal(map[string]string{"query": query})
 	request := httptest.NewRequest(http.MethodPost, "/graphql", strings.NewReader(string(payload)))

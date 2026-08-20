@@ -158,7 +158,7 @@ type publicEventFact struct {
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	claims, err := authsession.ClaimsFromRequest(r, g.signer, g.sessions, g.cookie)
+	claims, _, err := authsession.ClaimsFromRequest(r, g.signer, g.sessions, g.cookie)
 	if err != nil {
 		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return
