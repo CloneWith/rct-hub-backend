@@ -38,9 +38,12 @@ const (
 //
 // Keys:   KEYS[1] = auth:session:<digest>
 // Args:   ARGV[1] = now (unix seconds), ARGV[2] = idle (seconds),
-//         ARGV[3] = renew threshold (seconds, must be < idle)
+//
+//	ARGV[3] = renew threshold (seconds, must be < idle)
+//
 // Return: {}  → missing or expired (key already deleted)
-//         {user_id, osu_id, username, roles, absolute_at, renewed}
+//
+//	{user_id, osu_id, username, roles, absolute_at, renewed}
 var resolveScript = redis.NewScript(`
 local values = redis.call("HMGET", KEYS[1], "user_id", "osu_id", "username", "roles", "absolute_at", "last_seen")
 if not values[1] then
