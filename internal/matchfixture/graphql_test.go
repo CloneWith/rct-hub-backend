@@ -27,6 +27,7 @@ func TestMockExposesPoolMetadataAndPrivateViews(t *testing.T) {
 		me { onlineID username verifyStatus roles }
 		matchByCode(code: "FIXTURE_READY") {
 			pool { poolSlotID beatmapID beatmap { onlineID title } }
+			snapshot { version lifecycle phase firstBan firstPick turn activeTeam wonCounts { red blue } }
 			strategistView { myTeam analysis { allowedActions } }
 			captainView { myTeam analysis { allowedActions } }
 			refereeView { snapshot { version } analysis { allowedActions } }
@@ -42,7 +43,7 @@ func TestMockExposesPoolMetadataAndPrivateViews(t *testing.T) {
 	if response.Code != http.StatusOK || bytes.Contains(response.Body.Bytes(), []byte(`"errors"`)) {
 		t.Fatalf("mock private query failed: status=%d body=%s", response.Code, response.Body.String())
 	}
-	for _, expected := range [][]byte{[]byte(`"me":{"onlineID":"1001"`), []byte(`"poolSlotID"`), []byte(`"beatmapID"`), []byte(`"strategistView"`), []byte(`"captainView"`), []byte(`"refereeView"`)} {
+	for _, expected := range [][]byte{[]byte(`"me":{"onlineID":"1001"`), []byte(`"poolSlotID"`), []byte(`"beatmapID"`), []byte(`"snapshot"`), []byte(`"lifecycle":"READY"`), []byte(`"strategistView"`), []byte(`"captainView"`), []byte(`"refereeView"`)} {
 		if !bytes.Contains(response.Body.Bytes(), expected) {
 			t.Fatalf("mock response is missing %s: %s", expected, response.Body.String())
 		}

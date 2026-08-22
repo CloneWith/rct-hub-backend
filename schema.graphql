@@ -85,6 +85,10 @@ type Room {
   type: RoomType!
   ownerID: ID!
   owner: User @goField(forceResolver: true)
+  refereeUserID: ID
+  referee: User @goField(forceResolver: true)
+  round: String!
+  scheduledAt: Time
   settings: RoomSettings!
   matchID: ID               # 内部关联, null 表示尚未开始比赛
   match: Match @goField(forceResolver: true)
@@ -512,7 +516,7 @@ type Query {
   # 房间
   room(id: ID!): Room
   roomByCode(code: String!): Room
-  rooms(type: RoomType, page: Int = 1, perPage: Int = 20): RoomPage!
+  rooms(type: RoomType, search: String, round: String, status: MatchLifecycle, relatedToMe: Boolean = false, page: Int = 1, perPage: Int = 20): RoomPage!
 
   # 谱面
   beatmap(id: ID!): Beatmap

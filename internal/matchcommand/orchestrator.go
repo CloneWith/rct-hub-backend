@@ -228,7 +228,7 @@ func actorForCommand(user *domain.User, room *domain.Room, command matchengine.C
 	if isRefereeCommand(command) || isRefereeProxyCommand(command) {
 		isAdmin := user.HasRole(domain.RoleAdmin)
 		hasRefereeRole := user.HasRole(domain.RoleReferee)
-		isAssignedReferee := hasRefereeRole && room.OwnerID == user.OnlineID
+		isAssignedReferee := hasRefereeRole && room.RefereeUserID != nil && *room.RefereeUserID == user.OnlineID
 		if !isAdmin && !isAssignedReferee {
 			if !hasRefereeRole {
 				return matchengine.Actor{}, false, false, NewError(CodeGlobalRoleRequired, "referee or administrator role is required", nil)

@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -19,6 +20,43 @@ import (
 type RoomHandler struct {
 	svc *service.RoomService
 	log *zap.Logger
+}
+
+// UpdateMetadata updates administrator-managed room metadata before match setup locks.
+func (h *RoomHandler) UpdateMetadata(c *gin.Context) {
+	id, err := bson.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		response.BadRequest(c, "invalid room id")
+		return
+	}
+	var req struct {
+		Name           string     `json:"name" binding:"required"`
+		ScheduledAt    *time.Time `json:"scheduled_at"`
+		RefereeUserID  *int64     `json:"referee_user_id"`
+		StreamerUserID *int64     `json:"streamer_user_id"`
+		RedLeader      *int64     `json:"red_leader"`
+		BlueLeader     *int64     `json:"blue_leader"`
+		RedPlayers     []int64    `json:"red_players"`
+		BluePlayers    []int64    `json:"blue_players"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request body")
+		return
+	}
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.UpdateRoomMetadata(c.Request.Context(), callerID, id, service.RoomMetadataUpdate{
+		Name: req.Name, ScheduledAt: req.ScheduledAt, RefereeUserID: req.RefereeUserID,
+		StreamerUserID: req.StreamerUserID, RedLeader: req.RedLeader, BlueLeader: req.BlueLeader,
+		RedPlayers: req.RedPlayers, BluePlayers: req.BluePlayers,
+	})
+	if err != nil {
+		writeRoomError(c, err)
+		return
+	}
+	response.JSON(c, room)
 }
 
 func NewRoomHandler(svc *service.RoomService, log *zap.Logger) *RoomHandler {
@@ -103,6 +141,32 @@ func (h *RoomHandler) SetStreamer(c *gin.Context) {
 		return
 	}
 	room, err := h.svc.SetStreamer(c.Request.Context(), callerID, id, req.UID)
+	if err != nil {
+		writeRoomError(c, err)
+		return
+	}
+	response.JSON(c, room)
+}
+
+// SetReferee assigns the referee for a formal room. This is an administrator-only operation.
+func (h *RoomHandler) SetReferee(c *gin.Context) {
+	id, err := bson.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		response.BadRequest(c, "invalid room id")
+		return
+	}
+	var req struct {
+		RefereeUserID *int64 `json:"referee_user_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request body")
+		return
+	}
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.SetReferee(c.Request.Context(), callerID, id, req.RefereeUserID)
 	if err != nil {
 		writeRoomError(c, err)
 		return

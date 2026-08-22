@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"regexp"
+	"strings"
 	"time"
 
 	"rctHubBackend/internal/domain"
@@ -11,7 +13,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // RoomRepository defines storage operations for rooms.
@@ -21,8 +22,19 @@ type RoomRepository interface {
 	UpdateFields(ctx context.Context, id bson.ObjectID, fields bson.M, requireSetupOpen bool) error
 	ByID(ctx context.Context, id bson.ObjectID) (*domain.Room, error)
 	ByCode(ctx context.Context, code string) (*domain.Room, error)
-	List(ctx context.Context, params paginate.Params, roomType *domain.RoomType) (paginate.Result[domain.Room], error)
+	List(ctx context.Context, params paginate.Params, filter RoomListFilter) (paginate.Result[domain.Room], error)
 	Delete(ctx context.Context, id bson.ObjectID) error
+}
+
+// RoomListFilter contains all server-side room directory filters. Lifecycle is
+// read from the authoritative match snapshot, never from the legacy match
+// shell.
+type RoomListFilter struct {
+	Type          *domain.RoomType
+	Search        string
+	Round         string
+	Lifecycle     string
+	RelatedUserID *int64
 }
 
 type roomRepo struct {
@@ -108,30 +120,85 @@ func (r *roomRepo) ByCode(ctx context.Context, code string) (*domain.Room, error
 	return &room, nil
 }
 
-func (r *roomRepo) List(ctx context.Context, params paginate.Params, roomType *domain.RoomType) (paginate.Result[domain.Room], error) {
+func (r *roomRepo) List(ctx context.Context, params paginate.Params, filter RoomListFilter) (paginate.Result[domain.Room], error) {
 	params.Normalize()
-	filter := bson.M{}
-	if roomType != nil {
-		filter["type"] = *roomType
+	match := bson.M{}
+	var conditions bson.A
+	if filter.Type != nil {
+		match["type"] = *filter.Type
 	}
-	total, err := r.coll.CountDocuments(ctx, filter)
-	if err != nil {
-		return paginate.Result[domain.Room]{}, err
+	if filter.Search = strings.TrimSpace(filter.Search); filter.Search != "" {
+		conditions = append(conditions, bson.M{"$or": bson.A{
+			bson.M{"name": bson.M{"$regex": regexp.QuoteMeta(filter.Search), "$options": "i"}},
+			bson.M{"code": bson.M{"$regex": regexp.QuoteMeta(filter.Search), "$options": "i"}},
+		}})
 	}
-	opts := options.Find().
-		SetSkip(params.Skip()).
-		SetLimit(params.PerPage).
-		SetSort(bson.D{{Key: "created_at", Value: -1}})
-	cur, err := r.coll.Find(ctx, filter, opts)
+	if filter.Round = strings.TrimSpace(filter.Round); filter.Round != "" {
+		match["round"] = filter.Round
+	}
+	if filter.RelatedUserID != nil {
+		userID := *filter.RelatedUserID
+		conditions = append(conditions, bson.M{"$or": bson.A{
+			bson.M{"owner_id": userID},
+			bson.M{"referee_user_id": userID},
+			bson.M{"settings.red_strategist_user_id": userID},
+			bson.M{"settings.blue_strategist_user_id": userID},
+			bson.M{"settings.streamer_user_id": userID},
+			bson.M{"settings.red_players": userID},
+			bson.M{"settings.blue_players": userID},
+			bson.M{"settings.red_leader": userID},
+			bson.M{"settings.blue_leader": userID},
+		}})
+	}
+	if len(conditions) > 0 {
+		match["$and"] = conditions
+	}
+
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: match}},
+	}
+	if filter.Lifecycle != "" {
+		pipeline = append(pipeline,
+			bson.D{{Key: "$lookup", Value: bson.M{
+				"from":         "match_snapshots",
+				"localField":   "match_id",
+				"foreignField": "_id",
+				"as":           "authoritative_snapshot",
+			}}},
+			bson.D{{Key: "$match", Value: bson.M{"authoritative_snapshot.state.lifecycle": filter.Lifecycle}}},
+		)
+	}
+	pipeline = append(pipeline, bson.D{{Key: "$facet", Value: bson.M{
+		"metadata": bson.A{bson.M{"$count": "total"}},
+		"data": bson.A{
+			bson.M{"$sort": bson.D{{Key: "created_at", Value: -1}, {Key: "_id", Value: -1}}},
+			bson.M{"$skip": params.Skip()},
+			bson.M{"$limit": params.PerPage},
+		},
+	}}})
+
+	cur, err := r.coll.Aggregate(ctx, pipeline)
 	if err != nil {
 		return paginate.Result[domain.Room]{}, err
 	}
 	defer cur.Close(ctx)
-	var rooms []domain.Room
-	if err := cur.All(ctx, &rooms); err != nil {
+	var result []struct {
+		Metadata []struct {
+			Total int64 `bson:"total"`
+		} `bson:"metadata"`
+		Data []domain.Room `bson:"data"`
+	}
+	if err := cur.All(ctx, &result); err != nil {
 		return paginate.Result[domain.Room]{}, err
 	}
-	return paginate.NewResult(rooms, params, total), nil
+	if len(result) == 0 {
+		return paginate.NewResult([]domain.Room{}, params, 0), nil
+	}
+	var total int64
+	if len(result[0].Metadata) > 0 {
+		total = result[0].Metadata[0].Total
+	}
+	return paginate.NewResult(result[0].Data, params, total), nil
 }
 
 func (r *roomRepo) Delete(ctx context.Context, id bson.ObjectID) error {

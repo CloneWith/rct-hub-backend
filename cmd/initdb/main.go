@@ -98,6 +98,10 @@ func main() {
 		log.Error("failed to ensure schema validation", zap.Error(err))
 		os.Exit(1)
 	}
+	if err := backfillFormalRoomReferees(ctx, db.MongoDB, log); err != nil {
+		log.Error("failed to backfill formal room referees", zap.Error(err))
+		os.Exit(1)
+	}
 	log.Info("ensured schema validation rules")
 
 	if *seed {
@@ -123,6 +127,23 @@ func main() {
 	}
 
 	log.Info("database initialization complete", zap.String("database", cfg.MongoDB.Name))
+}
+
+// backfillFormalRoomReferees makes the explicit referee relationship safe for
+// existing data. Historical formal rooms used owner_id as their referee.
+// The update is idempotent and only touches formal rooms without a referee.
+func backfillFormalRoomReferees(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
+	result, err := db.Collection("rooms").UpdateMany(ctx,
+		bson.M{"type": string(domain.RoomTypeMatch), "referee_user_id": bson.M{"$exists": false}},
+		bson.A{bson.M{"$set": bson.M{"referee_user_id": "$owner_id"}}},
+	)
+	if err != nil {
+		return fmt.Errorf("backfill formal room referees: %w", err)
+	}
+	if result.ModifiedCount > 0 {
+		log.Info("backfilled formal room referees", zap.Int64("count", result.ModifiedCount))
+	}
+	return nil
 }
 
 func ensureSchemaValidation(ctx context.Context, db *mongo.Database) error {
@@ -158,10 +179,13 @@ func ensureSchemaValidation(ctx context.Context, db *mongo.Database) error {
 			"bsonType": "object",
 			"required": []string{"code", "name", "type", "owner_id", "settings", "created_at", "updated_at"},
 			"properties": bson.M{
-				"code":     bson.M{"bsonType": "string"},
-				"name":     bson.M{"bsonType": "string"},
-				"type":     bson.M{"enum": []string{"private", "casual", "match"}},
-				"owner_id": bson.M{"bsonType": "long"},
+				"code":            bson.M{"bsonType": "string"},
+				"name":            bson.M{"bsonType": "string"},
+				"type":            bson.M{"enum": []string{"private", "casual", "match"}},
+				"owner_id":        bson.M{"bsonType": "long"},
+				"referee_user_id": bson.M{"bsonType": []string{"long", "null"}},
+				"round":           bson.M{"bsonType": "string"},
+				"scheduled_at":    bson.M{"bsonType": []string{"date", "null"}},
 			},
 		},
 	}

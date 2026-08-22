@@ -119,13 +119,18 @@ func (rs RoomSettings) CanStart(roomType RoomType) bool {
 
 // Room represents a place where a match is configured and played.
 type Room struct {
-	ID        bson.ObjectID  `json:"id" bson:"_id,omitempty"`
-	Code      string         `json:"code" bson:"code"` // invite code
-	Name      string         `json:"name" bson:"name"`
-	Type      RoomType       `json:"type" bson:"type"`
-	OwnerID   int64          `json:"owner_id" bson:"owner_id"` // creator / referee / private room owner
-	Settings  RoomSettings   `json:"settings" bson:"settings"`
-	MatchID   *bson.ObjectID `json:"match_id,omitempty" bson:"match_id,omitempty"`
-	CreatedAt time.Time      `json:"created_at" bson:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at" bson:"updated_at"`
+	ID      bson.ObjectID `json:"id" bson:"_id,omitempty"`
+	Code    string        `json:"code" bson:"code"` // invite code
+	Name    string        `json:"name" bson:"name"`
+	Type    RoomType      `json:"type" bson:"type"`
+	OwnerID int64         `json:"owner_id" bson:"owner_id"` // creator / referee / private room owner
+	// RefereeUserID is the explicitly assigned referee for formal match rooms.
+	// It is separate from OwnerID, which remains the room creator.
+	RefereeUserID *int64         `json:"referee_user_id,omitempty" bson:"referee_user_id,omitempty"`
+	Round         string         `json:"round,omitempty" bson:"round,omitempty"`
+	ScheduledAt   *time.Time     `json:"scheduled_at,omitempty" bson:"scheduled_at,omitempty"`
+	Settings      RoomSettings   `json:"settings" bson:"settings"`
+	MatchID       *bson.ObjectID `json:"match_id,omitempty" bson:"match_id,omitempty"`
+	CreatedAt     time.Time      `json:"created_at" bson:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at" bson:"updated_at"`
 }

@@ -209,7 +209,7 @@ func NewReader() (*Reader, error) {
 		matchID := scenario.Match.ID
 		redID, blueID := int64(1001), int64(2001)
 		reader.rooms[scenario.Match.RoomID] = domain.Room{
-			ID: scenario.Match.RoomID, Type: domain.RoomTypeMatch, OwnerID: redID, MatchID: &matchID,
+			ID: scenario.Match.RoomID, Type: domain.RoomTypeMatch, OwnerID: redID, RefereeUserID: &redID, MatchID: &matchID,
 			Settings: domain.RoomSettings{RedStrategistUserID: &redID, BlueStrategistUserID: &blueID, RedLeader: &redID, BlueLeader: &blueID},
 		}
 		for slotID, beatmapID := range scenario.Match.Pool {
