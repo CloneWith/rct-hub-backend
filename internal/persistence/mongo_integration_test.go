@@ -1013,6 +1013,7 @@ func assertVersionConflict(t *testing.T, err error, expected, current uint64) {
 func integrationFormalRoom() domain.Room {
 	redStrategist, blueStrategist := int64(101), int64(201)
 	redLeader, blueLeader := int64(1), int64(11)
+	refereeID := int64(999)
 	firstPick, firstBan := domain.TeamSideRed, domain.TeamSideBlue
 	mpLink := "https://osu.ppy.sh/community/matches/1"
 	pool := domain.NewMappool()
@@ -1025,7 +1026,7 @@ func integrationFormalRoom() domain.Room {
 	pool.Slots[domain.PieceModTB] = []domain.Piece{{}}
 	now := time.Date(2026, time.August, 3, 11, 0, 0, 0, time.UTC)
 	return domain.Room{
-		ID: bson.NewObjectID(), Code: "FORMAL-" + bson.NewObjectID().Hex(), Name: "Formal", Type: domain.RoomTypeMatch, OwnerID: 999,
+		ID: bson.NewObjectID(), Code: "FORMAL-" + bson.NewObjectID().Hex(), Name: "Formal", Type: domain.RoomTypeMatch, OwnerID: 999, RefereeUserID: &refereeID,
 		Settings: domain.RoomSettings{
 			RedStrategistUserID: &redStrategist, BlueStrategistUserID: &blueStrategist,
 			Mappool: pool, FirstPick: &firstPick, FirstBan: &firstBan,

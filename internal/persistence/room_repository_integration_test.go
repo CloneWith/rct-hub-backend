@@ -25,13 +25,18 @@ func TestMongoIntegrationRoomDirectoryFiltersBeforePagination(t *testing.T) {
 	rooms := make([]domain.Room, 0, len(fixtures))
 	for index, fixture := range fixtures {
 		matchID := bson.NewObjectID()
+		redStrategist := int64(301 + index)
+		blueStrategist := int64(302 + index)
+		streamer := int64(303 + index)
+		redPlayers := []int64{int64(401 + index*2), int64(402 + index*2)}
+		bluePlayers := []int64{int64(501 + index*2), int64(502 + index*2)}
 		room := domain.Room{
 			ID: matchID, Code: "FILTER-" + string(rune('A'+index)), Name: "Needle " + fixture.name,
 			Type: domain.RoomTypeMatch, OwnerID: int64(100 + index), RefereeUserID: ptrInt64(200 + index),
 			Round: "quarterfinal", MatchID: &matchID,
 			Settings: domain.RoomSettings{
-				RedStrategistUserID: ptrInt64(301), BlueStrategistUserID: ptrInt64(302),
-				StreamerUserID: ptrInt64(303), RedPlayers: []int64{401, 402}, BluePlayers: []int64{501, 502},
+				RedStrategistUserID: &redStrategist, BlueStrategistUserID: &blueStrategist,
+				StreamerUserID: &streamer, RedPlayers: redPlayers, BluePlayers: bluePlayers,
 			},
 			CreatedAt: now.Add(time.Duration(index) * time.Minute), UpdatedAt: now,
 		}
