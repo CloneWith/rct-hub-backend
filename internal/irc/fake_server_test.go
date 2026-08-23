@@ -198,8 +198,7 @@ func TestAckLossTimesOutAndServiceRestartRecoversJob(t *testing.T) {
 	// A new worker sees the same durable SENT job. It first records the lost
 	// acknowledgement as a retryable failure, then retries once it is due.
 	client2 := NewClient(&net.Dialer{}, listener.Addr().String(), "bot", "", "#mp_42")
-	ctx2, cancel2 := context.WithCancel(context.Background())
-	defer cancel2()
+	ctx2 := t.Context()
 	client2.SetReceiptHandler(func(receipt DeliveryReceipt) {
 		if receipt.Acknowledged {
 			_ = store.Ack(context.Background(), receipt.JobID, receipt.LeaseToken, receipt.ReceivedAt)

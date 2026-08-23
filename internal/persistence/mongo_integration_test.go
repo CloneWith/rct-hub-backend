@@ -418,11 +418,9 @@ func TestMongoIntegrationSnapshotStoreCASAndCompatibility(t *testing.T) {
 	results := make(chan error, 2)
 	var wg sync.WaitGroup
 	for range 2 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			results <- store.CompareAndSwap(ctx, matchID, started.Version, next, now.Add(2*time.Second))
-		}()
+		})
 	}
 	wg.Wait()
 	close(results)

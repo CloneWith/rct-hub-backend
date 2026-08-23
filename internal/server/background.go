@@ -16,9 +16,7 @@ func startPeriodicTask(ctx context.Context, workers *sync.WaitGroup, interval ti
 	if interval <= 0 {
 		interval = time.Second
 	}
-	workers.Add(1)
-	go func() {
-		defer workers.Done()
+	workers.Go(func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
@@ -31,5 +29,5 @@ func startPeriodicTask(ctx context.Context, workers *sync.WaitGroup, interval ti
 			case <-ticker.C:
 			}
 		}
-	}()
+	})
 }

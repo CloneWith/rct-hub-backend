@@ -107,8 +107,8 @@ func playWonPieces(state matchengine.State, count int) (matchengine.State, error
 		matchengine.TeamRed, matchengine.TeamRed, matchengine.TeamBlue, matchengine.TeamBlue,
 		matchengine.TeamBlue, matchengine.TeamBlue, matchengine.TeamRed, matchengine.TeamRed,
 	}
-	for index := 0; index < count; index++ {
-		cell := matchengine.Cell(string([]byte{byte('A' + index%4), byte('1' + index/4)}))
+	for index := range count {
+		cell := matchengine.Cell([]byte{byte('A' + index%4), byte('1' + index/4)})
 		pieceID := fmt.Sprintf("piece-%02d", index+1)
 		slotID := fmt.Sprintf("NM-%d", index+5)
 		var err error
@@ -289,14 +289,8 @@ func (r *Reader) List(_ context.Context, params paginate.Params) (paginate.Resul
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	params.Normalize()
-	start := params.Skip()
-	if start > int64(len(r.items)) {
-		start = int64(len(r.items))
-	}
-	end := start + params.PerPage
-	if end > int64(len(r.items)) {
-		end = int64(len(r.items))
-	}
+	start := min(params.Skip(), int64(len(r.items)))
+	end := min(start+params.PerPage, int64(len(r.items)))
 	items := make([]service.FormalMatch, end-start)
 	copy(items, r.items[start:end])
 	for index := range items {

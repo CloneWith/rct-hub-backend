@@ -686,7 +686,7 @@ func TestMatchServiceBanAndPick(t *testing.T) {
 	matches.Create(ctx, match)
 
 	admin := domain.RoomMember{UserID: 100, Role: domain.RoomRoleAdmin}
-	redStrat := domain.RoomMember{UserID: 10, Role: domain.RoomRoleStrategist, TeamSide: teamSidePtr(domain.TeamSideRed)}
+	redStrat := domain.RoomMember{UserID: 10, Role: domain.RoomRoleStrategist, TeamSide: new(domain.TeamSideRed)}
 
 	// Admin can ban at any time.
 	if err := svc.BanPiece(ctx, match.ID, admin, domain.PoolSlot{Mod: domain.PieceModNM, Index: 1}); err != nil {
@@ -771,8 +771,4 @@ func makeTestMatch() *domain.Match {
 	match.Mappool.Slots[domain.PieceModHD] = []domain.Piece{{}, {}, {}}
 	match.TurnState.StartBan(match.BPOrder)
 	return match
-}
-
-func teamSidePtr(s domain.TeamSide) *domain.TeamSide {
-	return &s
 }

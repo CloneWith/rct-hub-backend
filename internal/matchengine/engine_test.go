@@ -275,10 +275,10 @@ func TestPlacementModRules(t *testing.T) {
 		{name: "HR in HR", slotID: "HR1", cell: "A3"},
 		{name: "DT in top-left DT", slotID: "DT1", cell: "A1"},
 		{name: "DT in bottom-right DT", slotID: "DT1", cell: "C3"},
-		{name: "FM in HD", slotID: "FM1", cell: "C1", wantForce: forceMod(ForceModHD)},
-		{name: "FM in HR", slotID: "FM1", cell: "A3", wantForce: forceMod(ForceModHR)},
-		{name: "FM in top-left DT becomes NM", slotID: "FM1", cell: "A1", wantForce: forceMod(ForceModNM)},
-		{name: "FM in bottom-right DT becomes NM", slotID: "FM1", cell: "C3", wantForce: forceMod(ForceModNM)},
+		{name: "FM in HD", slotID: "FM1", cell: "C1", wantForce: new(ForceModHD)},
+		{name: "FM in HR", slotID: "FM1", cell: "A3", wantForce: new(ForceModHR)},
+		{name: "FM in top-left DT becomes NM", slotID: "FM1", cell: "A1", wantForce: new(ForceModNM)},
+		{name: "FM in bottom-right DT becomes NM", slotID: "FM1", cell: "C3", wantForce: new(ForceModNM)},
 	}
 
 	for _, tt := range tests {
@@ -621,10 +621,6 @@ func assertErrorCode(t *testing.T, err error, want ErrorCode) {
 	if got := CodeOf(err); got != want {
 		t.Fatalf("error code = %q (%v), want %q", got, err, want)
 	}
-}
-
-func forceMod(mod ForceMod) *ForceMod {
-	return &mod
 }
 
 func equalForceMod(a, b *ForceMod) bool {

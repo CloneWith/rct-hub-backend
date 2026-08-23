@@ -314,7 +314,7 @@ func appliedGraphQLResult(matchID bson.ObjectID) matchcommand.Result {
 	}
 }
 
-func teamSidePtr(side matchengine.TeamSide) *matchengine.TeamSide { return &side }
+func teamSidePtr(side matchengine.TeamSide) *matchengine.TeamSide { return new(side) }
 
 func graphQLRequest(t *testing.T, server http.Handler, ctx context.Context, query string) *httptest.ResponseRecorder {
 	t.Helper()

@@ -111,7 +111,7 @@ func (s *MatchService) PickPiece(ctx context.Context, matchID bson.ObjectID, mem
 
 	piece.State = domain.PieceStatePicked
 	piece.Position = &pos
-	piece.TeamID = stringPtr(string(*placementTeam))
+	piece.TeamID = new(string(*placementTeam))
 	if slot.Mod == domain.PieceModFM {
 		piece.ForceMod = forceMod
 	}
@@ -375,10 +375,6 @@ func (s *MatchService) saveMatchAndMove(ctx context.Context, match *domain.Match
 		return err
 	}
 	return s.moves.Create(ctx, &move)
-}
-
-func stringPtr(s string) *string {
-	return &s
 }
 
 func requireLegacyWritableMatch(match *domain.Match) error {

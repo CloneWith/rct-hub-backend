@@ -214,13 +214,10 @@ func TestOrchestratorAllowsOnlyOneConcurrentCommandAtAVersion(t *testing.T) {
 	results := make(chan error, 2)
 	var wait sync.WaitGroup
 	for _, request := range requests {
-		request := request
-		wait.Add(1)
-		go func() {
-			defer wait.Done()
+		wait.Go(func() {
 			_, err := fixture.orchestrator.Execute(context.Background(), request)
 			results <- err
-		}()
+		})
 	}
 	wait.Wait()
 	close(results)

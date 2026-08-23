@@ -168,7 +168,7 @@ func checkMatchEngineDependencies() error {
 		"github.com/redis/go-redis",
 		"go.mongodb.org/mongo-driver",
 	}
-	for _, dependency := range strings.Fields(string(output)) {
+	for dependency := range strings.FieldsSeq(string(output)) {
 		for _, prefix := range forbidden {
 			if dependency == prefix || strings.HasPrefix(dependency, prefix+"/") {
 				return fmt.Errorf("forbidden dependency %q", dependency)

@@ -2,7 +2,7 @@ package service
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -79,7 +79,7 @@ func engineConfigurationFromRoom(room domain.Room) (matchengine.Configuration, e
 	for mod := range room.Settings.Mappool.Slots {
 		mods = append(mods, mod)
 	}
-	sort.Slice(mods, func(i, j int) bool { return mods[i] < mods[j] })
+	slices.Sort(mods)
 	for _, mod := range mods {
 		engineMod, ok := engineModFromDomain(mod)
 		if !ok {

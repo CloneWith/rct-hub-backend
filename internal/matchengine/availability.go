@@ -80,8 +80,8 @@ func Analyze(state State) Analysis {
 		LegalPlacements:       []PlacementOption{},
 		WonCounts:             map[TeamSide]int{TeamRed: 0, TeamBlue: 0},
 	}
-	for row := 0; row < 4; row++ {
-		for column := 0; column < 4; column++ {
+	for row := range 4 {
+		for column := range 4 {
 			cell := positionCell(column, row)
 			if state.Board.empty(cell) {
 				analysis.EmptyCells = append(analysis.EmptyCells, cell)
@@ -334,7 +334,7 @@ func robberyPlans(state State, team TeamSide) []RobberyPlan {
 				plans = append(plans, RobberyPlan{TargetPieceID: target.ID, SacrificeSets: [][]string{ids}})
 			}
 		}
-		for first := 0; first < len(twos); first++ {
+		for first := range twos {
 			for second := first + 1; second < len(twos); second++ {
 				sets := [][]string{append([]string(nil), twos[first].BoardPieceIDs...), append([]string(nil), twos[second].BoardPieceIDs...)}
 				ids, overlap := flattenSacrificeSets(sets)

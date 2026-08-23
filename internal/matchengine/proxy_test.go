@@ -57,12 +57,12 @@ func TestRefereeProxyShiroAndRobberyUseNormalRulePaths(t *testing.T) {
 	assertEventTypes(t, transition.Events, EventShiroPlaced, EventTurnAdvanced, EventTimerStarted, EventRefereeProxyActionRecorded)
 
 	state = stateAtFirstPick(t)
-	seedPiece(&state.Board, "A1", "blue-1", ModNM, OutcomeWon, team(TeamBlue))
-	seedPiece(&state.Board, "B1", "blue-2", ModNM, OutcomeWon, team(TeamBlue))
-	seedPiece(&state.Board, "C1", "blue-3", ModNM, OutcomeWon, team(TeamBlue))
-	seedPiece(&state.Board, "D2", "blue-anchor-1", ModNM, OutcomeWon, team(TeamBlue))
-	seedPiece(&state.Board, "D3", "blue-anchor-2", ModNM, OutcomeWon, team(TeamBlue))
-	seedPiece(&state.Board, "D4", "red-target", ModNM, OutcomeWon, team(TeamRed))
+	seedPiece(&state.Board, "A1", "blue-1", ModNM, OutcomeWon, new(TeamBlue))
+	seedPiece(&state.Board, "B1", "blue-2", ModNM, OutcomeWon, new(TeamBlue))
+	seedPiece(&state.Board, "C1", "blue-3", ModNM, OutcomeWon, new(TeamBlue))
+	seedPiece(&state.Board, "D2", "blue-anchor-1", ModNM, OutcomeWon, new(TeamBlue))
+	seedPiece(&state.Board, "D3", "blue-anchor-2", ModNM, OutcomeWon, new(TeamBlue))
+	seedPiece(&state.Board, "D4", "red-target", ModNM, OutcomeWon, new(TeamRed))
 	transition = mustExecute(t, state, RefereeActor(), RefereeRobPiece{
 		ActingTeam: TeamBlue, TargetPieceID: "red-target", SacrificeSets: [][]string{{"blue-1", "blue-2", "blue-3"}}, Reason: "blue disconnected",
 	}, state.Timer.StartedAt.Add(state.Timer.Duration))

@@ -26,10 +26,6 @@ func ptrFloat64(v float32) *float64 {
 	return &f
 }
 
-func ptrStr(v string) *string {
-	return &v
-}
-
 func upperEnum(s string) string {
 	return strings.ToUpper(s)
 }
@@ -80,7 +76,7 @@ func mapForceModPtr(fm *domain.ForceMod) *string {
 	if fm == nil {
 		return nil
 	}
-	return ptrStr(string(*fm))
+	return new(string(*fm))
 }
 
 // --- 核心类型映射 ---

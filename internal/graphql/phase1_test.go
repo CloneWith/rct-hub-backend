@@ -206,13 +206,13 @@ func TestMapUser(t *testing.T) {
 	if gqlUser.Username != "testuser" {
 		t.Errorf("Username: expected testuser, got %s", gqlUser.Username)
 	}
-	if gqlUser.VerifyStatus != VerifyStatus("VERIFIED") {
+	if gqlUser.VerifyStatus != "VERIFIED" {
 		t.Errorf("VerifyStatus: expected VERIFIED, got %s", gqlUser.VerifyStatus)
 	}
 	if len(gqlUser.Roles) != 2 {
 		t.Fatalf("Roles: expected 2, got %d", len(gqlUser.Roles))
 	}
-	if gqlUser.Roles[0] != UserRole("PLAYER") {
+	if gqlUser.Roles[0] != "PLAYER" {
 		t.Errorf("Roles[0]: expected PLAYER, got %s", gqlUser.Roles[0])
 	}
 	if gqlUser.GlobalRank == nil || *gqlUser.GlobalRank != 1000 {
@@ -270,7 +270,7 @@ func TestMapMappool(t *testing.T) {
 	}
 
 	// NM 组应在前面 (顺序: NM, HD, HR, DT, FM, Shiro, TB)
-	if gqlPool.Slots[0].Mod != PieceMod("NM") {
+	if gqlPool.Slots[0].Mod != "NM" {
 		t.Errorf("first group mod: expected NM, got %s", gqlPool.Slots[0].Mod)
 	}
 	if len(gqlPool.Slots[0].Pieces) != 2 {
@@ -280,7 +280,7 @@ func TestMapMappool(t *testing.T) {
 	if gqlPool.Slots[0].Pieces[0].BeatmapID == nil || *gqlPool.Slots[0].Pieces[0].BeatmapID != "12345" {
 		t.Errorf("NM-1 BeatmapID: expected 12345, got %v", gqlPool.Slots[0].Pieces[0].BeatmapID)
 	}
-	if gqlPool.Slots[0].Pieces[0].State != PieceState("NORMAL") {
+	if gqlPool.Slots[0].Pieces[0].State != "NORMAL" {
 		t.Errorf("NM-1 State: expected NORMAL, got %s", gqlPool.Slots[0].Pieces[0].State)
 	}
 	// 第二个 NM slot: Shiro (beatmapID=nil)
@@ -288,10 +288,10 @@ func TestMapMappool(t *testing.T) {
 		t.Errorf("NM-2 (Shiro) BeatmapID: expected nil, got %v", gqlPool.Slots[0].Pieces[1].BeatmapID)
 	}
 	// HD 组
-	if gqlPool.Slots[1].Mod != PieceMod("HD") {
+	if gqlPool.Slots[1].Mod != "HD" {
 		t.Errorf("second group mod: expected HD, got %s", gqlPool.Slots[1].Mod)
 	}
-	if gqlPool.Slots[1].Pieces[0].State != PieceState("BANNED") {
+	if gqlPool.Slots[1].Pieces[0].State != "BANNED" {
 		t.Errorf("HD-1 State: expected BANNED, got %s", gqlPool.Slots[1].Pieces[0].State)
 	}
 

@@ -284,8 +284,7 @@ func (s *osuTestServer) handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// User endpoint: /api/v2/users/{id}/osu
-	if strings.HasPrefix(r.URL.Path, "/api/v2/users/") {
-		path := strings.TrimPrefix(r.URL.Path, "/api/v2/users/")
+	if path, ok := strings.CutPrefix(r.URL.Path, "/api/v2/users/"); ok {
 		if !strings.HasSuffix(path, "/osu") {
 			http.Error(w, "missing osu ruleset path", http.StatusBadRequest)
 			return

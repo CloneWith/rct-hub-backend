@@ -276,7 +276,7 @@ func TestGatewaySendsSnapshotThenOrderedEvent(t *testing.T) {
 func TestGatewayPublishesTypedEventEnvelope(t *testing.T) {
 	event := persistence.MatchOutboxDocument{
 		EventID: "event-1", Type: matchengine.EventPiecePlaced, ResultingVersion: 5,
-		Payload: bson.Raw(bson.Raw{7, 0, 0, 0, 0x10, 'c', 'e', 'l', 'l', 0, 0, 0, 0, 0}),
+		Payload: bson.Raw{7, 0, 0, 0, 0x10, 'c', 'e', 'l', 'l', 0, 0, 0, 0, 0},
 	}
 	// Use the public mapper directly as the contract seam; malformed BSON must
 	// never leak a raw driver value to browsers.

@@ -2,6 +2,7 @@ package graphql
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -62,14 +63,8 @@ func (r *roomQueryRepo) List(_ context.Context, params paginate.Params, filter r
 		}
 		items = append(items, room)
 	}
-	start := int(params.Skip())
-	if start > len(items) {
-		start = len(items)
-	}
-	end := start + int(params.PerPage)
-	if end > len(items) {
-		end = len(items)
-	}
+	start := min(int(params.Skip()), len(items))
+	end := min(start+int(params.PerPage), len(items))
 	return paginate.NewResult(items[start:end], params, int64(len(items))), nil
 }
 
@@ -85,12 +80,7 @@ func roomRelatedTo(room domain.Room, userID int64) bool {
 		(settings.BlueLeader != nil && *settings.BlueLeader == userID) {
 		return true
 	}
-	for _, candidate := range append(append([]int64(nil), settings.RedPlayers...), settings.BluePlayers...) {
-		if candidate == userID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(append(append([]int64(nil), settings.RedPlayers...), settings.BluePlayers...), userID)
 }
 
 var _ repository.RoomRepository = (*roomQueryRepo)(nil)
@@ -157,7 +147,7 @@ func TestRoomQueriesAllowVerifiedUnbannedViewerAndPreservePagination(t *testing.
 	resolver := roomQueryResolver(user, rooms)
 	ctx := WithClaims(context.Background(), &jwtutil.Claims{OsuID: user.OnlineID})
 
-	page, err := resolver.Query().Rooms(ctx, nil, nil, nil, nil, nil, ptr(2), ptr(1))
+	page, err := resolver.Query().Rooms(ctx, nil, nil, nil, nil, nil, new(2), new(1))
 	if err != nil {
 		t.Fatalf("rooms: %v", err)
 	}
@@ -243,6 +233,4 @@ func TestRoomsApplySearchRoundStatusAndRelatedFiltersBeforePaging(t *testing.T) 
 	}
 }
 
-func ptr(value int) *int { return &value }
-
-func ptrInt64Value(value int64) *int64 { return &value }
+func ptrInt64Value(value int64) *int64 { return new(value) }

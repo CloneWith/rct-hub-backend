@@ -301,8 +301,8 @@ func (c *Client) Read(ctx context.Context, emit func(Observation)) error {
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, "PING ") {
-			_ = c.writeLine(ctx, "PONG "+strings.TrimPrefix(line, "PING "))
+		if res, ok := strings.CutPrefix(line, "PING "); ok {
+			_ = c.writeLine(ctx, "PONG "+res)
 			continue
 		}
 		observation, ok := parseObservation(line)
@@ -566,11 +566,11 @@ func replyContainsTarget(message string, pending pendingDelivery) bool {
 
 func invitedUsername(message string) (string, bool) {
 	const prefix = "invited "
-	start := strings.Index(message, prefix)
-	if start < 0 {
+	_, after, ok := strings.Cut(message, prefix)
+	if !ok {
 		return "", false
 	}
-	value := strings.TrimSpace(message[start+len(prefix):])
+	value := strings.TrimSpace(after)
 	for _, suffix := range []string{" to the room", " into the room", " to this match", " into this match"} {
 		if end := strings.Index(value, suffix); end >= 0 {
 			value = strings.TrimSpace(value[:end])
@@ -602,7 +602,7 @@ func commandTarget(kind string, payload []byte) (string, error) {
 }
 
 func beatmapTarget(message string) string {
-	for _, part := range strings.Fields(message) {
+	for part := range strings.FieldsSeq(message) {
 		part = strings.Trim(part, "()[]<>,.")
 		if index := strings.LastIndex(strings.ToLower(part), "/b/"); index >= 0 {
 			value := part[index+3:]

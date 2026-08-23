@@ -141,9 +141,9 @@ func mapSnapshot(state matchengine.State) snapshot {
 func mapBoard(value matchengine.Board) board {
 	pieces := value.Pieces()
 	cells := make([]boardCell, 0, 16)
-	for row := 0; row < 4; row++ {
-		for col := 0; col < 4; col++ {
-			id := matchengine.Cell(string([]byte{byte('A' + col), byte('1' + row)}))
+	for row := range 4 {
+		for col := range 4 {
+			id := matchengine.Cell([]byte{byte('A' + col), byte('1' + row)})
 			zone, _ := value.ZoneAt(id)
 			cell := boardCell{Cell: string(id), Row: row, Col: col, Zone: zone}
 			if piece, exists := pieces[id]; exists {

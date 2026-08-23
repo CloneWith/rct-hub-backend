@@ -56,7 +56,7 @@ func TestRedisDeliveryGateAcquireIsAtomicAcrossInstances(t *testing.T) {
 	go func() { <-start; results <- second.Acquire(context.Background(), Job{ID: "job-2", Channel: "#mp_42"}) }()
 	close(start)
 	var successes int
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if err := <-results; err == nil {
 			successes++
 		}

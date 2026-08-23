@@ -187,15 +187,12 @@ func TestMongoIntegrationCommandStoreAllowsOneConcurrentVersion(t *testing.T) {
 	results := make(chan error, 2)
 	var wait sync.WaitGroup
 	for _, candidate := range candidates {
-		candidate := candidate
-		wait.Add(1)
-		go func() {
-			defer wait.Done()
+		wait.Go(func() {
 			_, err := store.Apply(ctx, candidate.envelope, authorize, func(state matchengine.State, authorized matchcommand.AuthorizedActor) (matchengine.Transition, error) {
 				return matchengine.Execute(state, authorized.EngineActor, matchengine.BanPoolSlot{PoolSlotID: candidate.slot}, now.Add(time.Second))
 			})
 			results <- err
-		}()
+		})
 	}
 	wait.Wait()
 	close(results)

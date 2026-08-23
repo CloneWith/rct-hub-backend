@@ -409,7 +409,7 @@ func teamHasLegalRobbery(board Board, team TeamSide) bool {
 					return true
 				}
 			}
-			for first := 0; first < len(twoAlignments); first++ {
+			for first := range twoAlignments {
 				for second := first + 1; second < len(twoAlignments); second++ {
 					sacrificeIDs, overlap := flattenSacrificeSets([][]string{
 						twoAlignments[first].BoardPieceIDs,

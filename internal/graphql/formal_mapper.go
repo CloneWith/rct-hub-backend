@@ -74,9 +74,9 @@ func mapMatchSnapshot(state matchengine.State) *MatchSnapshot {
 func mapFormalBoard(board matchengine.Board) *FormalBoard {
 	pieces := board.Pieces()
 	cells := make([]*FormalBoardCell, 0, 16)
-	for row := 0; row < 4; row++ {
-		for col := 0; col < 4; col++ {
-			cellID := matchengine.Cell(string([]byte{byte('A' + col), byte('1' + row)}))
+	for row := range 4 {
+		for col := range 4 {
+			cellID := matchengine.Cell([]byte{byte('A' + col), byte('1' + row)})
 			zone, _ := board.ZoneAt(cellID)
 			cell := &FormalBoardCell{Cell: string(cellID), Row: row, Col: col, Zone: FormalBoardZone(zone)}
 			if piece, exists := pieces[cellID]; exists {

@@ -183,7 +183,7 @@ func TestStoreActiveUserNeverTimesOutUntilAbsoluteDeadline(t *testing.T) {
 	// The user comes back every 13h — past the 12h renewal threshold but well
 	// inside the 24h idle window. Each visit must slide the session instead of
 	// letting it expire, for as long as the absolute deadline allows.
-	for hop := 0; hop < 8; hop++ {
+	for hop := range 8 {
 		advance(now, mini, 13*time.Hour)
 		claims, renewed, err := store.ResolveWithRenewal(context.Background(), secret)
 		if err != nil {

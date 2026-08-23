@@ -1,5 +1,7 @@
 package matchengine
 
+import "maps"
+
 import "time"
 
 // TeamSide identifies one competitive side.
@@ -164,10 +166,7 @@ func (t *Timer) pause(now time.Time) {
 }
 
 func (t *Timer) resume(now time.Time) {
-	remaining := t.RemainingAtPause
-	if remaining < 0 {
-		remaining = 0
-	}
+	remaining := max(t.RemainingAtPause, 0)
 	*t = Timer{StartedAt: now, Duration: remaining}
 }
 
@@ -313,18 +312,12 @@ const (
 func (s State) Clone() State {
 	clone := s
 	clone.PoolSlots = make(map[string]PoolSlot, len(s.PoolSlots))
-	for id, slot := range s.PoolSlots {
-		clone.PoolSlots[id] = slot
-	}
+	maps.Copy(clone.PoolSlots, s.PoolSlots)
 	clone.Board = s.Board.Clone()
 	clone.RobberyUsed = make(map[TeamSide]bool, len(s.RobberyUsed))
-	for side, used := range s.RobberyUsed {
-		clone.RobberyUsed[side] = used
-	}
+	maps.Copy(clone.RobberyUsed, s.RobberyUsed)
 	clone.TeamPauseUsed = make(map[TeamSide]bool, len(s.TeamPauseUsed))
-	for side, used := range s.TeamPauseUsed {
-		clone.TeamPauseUsed[side] = used
-	}
+	maps.Copy(clone.TeamPauseUsed, s.TeamPauseUsed)
 	clone.Rosters = cloneRosters(s.Rosters)
 	if s.PendingTBRequest != nil {
 		pending := *s.PendingTBRequest

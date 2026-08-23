@@ -76,7 +76,7 @@ func (s *BeatmapMetadataStore) Claim(ctx context.Context, now, leaseUntil time.T
 		return nil, err
 	}
 	record := metadataRecord(document)
-	record.LeaseUntil = timePointer(leaseUntil.UTC())
+	record.LeaseUntil = new(leaseUntil.UTC())
 	record.LeaseToken = leaseToken
 	return &record, nil
 }
@@ -123,5 +123,3 @@ func (s *BeatmapMetadataStore) Retry(ctx context.Context, id int64, now time.Tim
 func metadataRecord(d beatmapMetadataDocument) beatmapmetadata.Record {
 	return beatmapmetadata.Record{BeatmapID: d.BeatmapID, Status: d.Status, Attempts: d.Attempts, NextTryAt: d.NextTryAt, LastError: d.LastError, LeaseUntil: d.LeaseUntil, LeaseToken: d.LeaseToken, CreatedAt: d.CreatedAt, UpdatedAt: d.UpdatedAt}
 }
-
-func timePointer(value time.Time) *time.Time { return &value }

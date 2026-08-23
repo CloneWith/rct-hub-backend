@@ -1,5 +1,7 @@
 package matchengine
 
+import "slices"
+
 import "encoding/json"
 
 // Cell is a canonical board coordinate from A1 through D4.
@@ -179,11 +181,11 @@ func (b Board) FindAlignments(team TeamSide, length int) []Alignment {
 
 	directions := [][2]int{{1, 0}, {0, 1}, {1, 1}, {1, -1}}
 	var alignments []Alignment
-	for row := 0; row < 4; row++ {
-		for column := 0; column < 4; column++ {
+	for row := range 4 {
+		for column := range 4 {
 			for _, direction := range directions {
 				alignment := Alignment{Length: length, Team: team}
-				for offset := 0; offset < length; offset++ {
+				for offset := range length {
 					candidateColumn := column + direction[0]*offset
 					candidateRow := row + direction[1]*offset
 					if candidateColumn < 0 || candidateColumn >= 4 || candidateRow < 0 || candidateRow >= 4 {
@@ -242,10 +244,8 @@ func (b Board) pieceParticipatesInAlignment(team TeamSide, pieceID string, lengt
 		return false
 	}
 	for _, alignment := range b.FindAlignments(team, length) {
-		for _, candidate := range alignment.BoardPieceIDs {
-			if candidate == pieceID {
-				return true
-			}
+		if slices.Contains(alignment.BoardPieceIDs, pieceID) {
+			return true
 		}
 	}
 	return false
