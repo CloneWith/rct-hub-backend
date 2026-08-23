@@ -53,7 +53,8 @@ func TestStrategistViewerRequiresCurrentRoleAndRoomAssignment(t *testing.T) {
 }
 
 func TestRefereeViewerRequiresAssignmentUnlessAdmin(t *testing.T) {
-	room := &domain.Room{OwnerID: 1001}
+	refereeID := int64(1001)
+	room := &domain.Room{OwnerID: 1001, RefereeUserID: &refereeID}
 	assigned := &domain.User{OnlineID: 1001, Roles: []domain.UserRole{domain.RoleReferee}}
 	if err := authorizeRefereeViewer(assigned, room); err != nil {
 		t.Fatal(err)

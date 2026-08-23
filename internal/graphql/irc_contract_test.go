@@ -112,7 +112,8 @@ func TestIRCRoomAssociationIsExactAndRefereeOnly(t *testing.T) {
 	matchID, roomID := bson.NewObjectID(), bson.NewObjectID()
 	mpLink := "https://osu.ppy.sh/community/matches/42"
 	user := &domain.User{OnlineID: 100, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
-	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
+	refereeID := int64(100)
+	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, RefereeUserID: &refereeID, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
 	resolver := NewResolver(nil).WithFormalMatchReader(ircFormalReader{&service.FormalMatch{ID: matchID, RoomID: roomID}}).WithPrivateReaders(ircUserReader{user}, ircRoomReader{room})
 	ctx := WithClaims(context.Background(), &jwtutil.Claims{OsuID: 100})
 	if err := resolver.authorizeIRCObservation(ctx, matchID.Hex(), "#mp_42"); err != nil {
@@ -133,7 +134,8 @@ func TestIRCStatusIsVisibleOnlyToAssignedReferee(t *testing.T) {
 	matchID, roomID := bson.NewObjectID(), bson.NewObjectID()
 	mpLink := "https://osu.ppy.sh/community/matches/42"
 	user := &domain.User{OnlineID: 100, VerifyStatus: domain.Pending, Roles: []domain.UserRole{domain.RoleReferee}}
-	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
+	refereeID := int64(100)
+	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, RefereeUserID: &refereeID, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
 	resolver := NewResolver(nil).
 		WithFormalMatchReader(ircFormalReader{&service.FormalMatch{ID: matchID, RoomID: roomID}}).
 		WithPrivateReaders(ircUserReader{user}, ircRoomReader{room}).
@@ -161,7 +163,8 @@ func TestIRCJobsAreVisibleAndRetryableForAssignedReferee(t *testing.T) {
 	matchID, roomID := bson.NewObjectID(), bson.NewObjectID()
 	mpLink := "https://osu.ppy.sh/community/matches/42"
 	user := &domain.User{OnlineID: 100, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
-	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
+	refereeID := int64(100)
+	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, RefereeUserID: &refereeID, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
 	jobs := &ircJobReader{jobs: []irc.Job{{ID: "job-1", MatchID: matchID.Hex(), Channel: "#mp_42", Kind: "MAP", Payload: []byte("command"), Status: irc.JobFailed, AutomaticRetry: false, NextTryAt: time.Now(), LastError: "permission denied"}}}
 	resolver := NewResolver(nil).WithFormalMatchReader(ircFormalReader{&service.FormalMatch{ID: matchID, RoomID: roomID}}).WithPrivateReaders(ircUserReader{user}, ircRoomReader{room}).WithIRCJobs(jobs)
 	ctx := WithClaims(context.Background(), &jwtutil.Claims{OsuID: 100})
@@ -179,7 +182,8 @@ func TestIRCJobFromPreviousRoomChannelCannotBeRetried(t *testing.T) {
 	matchID, roomID := bson.NewObjectID(), bson.NewObjectID()
 	mpLink := "https://osu.ppy.sh/community/matches/43"
 	user := &domain.User{OnlineID: 100, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
-	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
+	refereeID := int64(100)
+	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, RefereeUserID: &refereeID, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
 	jobs := &ircJobReader{jobs: []irc.Job{{ID: "old-job", MatchID: matchID.Hex(), Channel: "#mp_42", Status: irc.JobFailed}}}
 	resolver := NewResolver(nil).
 		WithFormalMatchReader(ircFormalReader{&service.FormalMatch{ID: matchID, RoomID: roomID}}).
@@ -195,7 +199,8 @@ func TestIRCJobFromPreviousRoomChannelCannotBeRetried(t *testing.T) {
 func TestAutomationPlanningFailuresAreVisibleAndRetryableForAssignedReferee(t *testing.T) {
 	matchID, roomID := bson.NewObjectID(), bson.NewObjectID()
 	user := &domain.User{OnlineID: 100, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
-	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, MatchID: &matchID}
+	refereeID := int64(100)
+	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, RefereeUserID: &refereeID, MatchID: &matchID}
 	automation := &automationIssueReader{events: []persistence.MatchOutboxDocument{{
 		EventID: "event-1", MatchID: matchID, Sequence: 4, Type: matchengine.EventPiecePlaced,
 		Status: persistence.OutboxFailed, Attempts: 1, LastError: "match has no multiplayer link",
@@ -220,7 +225,8 @@ func TestConfirmIRCResultReleasesEvidenceWhenCommandFails(t *testing.T) {
 	matchID, roomID := bson.NewObjectID(), bson.NewObjectID()
 	mpLink := "https://osu.ppy.sh/community/matches/42"
 	user := &domain.User{OnlineID: 100, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
-	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
+	refereeID := int64(100)
+	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, RefereeUserID: &refereeID, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
 	observations := &ircObservationReader{observation: persistence.IRCObservation{ID: "observation", Channel: "#mp_42", Command: ":!result RED piece-1", ReviewStatus: persistence.IRCReviewPending}}
 	commands := &commandExecutorStub{err: &matchcommand.Error{Code: matchcommand.CodeActionNotAllowed, Message: "wrong phase"}}
 	resolver := NewResolver(nil, commands).WithFormalMatchReader(ircFormalReader{&service.FormalMatch{ID: matchID, RoomID: roomID}}).WithPrivateReaders(ircUserReader{user}, ircRoomReader{room}).WithIRCReader(observations)
@@ -235,7 +241,8 @@ func TestConfirmIRCResultFinalizesCommittedEvidence(t *testing.T) {
 	matchID, roomID := bson.NewObjectID(), bson.NewObjectID()
 	mpLink := "https://osu.ppy.sh/community/matches/42"
 	user := &domain.User{OnlineID: 100, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
-	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
+	refereeID := int64(100)
+	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, RefereeUserID: &refereeID, MatchID: &matchID, Settings: domain.RoomSettings{MPLink: &mpLink}}
 	observations := &ircObservationReader{observation: persistence.IRCObservation{ID: "observation", Channel: "#mp_42", Command: ":!result RED piece-1", ReviewStatus: persistence.IRCReviewPending}}
 	commands := &commandExecutorStub{result: matchcommand.Result{CommandID: graphqlCommandID, Disposition: matchcommand.DispositionApplied, PreviousVersion: 3, ResultingVersion: 4, State: matchengine.State{Version: 4}}}
 	resolver := NewResolver(nil, commands).WithFormalMatchReader(ircFormalReader{&service.FormalMatch{ID: matchID, RoomID: roomID}}).WithPrivateReaders(ircUserReader{user}, ircRoomReader{room}).WithIRCReader(observations)

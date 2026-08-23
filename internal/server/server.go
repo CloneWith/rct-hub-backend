@@ -318,8 +318,11 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 		authorized.Use(middleware.Auth(s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Cfg.AuthCookie.Name, sessionCookie))
 		{
 			authorized.POST("/rooms", rooms.Create)
+			authorized.PATCH("/rooms/:id/metadata", rooms.UpdateMetadata)
+			authorized.PUT("/rooms/:id/metadata", rooms.UpdateMetadataPartial)
 			authorized.PATCH("/rooms/:id/strategists", rooms.SetStrategists)
 			authorized.PATCH("/rooms/:id/streamer", rooms.SetStreamer)
+			authorized.PATCH("/rooms/:id/referee", rooms.SetReferee)
 			authorized.PATCH("/rooms/:id/mappool", rooms.SetMappool)
 			authorized.PATCH("/rooms/:id/bp-order", rooms.SetBPOrder)
 			authorized.PATCH("/rooms/:id/players", rooms.SetPlayers)

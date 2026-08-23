@@ -57,6 +57,12 @@ func (r *fakeRoomRepo) UpdateFields(_ context.Context, id bson.ObjectID, fields 
 	}
 	for key, value := range fields {
 		switch key {
+		case "name":
+			room.Name = value.(string)
+		case "round":
+			room.Round = value.(string)
+		case "scheduled_at":
+			room.ScheduledAt, _ = value.(*time.Time)
 		case "settings.red_strategist_user_id":
 			room.Settings.RedStrategistUserID, _ = value.(*int64)
 		case "settings.blue_strategist_user_id":
@@ -81,6 +87,8 @@ func (r *fakeRoomRepo) UpdateFields(_ context.Context, id bson.ObjectID, fields 
 			room.Settings.MPLink, _ = value.(*string)
 		case "settings.stream_link":
 			room.Settings.StreamLink, _ = value.(*string)
+		case "referee_user_id":
+			room.RefereeUserID, _ = value.(*int64)
 		}
 	}
 	return nil
@@ -102,7 +110,7 @@ func (r *fakeRoomRepo) ByCode(ctx context.Context, code string) (*domain.Room, e
 	return room, nil
 }
 
-func (r *fakeRoomRepo) List(ctx context.Context, params paginate.Params, roomType *domain.RoomType) (paginate.Result[domain.Room], error) {
+func (r *fakeRoomRepo) List(ctx context.Context, params paginate.Params, filter repository.RoomListFilter) (paginate.Result[domain.Room], error) {
 	return paginate.Result[domain.Room]{}, nil
 }
 
@@ -273,6 +281,184 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	}
 }
 
+func TestFormalRoomCreationAssignsItsInitialReferee(t *testing.T) {
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	referee := &domain.User{ID: bson.NewObjectID(), OnlineID: 7, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
+	if err := users.Create(ctx, referee); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewRoomService(rooms, nil, users, nil, nil)
+	room, err := svc.CreateRoom(ctx, referee.OnlineID, domain.RoomTypeMatch, "Formal")
+	if err != nil {
+		t.Fatalf("create formal room: %v", err)
+	}
+	if room.RefereeUserID == nil || *room.RefereeUserID != referee.OnlineID {
+		t.Fatalf("referee assignment = %v, want %d", room.RefereeUserID, referee.OnlineID)
+	}
+}
+
+func TestOnlyAdminCanAssignFormalRoomReferee(t *testing.T) {
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
+	referee := &domain.User{ID: bson.NewObjectID(), OnlineID: 2, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
+	otherReferee := &domain.User{ID: bson.NewObjectID(), OnlineID: 3, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
+	for _, user := range []*domain.User{admin, referee, otherReferee} {
+		if err := users.Create(ctx, user); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assigned := referee.OnlineID
+	room := &domain.Room{ID: bson.NewObjectID(), Type: domain.RoomTypeMatch, OwnerID: referee.OnlineID, RefereeUserID: &assigned}
+	if err := rooms.Create(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewRoomService(rooms, nil, users, nil, nil)
+	if _, err := svc.SetReferee(ctx, referee.OnlineID, room.ID, &otherReferee.OnlineID); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("referee reassignment error = %v, want forbidden", err)
+	}
+	if _, err := svc.SetReferee(ctx, admin.OnlineID, room.ID, &otherReferee.OnlineID); err != nil {
+		t.Fatalf("admin assignment: %v", err)
+	}
+	if room.RefereeUserID == nil || *room.RefereeUserID != otherReferee.OnlineID {
+		t.Fatalf("stored referee = %v, want %d", room.RefereeUserID, otherReferee.OnlineID)
+	}
+}
+
+func TestAdminCanUpdateRoomMetadataAndClearOptionalFields(t *testing.T) {
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
+	referee := &domain.User{ID: bson.NewObjectID(), OnlineID: 2, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
+	for _, user := range []*domain.User{admin, referee} {
+		if err := users.Create(ctx, user); err != nil {
+			t.Fatal(err)
+		}
+	}
+	room := &domain.Room{ID: bson.NewObjectID(), Type: domain.RoomTypeMatch, OwnerID: admin.OnlineID, Name: "old"}
+	if err := rooms.Create(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewRoomService(rooms, nil, users, nil, nil)
+	scheduled := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
+	streamer, leader := int64(30), int64(40)
+	updated, err := svc.UpdateRoomMetadata(ctx, admin.OnlineID, room.ID, RoomMetadataUpdate{
+		Name: "new", ScheduledAt: &scheduled, RefereeUserID: &referee.OnlineID,
+		StreamerUserID: &streamer, RedLeader: &leader, RedPlayers: []int64{41, 42}, BluePlayers: []int64{51, 52},
+	})
+	if err != nil {
+		t.Fatalf("update room metadata: %v", err)
+	}
+	if updated.Name != "new" || updated.ScheduledAt == nil || updated.RefereeUserID == nil || *updated.RefereeUserID != referee.OnlineID || updated.Settings.StreamerUserID == nil {
+		t.Fatalf("updated metadata = %+v", updated)
+	}
+	cleared, err := svc.UpdateRoomMetadata(ctx, admin.OnlineID, room.ID, RoomMetadataUpdate{Name: "cleared"})
+	if err != nil {
+		t.Fatalf("clear room metadata: %v", err)
+	}
+	if cleared.ScheduledAt != nil || cleared.RefereeUserID != nil || cleared.Settings.StreamerUserID != nil || len(cleared.Settings.RedPlayers) != 0 {
+		t.Fatalf("optional metadata was not cleared: %+v", cleared)
+	}
+}
+
+func TestOnlyAdminCanUpdateRoomMetadataAndSetupIsLocked(t *testing.T) {
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
+	referee := &domain.User{ID: bson.NewObjectID(), OnlineID: 2, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
+	for _, user := range []*domain.User{admin, referee} {
+		if err := users.Create(ctx, user); err != nil {
+			t.Fatal(err)
+		}
+	}
+	room := &domain.Room{ID: bson.NewObjectID(), Type: domain.RoomTypeMatch, OwnerID: admin.OnlineID, Name: "old"}
+	if err := rooms.Create(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewRoomService(rooms, nil, users, nil, nil)
+	if _, err := svc.UpdateRoomMetadata(ctx, referee.OnlineID, room.ID, RoomMetadataUpdate{Name: "nope"}); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("non-admin update error = %v, want forbidden", err)
+	}
+	matchID := bson.NewObjectID()
+	room.MatchID = &matchID
+	if _, err := svc.UpdateRoomMetadata(ctx, admin.OnlineID, room.ID, RoomMetadataUpdate{Name: "too late"}); !errors.Is(err, errs.ErrConflict) {
+		t.Fatalf("post-start update error = %v, want conflict", err)
+	}
+	if room.Name != "old" {
+		t.Fatalf("locked room was changed: %q", room.Name)
+	}
+}
+
+func TestAdminCanPartiallyUpdateRoomMetadata(t *testing.T) {
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
+	referee := &domain.User{ID: bson.NewObjectID(), OnlineID: 2, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
+	for _, user := range []*domain.User{admin, referee} {
+		if err := users.Create(ctx, user); err != nil {
+			t.Fatal(err)
+		}
+	}
+	scheduled := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
+	streamer, leader := int64(30), int64(40)
+	room := &domain.Room{ID: bson.NewObjectID(), Type: domain.RoomTypeMatch, OwnerID: admin.OnlineID, Name: "old",
+		ScheduledAt: &scheduled, RefereeUserID: &referee.OnlineID,
+		Settings: domain.RoomSettings{StreamerUserID: &streamer, RedLeader: &leader, RedPlayers: []int64{41, 42}}}
+	if err := rooms.Create(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewRoomService(rooms, nil, users, nil, nil)
+
+	name := "renamed"
+	round := "quarterfinal"
+	updated, err := svc.UpdateRoomMetadataPartial(ctx, admin.OnlineID, room.ID, RoomMetadataPatch{Name: &name, Round: &round})
+	if err != nil {
+		t.Fatalf("partial update: %v", err)
+	}
+	if updated.Name != "renamed" || updated.Round != "quarterfinal" {
+		t.Fatalf("patched fields = %+v", updated)
+	}
+	if updated.ScheduledAt == nil || updated.RefereeUserID == nil || *updated.RefereeUserID != referee.OnlineID ||
+		updated.Settings.StreamerUserID == nil || updated.Settings.RedLeader == nil || len(updated.Settings.RedPlayers) != 2 {
+		t.Fatalf("untouched fields were modified: %+v", updated)
+	}
+
+	if _, err := svc.UpdateRoomMetadataPartial(ctx, referee.OnlineID, room.ID, RoomMetadataPatch{Name: &name}); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("non-admin partial update error = %v, want forbidden", err)
+	}
+	if _, err := svc.UpdateRoomMetadataPartial(ctx, admin.OnlineID, room.ID, RoomMetadataPatch{}); !errors.Is(err, errs.ErrInvalidInput) {
+		t.Fatalf("empty patch error = %v, want invalid input", err)
+	}
+
+	matchID := bson.NewObjectID()
+	room.MatchID = &matchID
+	if _, err := svc.UpdateRoomMetadataPartial(ctx, admin.OnlineID, room.ID, RoomMetadataPatch{Name: &name}); !errors.Is(err, errs.ErrConflict) {
+		t.Fatalf("post-start partial update error = %v, want conflict", err)
+	}
+}
+
+func TestAdminCannotAssignRefereeToNonFormalRoom(t *testing.T) {
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
+	referee := &domain.User{ID: bson.NewObjectID(), OnlineID: 2, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
+	_ = users.Create(ctx, admin)
+	_ = users.Create(ctx, referee)
+	room := &domain.Room{ID: bson.NewObjectID(), Type: domain.RoomTypeCasual, OwnerID: admin.OnlineID, Name: "casual"}
+	_ = rooms.Create(ctx, room)
+	svc := NewRoomService(rooms, nil, users, nil, nil)
+	if _, err := svc.UpdateRoomMetadata(ctx, admin.OnlineID, room.ID, RoomMetadataUpdate{Name: "casual", RefereeUserID: &referee.OnlineID}); !errors.Is(err, errs.ErrInvalidInput) {
+		t.Fatalf("casual referee assignment error = %v, want invalid input", err)
+	}
+}
+
 func TestFormalRoomUsesAuthoritativeBootstrap(t *testing.T) {
 	t.Parallel()
 
@@ -295,8 +481,8 @@ func TestFormalRoomUsesAuthoritativeBootstrap(t *testing.T) {
 		t.Fatalf("bootstrap calls=%d match=%+v state=%+v", bootstrap.calls, match, bootstrap.state)
 	}
 	red, blue := int64(102), int64(202)
-	if _, err := svc.SetStrategists(ctx, room.OwnerID, room.ID, &red, &blue); !errors.Is(err, errs.ErrConflict) {
-		t.Fatalf("post-bootstrap assignment edit error = %v, want conflict", err)
+	if _, err := svc.SetStrategists(ctx, room.OwnerID, room.ID, &red, &blue); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("post-bootstrap assignment edit error = %v, want forbidden", err)
 	}
 }
 
@@ -373,7 +559,8 @@ func TestRoomConfigurationUsesCurrentAccountAndOwnership(t *testing.T) {
 		_ = users.Create(ctx, user)
 	}
 	casual := &domain.Room{ID: bson.NewObjectID(), Code: "CASUAL", Type: domain.RoomTypeCasual, OwnerID: owner.OnlineID, Settings: domain.RoomSettings{}}
-	formal := &domain.Room{ID: bson.NewObjectID(), Code: "FORMAL-AUTH", Type: domain.RoomTypeMatch, OwnerID: owner.OnlineID, Settings: domain.RoomSettings{}}
+	formalReferee := owner.OnlineID
+	formal := &domain.Room{ID: bson.NewObjectID(), Code: "FORMAL-AUTH", Type: domain.RoomTypeMatch, OwnerID: owner.OnlineID, RefereeUserID: &formalReferee, Settings: domain.RoomSettings{}}
 	_ = rooms.Create(ctx, casual)
 	_ = rooms.Create(ctx, formal)
 	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil, nil)
@@ -403,20 +590,63 @@ func TestRoomConfigurationUsesCurrentAccountAndOwnership(t *testing.T) {
 	}
 }
 
+func TestFormalRefereeCanOnlyUpdateMPLinkAmongRoomSetupEndpoints(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 300, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
+	referee := &domain.User{ID: bson.NewObjectID(), OnlineID: 301, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
+	_ = users.Create(ctx, admin)
+	_ = users.Create(ctx, referee)
+	room := formalRoomFixture()
+	room.OwnerID = admin.OnlineID
+	room.RefereeUserID = &referee.OnlineID
+	if err := rooms.Create(ctx, &room); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil, nil)
+	red, blue := int64(10), int64(20)
+	if _, err := svc.SetStrategists(ctx, referee.OnlineID, room.ID, &red, &blue); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("referee strategists error = %v, want forbidden", err)
+	}
+	if _, err := svc.SetStreamer(ctx, referee.OnlineID, room.ID, &red); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("referee streamer error = %v, want forbidden", err)
+	}
+	if _, err := svc.SetMappool(ctx, referee.OnlineID, room.ID, domain.NewMappool()); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("referee mappool error = %v, want forbidden", err)
+	}
+	if _, err := svc.SetBPOrder(ctx, referee.OnlineID, room.ID, domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue}); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("referee bp order error = %v, want forbidden", err)
+	}
+	if _, err := svc.SetPlayers(ctx, referee.OnlineID, room.ID, &red, &blue, []int64{1}, []int64{2}); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("referee players error = %v, want forbidden", err)
+	}
+	if _, err := svc.SetStreamLink(ctx, referee.OnlineID, room.ID, "https://stream.example"); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("referee stream link error = %v, want forbidden", err)
+	}
+	if _, err := svc.SetMPLink(ctx, referee.OnlineID, room.ID, "https://osu.ppy.sh/community/matches/42"); err != nil {
+		t.Fatalf("referee mp link: %v", err)
+	}
+	if _, err := svc.SetStrategists(ctx, admin.OnlineID, room.ID, &red, &blue); err != nil {
+		t.Fatalf("admin strategists: %v", err)
+	}
+}
+
 func TestRoomSetupWriteCannotRaceFormalBootstrap(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	rooms := newFakeRoomRepo()
 	users := newFakeUserRepo()
-	referee := &domain.User{ID: bson.NewObjectID(), OnlineID: 999, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
-	_ = users.Create(ctx, referee)
+	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 999, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
+	_ = users.Create(ctx, admin)
 	room := formalRoomFixture()
 	_ = rooms.Create(ctx, &room)
 	startedMatchID := bson.NewObjectID()
 	rooms.beforeUpdateFields = func(stored *domain.Room) { stored.MatchID = &startedMatchID }
 	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil, nil)
 	red, blue := int64(102), int64(202)
-	if _, err := svc.SetStrategists(ctx, referee.OnlineID, room.ID, &red, &blue); !errors.Is(err, errs.ErrConflict) {
+	if _, err := svc.SetStrategists(ctx, admin.OnlineID, room.ID, &red, &blue); !errors.Is(err, errs.ErrConflict) {
 		t.Fatalf("racing setup write error = %v, want conflict", err)
 	}
 	if room.MatchID == nil || *room.MatchID != startedMatchID || *room.Settings.RedStrategistUserID == red {

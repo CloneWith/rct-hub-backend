@@ -68,7 +68,7 @@ func TestOrchestratorReplaysCommittedResultAfterAuthorizationChanges(t *testing.
 		t.Fatalf("first Execute: %v", err)
 	}
 	fixture.users[refereeOsuID].IsBanned = true
-	fixture.room.OwnerID = 9999
+	fixture.room.RefereeUserID = func() *int64 { v := int64(9999); return &v }()
 	replayed, err := fixture.orchestrator.Execute(context.Background(), request)
 	if err != nil {
 		t.Fatalf("replay after authorization change: %v", err)
@@ -119,7 +119,7 @@ func TestOrchestratorUsesCurrentUserAndRoomAssignments(t *testing.T) {
 	}{
 		{name: "banned referee", caller: refereeOsuID, mutate: func(f *commandFixture) { f.users[refereeOsuID].IsBanned = true }, want: CodeUserBanned},
 		{name: "pending referee", caller: refereeOsuID, mutate: func(f *commandFixture) { f.users[refereeOsuID].VerifyStatus = domain.Pending }, want: CodeUserNotVerified},
-		{name: "unassigned referee", caller: refereeOsuID, mutate: func(f *commandFixture) { f.room.OwnerID = 9999 }, want: CodeRoomRoleRequired},
+		{name: "unassigned referee", caller: refereeOsuID, mutate: func(f *commandFixture) { f.room.RefereeUserID = func() *int64 { v := int64(9999); return &v }() }, want: CodeRoomRoleRequired},
 		{name: "missing user", caller: 8888, mutate: func(*commandFixture) {}, want: CodeAuthRequired},
 	}
 	for _, test := range tests {
@@ -183,20 +183,20 @@ func TestActorForCommandRecordsOverridesAccurately(t *testing.T) {
 
 	fixture := newCommandFixture(t)
 	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 3001, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
-	fixture.room.OwnerID = admin.OnlineID
+	fixture.room.RefereeUserID = func() *int64 { v := admin.OnlineID; return &v }()
 	actor, adminOverride, refereeOverride, err := actorForCommand(admin, fixture.room, matchengine.StartMatch{})
 	if err != nil || actor.Capability != matchengine.CapabilityReferee || !adminOverride || refereeOverride {
 		t.Fatalf("admin referee command = %+v admin=%v proxy=%v err=%v", actor, adminOverride, refereeOverride, err)
 	}
 
-	fixture.room.OwnerID = refereeOsuID
+	fixture.room.RefereeUserID = func() *int64 { v := refereeOsuID; return &v }()
 	referee := fixture.users[refereeOsuID]
 	actor, adminOverride, refereeOverride, err = actorForCommand(referee, fixture.room, matchengine.StartMatch{})
 	if err != nil || actor.Capability != matchengine.CapabilityReferee || adminOverride || refereeOverride {
 		t.Fatalf("assigned referee command = %+v admin=%v proxy=%v err=%v", actor, adminOverride, refereeOverride, err)
 	}
 
-	fixture.room.OwnerID = admin.OnlineID
+	fixture.room.RefereeUserID = func() *int64 { v := admin.OnlineID; return &v }()
 	actor, adminOverride, refereeOverride, err = actorForCommand(admin, fixture.room, matchengine.RefereeBanPoolSlot{PoolSlotID: "NM-1", Reason: "proxy"})
 	if err != nil || actor.Capability != matchengine.CapabilityReferee || !adminOverride || !refereeOverride {
 		t.Fatalf("admin proxy command = %+v admin=%v proxy=%v err=%v", actor, adminOverride, refereeOverride, err)
@@ -402,7 +402,7 @@ func newCommandFixture(t *testing.T) *commandFixture {
 	redStrategist, blueStrategist := redStrategistOsuID, blueStrategistOsuID
 	redLeader, blueLeader := int64(1101), int64(2101)
 	room := &domain.Room{
-		ID: roomID, Type: domain.RoomTypeMatch, OwnerID: refereeOsuID, MatchID: &matchID,
+		ID: roomID, Type: domain.RoomTypeMatch, OwnerID: refereeOsuID, RefereeUserID: func() *int64 { v := refereeOsuID; return &v }(), MatchID: &matchID,
 		Settings: domain.RoomSettings{
 			RedStrategistUserID: &redStrategist, BlueStrategistUserID: &blueStrategist,
 			RedLeader: &redLeader, BlueLeader: &blueLeader,

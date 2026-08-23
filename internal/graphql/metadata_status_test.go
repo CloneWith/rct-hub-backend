@@ -106,7 +106,8 @@ func TestRetryBeatmapMetadataRequiresLinkedMatchBeatmap(t *testing.T) {
 	matchID, roomID := bson.NewObjectID(), bson.NewObjectID()
 	beatmapID := int64(123)
 	user := &domain.User{OnlineID: 100, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
-	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, MatchID: &matchID}
+	refereeID := int64(100)
+	room := &domain.Room{ID: roomID, Type: domain.RoomTypeMatch, OwnerID: 100, RefereeUserID: &refereeID, MatchID: &matchID}
 	metadata := &metadataManagerStub{}
 	resolver := NewResolver(nil).
 		WithFormalMatchReader(ircFormalReader{&service.FormalMatch{ID: matchID, RoomID: roomID, Pool: map[string]*int64{"NM1": &beatmapID}}}).

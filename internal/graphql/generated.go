@@ -442,7 +442,7 @@ type ComplexityRoot struct {
 		Ping                func(childComplexity int) int
 		Room                func(childComplexity int, id string) int
 		RoomByCode          func(childComplexity int, code string) int
-		Rooms               func(childComplexity int, typeArg *RoomType, page *int, perPage *int) int
+		Rooms               func(childComplexity int, typeArg *RoomType, search *string, round *string, status *MatchLifecycle, relatedToMe *bool, page *int, perPage *int) int
 		User                func(childComplexity int, id string) int
 		Users               func(childComplexity int, page *int, perPage *int) int
 	}
@@ -463,17 +463,21 @@ type ComplexityRoot struct {
 	}
 
 	Room struct {
-		Code      func(childComplexity int) int
-		CreatedAt func(childComplexity int) int
-		ID        func(childComplexity int) int
-		Match     func(childComplexity int) int
-		MatchID   func(childComplexity int) int
-		Name      func(childComplexity int) int
-		Owner     func(childComplexity int) int
-		OwnerID   func(childComplexity int) int
-		Settings  func(childComplexity int) int
-		Type      func(childComplexity int) int
-		UpdatedAt func(childComplexity int) int
+		Code          func(childComplexity int) int
+		CreatedAt     func(childComplexity int) int
+		ID            func(childComplexity int) int
+		Match         func(childComplexity int) int
+		MatchID       func(childComplexity int) int
+		Name          func(childComplexity int) int
+		Owner         func(childComplexity int) int
+		OwnerID       func(childComplexity int) int
+		Referee       func(childComplexity int) int
+		RefereeUserID func(childComplexity int) int
+		Round         func(childComplexity int) int
+		ScheduledAt   func(childComplexity int) int
+		Settings      func(childComplexity int) int
+		Type          func(childComplexity int) int
+		UpdatedAt     func(childComplexity int) int
 	}
 
 	RoomPage struct {
@@ -634,7 +638,7 @@ type QueryResolver interface {
 	Matches(ctx context.Context, page *int, perPage *int) (*MatchPage, error)
 	Room(ctx context.Context, id string) (*Room, error)
 	RoomByCode(ctx context.Context, code string) (*Room, error)
-	Rooms(ctx context.Context, typeArg *RoomType, page *int, perPage *int) (*RoomPage, error)
+	Rooms(ctx context.Context, typeArg *RoomType, search *string, round *string, status *MatchLifecycle, relatedToMe *bool, page *int, perPage *int) (*RoomPage, error)
 	Beatmap(ctx context.Context, id string) (*Beatmap, error)
 	BeatmapByOsuID(ctx context.Context, osuID int) (*Beatmap, error)
 	Beatmaps(ctx context.Context, page *int, perPage *int) (*BeatmapPage, error)
@@ -652,6 +656,8 @@ type RefereeViewResolver interface {
 }
 type RoomResolver interface {
 	Owner(ctx context.Context, obj *Room) (*User, error)
+
+	Referee(ctx context.Context, obj *Room) (*User, error)
 
 	Match(ctx context.Context, obj *Room) (*Match, error)
 }
@@ -2660,7 +2666,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.Rooms(childComplexity, args["type"].(*RoomType), args["page"].(*int), args["perPage"].(*int)), true
+		return e.ComplexityRoot.Query.Rooms(childComplexity, args["type"].(*RoomType), args["search"].(*string), args["round"].(*string), args["status"].(*MatchLifecycle), args["relatedToMe"].(*bool), args["page"].(*int), args["perPage"].(*int)), true
 	case "Query.user":
 		if e.ComplexityRoot.Query.User == nil {
 			break
@@ -2798,6 +2804,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Room.OwnerID(childComplexity), true
+	case "Room.referee":
+		if e.ComplexityRoot.Room.Referee == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Room.Referee(childComplexity), true
+	case "Room.refereeUserID":
+		if e.ComplexityRoot.Room.RefereeUserID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Room.RefereeUserID(childComplexity), true
+	case "Room.round":
+		if e.ComplexityRoot.Room.Round == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Room.Round(childComplexity), true
+	case "Room.scheduledAt":
+		if e.ComplexityRoot.Room.ScheduledAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Room.ScheduledAt(childComplexity), true
 	case "Room.settings":
 		if e.ComplexityRoot.Room.Settings == nil {
 			break
@@ -3344,6 +3374,10 @@ type Room {
   type: RoomType!
   ownerID: ID!
   owner: User @goField(forceResolver: true)
+  refereeUserID: ID
+  referee: User @goField(forceResolver: true)
+  round: String!
+  scheduledAt: Time
   settings: RoomSettings!
   matchID: ID               # 内部关联, null 表示尚未开始比赛
   match: Match @goField(forceResolver: true)
@@ -3771,7 +3805,7 @@ type Query {
   # 房间
   room(id: ID!): Room
   roomByCode(code: String!): Room
-  rooms(type: RoomType, page: Int = 1, perPage: Int = 20): RoomPage!
+  rooms(type: RoomType, search: String, round: String, status: MatchLifecycle, relatedToMe: Boolean = false, page: Int = 1, perPage: Int = 20): RoomPage!
 
   # 谱面
   beatmap(id: ID!): Beatmap
@@ -4704,6 +4738,14 @@ func (ec *executionContext) childFields_Room(ctx context.Context, field graphql.
 		return ec.fieldContext_Room_ownerID(ctx, field)
 	case "owner":
 		return ec.fieldContext_Room_owner(ctx, field)
+	case "refereeUserID":
+		return ec.fieldContext_Room_refereeUserID(ctx, field)
+	case "referee":
+		return ec.fieldContext_Room_referee(ctx, field)
+	case "round":
+		return ec.fieldContext_Room_round(ctx, field)
+	case "scheduledAt":
+		return ec.fieldContext_Room_scheduledAt(ctx, field)
 	case "settings":
 		return ec.fieldContext_Room_settings(ctx, field)
 	case "matchID":
@@ -5677,22 +5719,54 @@ func (ec *executionContext) field_Query_rooms_args(ctx context.Context, rawArgs 
 		return nil, err
 	}
 	args["type"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "page",
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "search",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["search"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "round",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["round"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "status",
+		func(ctx context.Context, v any) (*MatchLifecycle, error) {
+			return ec.unmarshalOMatchLifecycle2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchLifecycle(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["status"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "relatedToMe",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["relatedToMe"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "page",
 		func(ctx context.Context, v any) (*int, error) {
 			return ec.unmarshalOInt2ᚖint(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["page"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "perPage",
+	args["page"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "perPage",
 		func(ctx context.Context, v any) (*int, error) {
 			return ec.unmarshalOInt2ᚖint(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["perPage"] = arg2
+	args["perPage"] = arg6
 	return args, nil
 }
 
@@ -13409,7 +13483,7 @@ func (ec *executionContext) _Query_rooms(ctx context.Context, field graphql.Coll
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().Rooms(ctx, fc.Args["type"].(*RoomType), fc.Args["page"].(*int), fc.Args["perPage"].(*int))
+			return ec.Resolvers.Query().Rooms(ctx, fc.Args["type"].(*RoomType), fc.Args["search"].(*string), fc.Args["round"].(*string), fc.Args["status"].(*MatchLifecycle), fc.Args["relatedToMe"].(*bool), fc.Args["page"].(*int), fc.Args["perPage"].(*int))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *RoomPage) graphql.Marshaler {
@@ -14371,6 +14445,107 @@ func (ec *executionContext) fieldContext_Room_owner(_ context.Context, field gra
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Room_refereeUserID(ctx context.Context, field graphql.CollectedField, obj *Room) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Room_refereeUserID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RefereeUserID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Room_refereeUserID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Room", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Room_referee(ctx context.Context, field graphql.CollectedField, obj *Room) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Room_referee(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Room().Referee(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖrctHubBackendᚋinternalᚋgraphqlᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Room_referee(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Room",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Room_round(ctx context.Context, field graphql.CollectedField, obj *Room) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Room_round(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Round, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Room_round(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Room", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Room_scheduledAt(ctx context.Context, field graphql.CollectedField, obj *Room) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Room_scheduledAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ScheduledAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Room_scheduledAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Room", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
 func (ec *executionContext) _Room_settings(ctx context.Context, field graphql.CollectedField, obj *Room) (ret graphql.Marshaler) {
@@ -21820,6 +21995,59 @@ func (ec *executionContext) _Room(ctx context.Context, sel ast.SelectionSet, obj
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "refereeUserID":
+			out.Values[i] = ec._Room_refereeUserID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "referee":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Room_referee(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "round":
+			out.Values[i] = ec._Room_round(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "scheduledAt":
+			out.Values[i] = ec._Room_scheduledAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "settings":
 			out.Values[i] = ec._Room_settings(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -24641,6 +24869,22 @@ func (ec *executionContext) marshalOMatchError2ᚖrctHubBackendᚋinternalᚋgra
 		return graphql.Null
 	}
 	return ec._MatchError(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOMatchLifecycle2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchLifecycle(ctx context.Context, v any) (*MatchLifecycle, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(MatchLifecycle)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOMatchLifecycle2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchLifecycle(ctx context.Context, sel ast.SelectionSet, v *MatchLifecycle) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) marshalOMatchSnapshot2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchSnapshot(ctx context.Context, sel ast.SelectionSet, v *MatchSnapshot) graphql.Marshaler {

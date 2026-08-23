@@ -13,6 +13,7 @@ import (
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/irc"
 	"rctHubBackend/internal/matchengine"
+	"rctHubBackend/internal/repository"
 	"rctHubBackend/pkg/errs"
 	"slices"
 	"strconv"
@@ -585,6 +586,9 @@ func (r *queryResolver) Matches(ctx context.Context, page *int, perPage *int) (*
 
 // Room is the resolver for the room field.
 func (r *queryResolver) Room(ctx context.Context, id string) (*Room, error) {
+	if _, err := r.privateViewer(ctx); err != nil {
+		return nil, err
+	}
 	objID, err := bson.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, fmt.Errorf("invalid room ID: %w", err)
@@ -602,6 +606,9 @@ func (r *queryResolver) Room(ctx context.Context, id string) (*Room, error) {
 
 // RoomByCode is the resolver for the roomByCode field.
 func (r *queryResolver) RoomByCode(ctx context.Context, code string) (*Room, error) {
+	if _, err := r.privateViewer(ctx); err != nil {
+		return nil, err
+	}
 	room, err := r.svc.Rooms.GetRoomByCode(ctx, code)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -613,15 +620,31 @@ func (r *queryResolver) RoomByCode(ctx context.Context, code string) (*Room, err
 }
 
 // Rooms is the resolver for the rooms field.
-func (r *queryResolver) Rooms(ctx context.Context, typeArg *RoomType, page *int, perPage *int) (*RoomPage, error) {
-	var domainType *domain.RoomType
+func (r *queryResolver) Rooms(ctx context.Context, typeArg *RoomType, search *string, round *string, status *MatchLifecycle, relatedToMe *bool, page *int, perPage *int) (*RoomPage, error) {
+	viewer, err := r.privateViewer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	filter := repository.RoomListFilter{}
 	if typeArg != nil {
 		t := domain.RoomType(strings.ToLower(string(*typeArg)))
-		domainType = &t
+		filter.Type = &t
+	}
+	if search != nil {
+		filter.Search = *search
+	}
+	if round != nil {
+		filter.Round = *round
+	}
+	if status != nil {
+		filter.Lifecycle = string(*status)
+	}
+	if relatedToMe != nil && *relatedToMe {
+		filter.RelatedUserID = &viewer.OnlineID
 	}
 
 	params := buildPageParams(page, perPage)
-	result, err := r.svc.Rooms.GetRooms(ctx, params, domainType)
+	result, err := r.svc.Rooms.GetRooms(ctx, params, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -870,6 +893,26 @@ func (r *roomResolver) Owner(ctx context.Context, obj *Room) (*User, error) {
 		return nil, fmt.Errorf("UserLoader not found in context")
 	}
 	id, err := parsePositiveInt64ID(obj.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	u, err := loader.Load(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+// Referee is the resolver for the referee field.
+func (r *roomResolver) Referee(ctx context.Context, obj *Room) (*User, error) {
+	if obj.RefereeUserID == nil {
+		return nil, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	id, err := parsePositiveInt64ID(*obj.RefereeUserID)
 	if err != nil {
 		return nil, err
 	}

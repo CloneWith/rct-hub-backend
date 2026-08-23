@@ -210,6 +210,51 @@ func TestCommandAndQuerySnapshotsUseSameMapper(t *testing.T) {
 	}
 }
 
+func TestFormalRoomControlsMapToAuthoritativeCommands(t *testing.T) {
+	matchID := bson.NewObjectID()
+	stub := &commandExecutorStub{result: appliedGraphQLResult(matchID)}
+	resolver := NewResolver(nil, stub)
+	ctx := WithClaims(context.Background(), &jwtutil.Claims{OsuID: 1234})
+	meta := &CommandMeta{MatchID: matchID.Hex(), ExpectedVersion: "7", CommandID: graphqlCommandID}
+
+	tests := []struct {
+		name   string
+		call   func() (*MatchCommandResult, error)
+		assert func(matchengine.Command) bool
+	}{
+		{name: "start", call: func() (*MatchCommandResult, error) { return resolver.Mutation().StartMatch(ctx, *meta) }, assert: func(command matchengine.Command) bool { _, ok := command.(matchengine.StartMatch); return ok }},
+		{name: "suspend", call: func() (*MatchCommandResult, error) {
+			return resolver.Mutation().SuspendMatch(ctx, ReasonCommandInput{Meta: meta, Reason: "connection lost"})
+		}, assert: func(command matchengine.Command) bool {
+			value, ok := command.(matchengine.SuspendMatch)
+			return ok && value.Reason == "connection lost"
+		}},
+		{name: "resume", call: func() (*MatchCommandResult, error) {
+			return resolver.Mutation().ResumeMatch(ctx, ReasonCommandInput{Meta: meta, Reason: "connection restored"})
+		}, assert: func(command matchengine.Command) bool {
+			value, ok := command.(matchengine.ResumeMatch)
+			return ok && value.Reason == "connection restored"
+		}},
+		{name: "abort", call: func() (*MatchCommandResult, error) {
+			return resolver.Mutation().AbortMatch(ctx, ReasonCommandInput{Meta: meta, Reason: "match voided"})
+		}, assert: func(command matchengine.Command) bool {
+			value, ok := command.(matchengine.AbortMatch)
+			return ok && value.Reason == "match voided"
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := test.call()
+			if err != nil || !result.Success || !test.assert(stub.request.Command) {
+				t.Fatalf("result=%+v request=%+v err=%v", result, stub.request, err)
+			}
+			if stub.request.MatchID != matchID || stub.request.ExpectedVersion != 7 || stub.request.CommandID != graphqlCommandID || stub.request.CallerOsuID != 1234 {
+				t.Fatalf("command metadata = %+v", stub.request)
+			}
+		})
+	}
+}
+
 func TestMutationExposesVersionConflict(t *testing.T) {
 	current := uint64(12)
 	stub := &commandExecutorStub{err: &matchcommand.Error{Code: matchcommand.CodeMatchVersionConflict, Message: "stale match version", CurrentVersion: &current}}

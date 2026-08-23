@@ -115,15 +115,18 @@ func mapRoom(r *domain.Room) *Room {
 		matchID = &id
 	}
 	return &Room{
-		ID:        r.ID.Hex(),
-		Code:      r.Code,
-		Name:      r.Name,
-		Type:      mapRoomType(r.Type),
-		OwnerID:   strconv.FormatInt(r.OwnerID, 10),
-		Settings:  mapRoomSettings(&r.Settings),
-		MatchID:   matchID,
-		CreatedAt: r.CreatedAt,
-		UpdatedAt: r.UpdatedAt,
+		ID:            r.ID.Hex(),
+		Code:          r.Code,
+		Name:          r.Name,
+		Type:          mapRoomType(r.Type),
+		OwnerID:       strconv.FormatInt(r.OwnerID, 10),
+		RefereeUserID: int64PtrToStringPtr(r.RefereeUserID),
+		Round:         r.Round,
+		ScheduledAt:   r.ScheduledAt,
+		Settings:      mapRoomSettings(&r.Settings),
+		MatchID:       matchID,
+		CreatedAt:     r.CreatedAt,
+		UpdatedAt:     r.UpdatedAt,
 		// Match 由 roomResolver.Match 解析
 	}
 }

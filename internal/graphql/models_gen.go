@@ -526,17 +526,21 @@ type RobberyPlan struct {
 }
 
 type Room struct {
-	ID        string        `json:"id"`
-	Code      string        `json:"code"`
-	Name      string        `json:"name"`
-	Type      RoomType      `json:"type"`
-	OwnerID   string        `json:"ownerID"`
-	Owner     *User         `json:"owner,omitempty"`
-	Settings  *RoomSettings `json:"settings"`
-	MatchID   *string       `json:"matchID,omitempty"`
-	Match     *Match        `json:"match,omitempty"`
-	CreatedAt time.Time     `json:"createdAt"`
-	UpdatedAt time.Time     `json:"updatedAt"`
+	ID            string        `json:"id"`
+	Code          string        `json:"code"`
+	Name          string        `json:"name"`
+	Type          RoomType      `json:"type"`
+	OwnerID       string        `json:"ownerID"`
+	Owner         *User         `json:"owner,omitempty"`
+	RefereeUserID *string       `json:"refereeUserID,omitempty"`
+	Referee       *User         `json:"referee,omitempty"`
+	Round         string        `json:"round"`
+	ScheduledAt   *time.Time    `json:"scheduledAt,omitempty"`
+	Settings      *RoomSettings `json:"settings"`
+	MatchID       *string       `json:"matchID,omitempty"`
+	Match         *Match        `json:"match,omitempty"`
+	CreatedAt     time.Time     `json:"createdAt"`
+	UpdatedAt     time.Time     `json:"updatedAt"`
 }
 
 type RoomPage struct {

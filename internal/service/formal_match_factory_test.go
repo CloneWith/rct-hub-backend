@@ -91,11 +91,12 @@ func formalRoomFixture() domain.Room {
 	pool.Slots[domain.PieceModShiro] = []domain.Piece{{}}
 	pool.Slots[domain.PieceModTB] = []domain.Piece{{}}
 	return domain.Room{
-		ID:      bson.NewObjectID(),
-		Code:    "FORMAL",
-		Name:    "Formal Match",
-		Type:    domain.RoomTypeMatch,
-		OwnerID: 999,
+		ID:            bson.NewObjectID(),
+		Code:          "FORMAL",
+		Name:          "Formal Match",
+		Type:          domain.RoomTypeMatch,
+		OwnerID:       999,
+		RefereeUserID: func() *int64 { v := int64(999); return &v }(),
 		Settings: domain.RoomSettings{
 			RedStrategistUserID:  &redStrategist,
 			BlueStrategistUserID: &blueStrategist,

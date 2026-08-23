@@ -32,6 +32,37 @@ type FormalMatchBootstrap interface {
 	Create(context.Context, bson.ObjectID, domain.Match, matchengine.State, time.Time) error
 }
 
+// RoomMetadataUpdate is the administrator-owned pre-game room configuration.
+// Nil optional values clear the corresponding relationship or schedule.
+type RoomMetadataUpdate struct {
+	Name           string
+	Round          string
+	ScheduledAt    *time.Time
+	RefereeUserID  *int64
+	StreamerUserID *int64
+	RedLeader      *int64
+	BlueLeader     *int64
+	RedPlayers     []int64
+	BluePlayers    []int64
+}
+
+// RoomMetadataPatch is an incremental room metadata update. Nil pointer fields
+// and nil slices are left unchanged; only the fields present in the request
+// are written. Present-but-empty player slices replace the stored roster.
+// Clearing an optional field is not supported here; use the full metadata
+// replace or the dedicated per-field endpoints instead.
+type RoomMetadataPatch struct {
+	Name           *string
+	Round          *string
+	ScheduledAt    *time.Time
+	RefereeUserID  *int64
+	StreamerUserID *int64
+	RedLeader      *int64
+	BlueLeader     *int64
+	RedPlayers     []int64
+	BluePlayers    []int64
+}
+
 // NewRoomService creates a new RoomService.
 func NewRoomService(rooms repository.RoomRepository, matches repository.MatchRepository, users repository.UserRepository, formalMatches FormalMatchBootstrap, log *zap.Logger) *RoomService {
 	if log == nil {
@@ -66,6 +97,9 @@ func (s *RoomService) CreateRoom(ctx context.Context, ownerID int64, roomType do
 		OwnerID:  ownerID,
 		Settings: domain.RoomSettings{Mappool: domain.NewMappool()},
 	}
+	if roomType == domain.RoomTypeMatch {
+		room.RefereeUserID = &ownerID
+	}
 	if err := s.rooms.Create(ctx, room); err != nil {
 		s.log.Error("failed to create room", zap.Int64("owner_id", ownerID), zap.Error(err))
 		return nil, err
@@ -79,9 +113,9 @@ func (s *RoomService) CreateRoom(ctx context.Context, ownerID int64, roomType do
 	return room, nil
 }
 
-// GetRooms returns a paginated list of rooms filtered by optional type.
-func (s *RoomService) GetRooms(ctx context.Context, params paginate.Params, roomType *domain.RoomType) (paginate.Result[domain.Room], error) {
-	return s.rooms.List(ctx, params, roomType)
+// GetRooms returns a paginated room directory using database-side filters.
+func (s *RoomService) GetRooms(ctx context.Context, params paginate.Params, filter repository.RoomListFilter) (paginate.Result[domain.Room], error) {
+	return s.rooms.List(ctx, params, filter)
 }
 
 // GetRoom fetches a room by id.
@@ -96,7 +130,7 @@ func (s *RoomService) GetRoomByCode(ctx context.Context, code string) (*domain.R
 
 // SetStrategists assigns the red and blue strategists for a room.
 func (s *RoomService) SetStrategists(ctx context.Context, callerID int64, roomID bson.ObjectID, redUID, blueUID *int64) (*domain.Room, error) {
-	room, err := s.authorizedRoom(ctx, callerID, roomID)
+	room, err := s.authorizedRoomConfiguration(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
 	}
@@ -111,16 +145,19 @@ func (s *RoomService) SetStrategists(ctx context.Context, callerID int64, roomID
 
 // SetStreamer assigns the streamer user id for a room.
 func (s *RoomService) SetStreamer(ctx context.Context, callerID int64, roomID bson.ObjectID, uid *int64) (*domain.Room, error) {
-	_, err := s.authorizedRoom(ctx, callerID, roomID)
+	room, err := s.authorizedRoomConfiguration(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
 	}
-	return s.updateRoomFields(ctx, roomID, bson.M{"settings.streamer_user_id": uid}, false)
+	if err := requireRoomSetupOpen(room); err != nil {
+		return nil, err
+	}
+	return s.updateRoomFields(ctx, roomID, bson.M{"settings.streamer_user_id": uid}, true)
 }
 
 // SetMappool replaces the room mappool.
 func (s *RoomService) SetMappool(ctx context.Context, callerID int64, roomID bson.ObjectID, pool domain.Mappool) (*domain.Room, error) {
-	room, err := s.authorizedRoom(ctx, callerID, roomID)
+	room, err := s.authorizedRoomConfiguration(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +169,7 @@ func (s *RoomService) SetMappool(ctx context.Context, callerID int64, roomID bso
 
 // SetBPOrder sets the pick/ban order for a room.
 func (s *RoomService) SetBPOrder(ctx context.Context, callerID int64, roomID bson.ObjectID, order domain.BPOrder) (*domain.Room, error) {
-	room, err := s.authorizedRoom(ctx, callerID, roomID)
+	room, err := s.authorizedRoomConfiguration(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +184,7 @@ func (s *RoomService) SetBPOrder(ctx context.Context, callerID int64, roomID bso
 
 // SetPlayers sets the team rosters for a room.
 func (s *RoomService) SetPlayers(ctx context.Context, callerID int64, roomID bson.ObjectID, redLeader, blueLeader *int64, redPlayers, bluePlayers []int64) (*domain.Room, error) {
-	room, err := s.authorizedRoom(ctx, callerID, roomID)
+	room, err := s.authorizedRoomConfiguration(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
 	}
@@ -178,11 +215,178 @@ func (s *RoomService) SetMPLink(ctx context.Context, callerID int64, roomID bson
 
 // SetStreamLink sets the stream link for a room.
 func (s *RoomService) SetStreamLink(ctx context.Context, callerID int64, roomID bson.ObjectID, link string) (*domain.Room, error) {
-	_, err := s.authorizedRoom(ctx, callerID, roomID)
+	room, err := s.authorizedRoomConfiguration(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
 	}
-	return s.updateRoomFields(ctx, roomID, bson.M{"settings.stream_link": &link}, false)
+	if err := requireRoomSetupOpen(room); err != nil {
+		return nil, err
+	}
+	return s.updateRoomFields(ctx, roomID, bson.M{"settings.stream_link": &link}, true)
+}
+
+// authorizedRoomConfiguration keeps formal match setup under administrator
+// control. Assigned referees retain the separate MP-link and command paths.
+func (s *RoomService) authorizedRoomConfiguration(ctx context.Context, callerID int64, roomID bson.ObjectID) (*domain.Room, error) {
+	user, err := s.currentEligibleUser(ctx, callerID)
+	if err != nil {
+		return nil, err
+	}
+	room, err := s.rooms.ByID(ctx, roomID)
+	if err != nil {
+		return nil, err
+	}
+	if user.HasRole(domain.RoleAdmin) {
+		return room, nil
+	}
+	if room.Type == domain.RoomTypeMatch || room.OwnerID != user.OnlineID {
+		return nil, errs.ErrForbidden
+	}
+	return room, nil
+}
+
+// SetReferee assigns the referee for a formal room. Only administrators may
+// change this relationship, and only before the match is bootstrapped.
+func (s *RoomService) SetReferee(ctx context.Context, callerID int64, roomID bson.ObjectID, refereeID *int64) (*domain.Room, error) {
+	caller, err := s.currentEligibleUser(ctx, callerID)
+	if err != nil {
+		return nil, err
+	}
+	if !caller.HasRole(domain.RoleAdmin) {
+		return nil, errs.ErrForbidden
+	}
+	room, err := s.rooms.ByID(ctx, roomID)
+	if err != nil {
+		return nil, err
+	}
+	if room.Type != domain.RoomTypeMatch {
+		return nil, errs.ErrInvalidInput
+	}
+	if err := requireRoomSetupOpen(room); err != nil {
+		return nil, err
+	}
+	if refereeID != nil {
+		referee, findErr := s.currentEligibleUser(ctx, *refereeID)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if !referee.HasRole(domain.RoleReferee) {
+			return nil, errs.ErrForbidden
+		}
+	}
+	return s.updateRoomFields(ctx, roomID, bson.M{"referee_user_id": refereeID}, true)
+}
+
+// UpdateRoomMetadata replaces the administrator-managed room metadata in one
+// setup-locked write. It intentionally does not alter match state.
+func (s *RoomService) UpdateRoomMetadata(ctx context.Context, callerID int64, roomID bson.ObjectID, update RoomMetadataUpdate) (*domain.Room, error) {
+	admin, err := s.currentEligibleUser(ctx, callerID)
+	if err != nil {
+		return nil, err
+	}
+	if !admin.HasRole(domain.RoleAdmin) {
+		return nil, errs.ErrForbidden
+	}
+	if update.Name == "" {
+		return nil, errs.ErrInvalidInput
+	}
+	room, err := s.rooms.ByID(ctx, roomID)
+	if err != nil {
+		return nil, err
+	}
+	if update.RefereeUserID != nil && room.Type != domain.RoomTypeMatch {
+		return nil, errs.ErrInvalidInput
+	}
+	if update.RefereeUserID != nil {
+		referee, findErr := s.currentEligibleUser(ctx, *update.RefereeUserID)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if !referee.HasRole(domain.RoleReferee) {
+			return nil, errs.ErrForbidden
+		}
+	}
+	fields := bson.M{
+		"name":                      update.Name,
+		"round":                     update.Round,
+		"scheduled_at":              update.ScheduledAt,
+		"referee_user_id":           update.RefereeUserID,
+		"settings.streamer_user_id": update.StreamerUserID,
+		"settings.red_leader":       update.RedLeader,
+		"settings.blue_leader":      update.BlueLeader,
+		"settings.red_players":      append([]int64(nil), update.RedPlayers...),
+		"settings.blue_players":     append([]int64(nil), update.BluePlayers...),
+	}
+	if err := s.rooms.UpdateFields(ctx, room.ID, fields, true); err != nil {
+		return nil, err
+	}
+	return s.rooms.ByID(ctx, room.ID)
+}
+
+// UpdateRoomMetadataPartial applies an incremental update to the
+// administrator-managed room metadata: only the fields present in the patch
+// are written, absent fields keep their stored values. It intentionally does
+// not alter match state and cannot clear optional fields.
+func (s *RoomService) UpdateRoomMetadataPartial(ctx context.Context, callerID int64, roomID bson.ObjectID, patch RoomMetadataPatch) (*domain.Room, error) {
+	admin, err := s.currentEligibleUser(ctx, callerID)
+	if err != nil {
+		return nil, err
+	}
+	if !admin.HasRole(domain.RoleAdmin) {
+		return nil, errs.ErrForbidden
+	}
+	fields := bson.M{}
+	if patch.Name != nil {
+		if *patch.Name == "" {
+			return nil, errs.ErrInvalidInput
+		}
+		fields["name"] = *patch.Name
+	}
+	if patch.Round != nil {
+		fields["round"] = *patch.Round
+	}
+	if patch.ScheduledAt != nil {
+		fields["scheduled_at"] = patch.ScheduledAt
+	}
+	if patch.RefereeUserID != nil {
+		room, findErr := s.rooms.ByID(ctx, roomID)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if room.Type != domain.RoomTypeMatch {
+			return nil, errs.ErrInvalidInput
+		}
+		referee, findErr := s.currentEligibleUser(ctx, *patch.RefereeUserID)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if !referee.HasRole(domain.RoleReferee) {
+			return nil, errs.ErrForbidden
+		}
+		fields["referee_user_id"] = patch.RefereeUserID
+	}
+	if patch.StreamerUserID != nil {
+		fields["settings.streamer_user_id"] = patch.StreamerUserID
+	}
+	if patch.RedLeader != nil {
+		fields["settings.red_leader"] = patch.RedLeader
+	}
+	if patch.BlueLeader != nil {
+		fields["settings.blue_leader"] = patch.BlueLeader
+	}
+	if patch.RedPlayers != nil {
+		fields["settings.red_players"] = append([]int64(nil), patch.RedPlayers...)
+	}
+	if patch.BluePlayers != nil {
+		fields["settings.blue_players"] = append([]int64(nil), patch.BluePlayers...)
+	}
+	if len(fields) == 0 {
+		return nil, errs.ErrInvalidInput
+	}
+	if err := s.rooms.UpdateFields(ctx, roomID, fields, true); err != nil {
+		return nil, err
+	}
+	return s.rooms.ByID(ctx, roomID)
 }
 
 // StartMatch creates a match from the room settings and transitions the room.
@@ -317,10 +521,13 @@ func (s *RoomService) authorizedRoom(ctx context.Context, callerID int64, roomID
 	if user.HasRole(domain.RoleAdmin) {
 		return room, nil
 	}
-	if room.OwnerID != user.OnlineID {
-		return nil, errs.ErrForbidden
+	if room.Type == domain.RoomTypeMatch {
+		if !user.HasRole(domain.RoleReferee) || room.RefereeUserID == nil || *room.RefereeUserID != user.OnlineID {
+			return nil, errs.ErrForbidden
+		}
+		return room, nil
 	}
-	if room.Type == domain.RoomTypeMatch && !user.HasRole(domain.RoleReferee) {
+	if room.OwnerID != user.OnlineID {
 		return nil, errs.ErrForbidden
 	}
 	return room, nil

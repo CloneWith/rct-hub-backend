@@ -105,6 +105,76 @@ func TestSchemaIntrospection(t *testing.T) {
 	t.Logf("✓ Schema introspection: %d types, %d query fields", len(typeNames), len(queryFields))
 }
 
+func TestRoomQueryContractUsesStableIdentifiersAndFormalSnapshot(t *testing.T) {
+	resolver := NewResolver(nil)
+	srv := NewHandler(resolver)
+	query := `{"query":"{ user: __type(name: \"User\") { fields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } room: __type(name: \"Room\") { fields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } settings: __type(name: \"RoomSettings\") { fields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } match: __type(name: \"Match\") { fields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } }"}`
+	req := httptest.NewRequest(http.MethodPost, "/graphql", strings.NewReader(query))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	srv.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	type typeRef struct {
+		Kind   string   `json:"kind"`
+		Name   string   `json:"name"`
+		OfType *typeRef `json:"ofType"`
+	}
+	type field struct {
+		Name string  `json:"name"`
+		Type typeRef `json:"type"`
+	}
+	var response struct {
+		Data struct {
+			User struct {
+				Fields []field `json:"fields"`
+			} `json:"user"`
+			Room struct {
+				Fields []field `json:"fields"`
+			} `json:"room"`
+			Settings struct {
+				Fields []field `json:"fields"`
+			} `json:"settings"`
+			Match struct {
+				Fields []field `json:"fields"`
+			} `json:"match"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("decode introspection response: %v", err)
+	}
+	if len(response.Errors) != 0 {
+		t.Fatalf("introspection errors: %+v", response.Errors)
+	}
+
+	fieldType := func(fields []field, name string) typeRef {
+		for _, item := range fields {
+			if item.Name == name {
+				return item.Type
+			}
+		}
+		t.Fatalf("field %s not found", name)
+		return typeRef{}
+	}
+	if got := fieldType(response.Data.User.Fields, "onlineID"); got.Kind != "NON_NULL" || got.OfType == nil || got.OfType.Name != "ID" {
+		t.Fatalf("User.onlineID must be ID!, got %+v", got)
+	}
+	if got := fieldType(response.Data.Room.Fields, "ownerID"); got.Kind != "NON_NULL" || got.OfType == nil || got.OfType.Name != "ID" {
+		t.Fatalf("Room.ownerID must be ID!, got %+v", got)
+	}
+	if got := fieldType(response.Data.Settings.Fields, "redPlayers"); got.Kind != "NON_NULL" || got.OfType == nil || got.OfType.Kind != "LIST" || got.OfType.OfType == nil || got.OfType.OfType.Kind != "NON_NULL" || got.OfType.OfType.OfType == nil || got.OfType.OfType.OfType.Name != "ID" {
+		t.Fatalf("RoomSettings.redPlayers must be [ID!]!, got %+v", got)
+	}
+	if got := fieldType(response.Data.Match.Fields, "snapshot"); got.Kind != "NON_NULL" || got.OfType == nil || got.OfType.Name != "MatchSnapshot" {
+		t.Fatalf("Match.snapshot must be MatchSnapshot!, got %+v", got)
+	}
+}
+
 // ============================================================================
 // Phase 1 — 类型映射测试
 // ============================================================================
