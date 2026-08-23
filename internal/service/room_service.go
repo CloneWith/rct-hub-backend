@@ -36,6 +36,24 @@ type FormalMatchBootstrap interface {
 // Nil optional values clear the corresponding relationship or schedule.
 type RoomMetadataUpdate struct {
 	Name           string
+	Round          string
+	ScheduledAt    *time.Time
+	RefereeUserID  *int64
+	StreamerUserID *int64
+	RedLeader      *int64
+	BlueLeader     *int64
+	RedPlayers     []int64
+	BluePlayers    []int64
+}
+
+// RoomMetadataPatch is an incremental room metadata update. Nil pointer fields
+// and nil slices are left unchanged; only the fields present in the request
+// are written. Present-but-empty player slices replace the stored roster.
+// Clearing an optional field is not supported here; use the full metadata
+// replace or the dedicated per-field endpoints instead.
+type RoomMetadataPatch struct {
+	Name           *string
+	Round          *string
 	ScheduledAt    *time.Time
 	RefereeUserID  *int64
 	StreamerUserID *int64
@@ -290,6 +308,7 @@ func (s *RoomService) UpdateRoomMetadata(ctx context.Context, callerID int64, ro
 	}
 	fields := bson.M{
 		"name":                      update.Name,
+		"round":                     update.Round,
 		"scheduled_at":              update.ScheduledAt,
 		"referee_user_id":           update.RefereeUserID,
 		"settings.streamer_user_id": update.StreamerUserID,
@@ -302,6 +321,72 @@ func (s *RoomService) UpdateRoomMetadata(ctx context.Context, callerID int64, ro
 		return nil, err
 	}
 	return s.rooms.ByID(ctx, room.ID)
+}
+
+// UpdateRoomMetadataPartial applies an incremental update to the
+// administrator-managed room metadata: only the fields present in the patch
+// are written, absent fields keep their stored values. It intentionally does
+// not alter match state and cannot clear optional fields.
+func (s *RoomService) UpdateRoomMetadataPartial(ctx context.Context, callerID int64, roomID bson.ObjectID, patch RoomMetadataPatch) (*domain.Room, error) {
+	admin, err := s.currentEligibleUser(ctx, callerID)
+	if err != nil {
+		return nil, err
+	}
+	if !admin.HasRole(domain.RoleAdmin) {
+		return nil, errs.ErrForbidden
+	}
+	fields := bson.M{}
+	if patch.Name != nil {
+		if *patch.Name == "" {
+			return nil, errs.ErrInvalidInput
+		}
+		fields["name"] = *patch.Name
+	}
+	if patch.Round != nil {
+		fields["round"] = *patch.Round
+	}
+	if patch.ScheduledAt != nil {
+		fields["scheduled_at"] = patch.ScheduledAt
+	}
+	if patch.RefereeUserID != nil {
+		room, findErr := s.rooms.ByID(ctx, roomID)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if room.Type != domain.RoomTypeMatch {
+			return nil, errs.ErrInvalidInput
+		}
+		referee, findErr := s.currentEligibleUser(ctx, *patch.RefereeUserID)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if !referee.HasRole(domain.RoleReferee) {
+			return nil, errs.ErrForbidden
+		}
+		fields["referee_user_id"] = patch.RefereeUserID
+	}
+	if patch.StreamerUserID != nil {
+		fields["settings.streamer_user_id"] = patch.StreamerUserID
+	}
+	if patch.RedLeader != nil {
+		fields["settings.red_leader"] = patch.RedLeader
+	}
+	if patch.BlueLeader != nil {
+		fields["settings.blue_leader"] = patch.BlueLeader
+	}
+	if patch.RedPlayers != nil {
+		fields["settings.red_players"] = append([]int64(nil), patch.RedPlayers...)
+	}
+	if patch.BluePlayers != nil {
+		fields["settings.blue_players"] = append([]int64(nil), patch.BluePlayers...)
+	}
+	if len(fields) == 0 {
+		return nil, errs.ErrInvalidInput
+	}
+	if err := s.rooms.UpdateFields(ctx, roomID, fields, true); err != nil {
+		return nil, err
+	}
+	return s.rooms.ByID(ctx, roomID)
 }
 
 // StartMatch creates a match from the room settings and transitions the room.

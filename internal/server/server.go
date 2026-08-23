@@ -319,6 +319,7 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 		{
 			authorized.POST("/rooms", rooms.Create)
 			authorized.PATCH("/rooms/:id/metadata", rooms.UpdateMetadata)
+			authorized.PUT("/rooms/:id/metadata", rooms.UpdateMetadataPartial)
 			authorized.PATCH("/rooms/:id/strategists", rooms.SetStrategists)
 			authorized.PATCH("/rooms/:id/streamer", rooms.SetStreamer)
 			authorized.PATCH("/rooms/:id/referee", rooms.SetReferee)

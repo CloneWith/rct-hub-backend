@@ -31,6 +31,7 @@ func (h *RoomHandler) UpdateMetadata(c *gin.Context) {
 	}
 	var req struct {
 		Name           string     `json:"name" binding:"required"`
+		Round          string     `json:"round"`
 		ScheduledAt    *time.Time `json:"scheduled_at"`
 		RefereeUserID  *int64     `json:"referee_user_id"`
 		StreamerUserID *int64     `json:"streamer_user_id"`
@@ -48,7 +49,47 @@ func (h *RoomHandler) UpdateMetadata(c *gin.Context) {
 		return
 	}
 	room, err := h.svc.UpdateRoomMetadata(c.Request.Context(), callerID, id, service.RoomMetadataUpdate{
-		Name: req.Name, ScheduledAt: req.ScheduledAt, RefereeUserID: req.RefereeUserID,
+		Name: req.Name, Round: req.Round, ScheduledAt: req.ScheduledAt, RefereeUserID: req.RefereeUserID,
+		StreamerUserID: req.StreamerUserID, RedLeader: req.RedLeader, BlueLeader: req.BlueLeader,
+		RedPlayers: req.RedPlayers, BluePlayers: req.BluePlayers,
+	})
+	if err != nil {
+		writeRoomError(c, err)
+		return
+	}
+	response.JSON(c, room)
+}
+
+// UpdateMetadataPartial applies an incremental room metadata update: only the
+// fields present in the request body are changed, absent fields keep their
+// stored values. Clearing optional fields is not supported on this endpoint.
+func (h *RoomHandler) UpdateMetadataPartial(c *gin.Context) {
+	id, err := bson.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		response.BadRequest(c, "invalid room id")
+		return
+	}
+	var req struct {
+		Name           *string    `json:"name"`
+		Round          *string    `json:"round"`
+		ScheduledAt    *time.Time `json:"scheduled_at"`
+		RefereeUserID  *int64     `json:"referee_user_id"`
+		StreamerUserID *int64     `json:"streamer_user_id"`
+		RedLeader      *int64     `json:"red_leader"`
+		BlueLeader     *int64     `json:"blue_leader"`
+		RedPlayers     []int64    `json:"red_players"`
+		BluePlayers    []int64    `json:"blue_players"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request body")
+		return
+	}
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.UpdateRoomMetadataPartial(c.Request.Context(), callerID, id, service.RoomMetadataPatch{
+		Name: req.Name, Round: req.Round, ScheduledAt: req.ScheduledAt, RefereeUserID: req.RefereeUserID,
 		StreamerUserID: req.StreamerUserID, RedLeader: req.RedLeader, BlueLeader: req.BlueLeader,
 		RedPlayers: req.RedPlayers, BluePlayers: req.BluePlayers,
 	})

@@ -59,6 +59,8 @@ func (r *fakeRoomRepo) UpdateFields(_ context.Context, id bson.ObjectID, fields 
 		switch key {
 		case "name":
 			room.Name = value.(string)
+		case "round":
+			room.Round = value.(string)
 		case "scheduled_at":
 			room.ScheduledAt, _ = value.(*time.Time)
 		case "settings.red_strategist_user_id":
@@ -389,6 +391,55 @@ func TestOnlyAdminCanUpdateRoomMetadataAndSetupIsLocked(t *testing.T) {
 	}
 	if room.Name != "old" {
 		t.Fatalf("locked room was changed: %q", room.Name)
+	}
+}
+
+func TestAdminCanPartiallyUpdateRoomMetadata(t *testing.T) {
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
+	referee := &domain.User{ID: bson.NewObjectID(), OnlineID: 2, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}}
+	for _, user := range []*domain.User{admin, referee} {
+		if err := users.Create(ctx, user); err != nil {
+			t.Fatal(err)
+		}
+	}
+	scheduled := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
+	streamer, leader := int64(30), int64(40)
+	room := &domain.Room{ID: bson.NewObjectID(), Type: domain.RoomTypeMatch, OwnerID: admin.OnlineID, Name: "old",
+		ScheduledAt: &scheduled, RefereeUserID: &referee.OnlineID,
+		Settings: domain.RoomSettings{StreamerUserID: &streamer, RedLeader: &leader, RedPlayers: []int64{41, 42}}}
+	if err := rooms.Create(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewRoomService(rooms, nil, users, nil, nil)
+
+	name := "renamed"
+	round := "quarterfinal"
+	updated, err := svc.UpdateRoomMetadataPartial(ctx, admin.OnlineID, room.ID, RoomMetadataPatch{Name: &name, Round: &round})
+	if err != nil {
+		t.Fatalf("partial update: %v", err)
+	}
+	if updated.Name != "renamed" || updated.Round != "quarterfinal" {
+		t.Fatalf("patched fields = %+v", updated)
+	}
+	if updated.ScheduledAt == nil || updated.RefereeUserID == nil || *updated.RefereeUserID != referee.OnlineID ||
+		updated.Settings.StreamerUserID == nil || updated.Settings.RedLeader == nil || len(updated.Settings.RedPlayers) != 2 {
+		t.Fatalf("untouched fields were modified: %+v", updated)
+	}
+
+	if _, err := svc.UpdateRoomMetadataPartial(ctx, referee.OnlineID, room.ID, RoomMetadataPatch{Name: &name}); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("non-admin partial update error = %v, want forbidden", err)
+	}
+	if _, err := svc.UpdateRoomMetadataPartial(ctx, admin.OnlineID, room.ID, RoomMetadataPatch{}); !errors.Is(err, errs.ErrInvalidInput) {
+		t.Fatalf("empty patch error = %v, want invalid input", err)
+	}
+
+	matchID := bson.NewObjectID()
+	room.MatchID = &matchID
+	if _, err := svc.UpdateRoomMetadataPartial(ctx, admin.OnlineID, room.ID, RoomMetadataPatch{Name: &name}); !errors.Is(err, errs.ErrConflict) {
+		t.Fatalf("post-start partial update error = %v, want conflict", err)
 	}
 }
 
