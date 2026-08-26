@@ -24,7 +24,8 @@ func main() {
 	resolver := graphql.NewResolver(nil, executor).
 		WithFormalMatchReader(reader).
 		WithBeatmapReader(reader).
-		WithPrivateReaders(reader.PrivateUsers(), reader.PrivateRooms())
+		WithPrivateReaders(reader.PrivateUsers(), reader.PrivateRooms()).
+		WithTeamReader(reader.PrivateTeams())
 	server := graphql.NewHandler(resolver)
 	http.Handle("/graphql", http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		ctx := graphql.WithClaims(request.Context(), &jwtutil.Claims{OsuID: 1001, Username: "fixture-user"})

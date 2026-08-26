@@ -17,7 +17,7 @@ import (
 const fixtureQuery = `query Fixture($code: String!) {
   matchByCode(code: $code) {
     id code name roomID
-    pool { poolSlotID beatmapID beatmap { onlineID title artist difficultyName modString } }
+    pool { poolSlotID beatmapID beatmap { onlineID title artist difficultyName } }
     snapshot {
       version lifecycle phase firstBan firstPick turn activeTeam
       poolSlots { id mod state }
