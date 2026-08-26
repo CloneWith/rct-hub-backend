@@ -29,8 +29,16 @@ func BuildFormalMatchSeed(room domain.Room, now time.Time) (FormalMatchSeed, err
 	if now.IsZero() {
 		return FormalMatchSeed{}, fmt.Errorf("%w: creation timestamp is required", errs.ErrInvalidInput)
 	}
-	if !room.Settings.CanStart(room.Type) {
-		return FormalMatchSeed{}, fmt.Errorf("%w: room settings do not satisfy formal match requirements", errs.ErrInvalidInput)
+	if missing := room.Settings.MissingStartRequirements(room.Type); len(missing) > 0 {
+		fields := make([]errs.FieldError, 0, len(missing))
+		for _, m := range missing {
+			fields = append(fields, errs.FieldError{
+				Field:   m,
+				Rule:    "required",
+				Message: fmt.Sprintf("%s is required before starting the match", m),
+			})
+		}
+		return FormalMatchSeed{}, errs.NewValidationError(fields...)
 	}
 
 	configuration, err := engineConfigurationFromRoom(room)

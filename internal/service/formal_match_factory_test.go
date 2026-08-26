@@ -77,6 +77,58 @@ func TestBuildFormalMatchSeedRejectsAmbiguousOrInvalidConfiguration(t *testing.T
 	}
 }
 
+func TestBuildFormalMatchSeedReportsMissingFields(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name   string
+		mutate func(*domain.Room)
+		fields []string
+	}{
+		{
+			name:   "missing first pick",
+			mutate: func(room *domain.Room) { room.Settings.FirstPick = nil },
+			fields: []string{"settings.first_pick"},
+		},
+		{
+			name:   "missing mp link",
+			mutate: func(room *domain.Room) { room.Settings.MPLink = nil },
+			fields: []string{"settings.mp_link"},
+		},
+		{
+			name: "missing multiple",
+			mutate: func(room *domain.Room) {
+				room.Settings.FirstPick = nil
+				room.Settings.RedLeader = nil
+			},
+			fields: []string{"settings.first_pick", "settings.red_leader"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			room := formalRoomFixture()
+			tt.mutate(&room)
+			_, err := BuildFormalMatchSeed(room, now)
+			if err == nil {
+				t.Fatal("BuildFormalMatchSeed succeeded with missing settings")
+			}
+			valErr, ok := errs.AsValidationError(err)
+			if !ok {
+				t.Fatalf("error = %v, want *errs.ValidationError", err)
+			}
+			if len(valErr.Fields) != len(tt.fields) {
+				t.Fatalf("fields = %+v, want %v", valErr.Fields, tt.fields)
+			}
+			for i, f := range valErr.Fields {
+				if f.Field != tt.fields[i] || f.Rule != "required" {
+					t.Fatalf("field %d = %+v, want field %q rule %q", i, f, tt.fields[i], "required")
+				}
+			}
+		})
+	}
+}
+
 func formalRoomFixture() domain.Room {
 	redStrategist, blueStrategist := int64(101), int64(201)
 	redLeader, blueLeader := int64(1), int64(11)
