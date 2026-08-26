@@ -286,17 +286,16 @@ func TestBeatmapServiceUpdateInvalidatesCache(t *testing.T) {
 	repo := newFakeBeatmapRepo()
 	bid := bson.NewObjectID()
 	bm := &domain.Beatmap{
-		ID:        bid,
-		OnlineID:  100,
-		Title:     "Old Title",
-		ModString: "",
+		ID:       bid,
+		OnlineID: 100,
+		Title:    "Old Title",
 	}
 	_ = repo.Create(ctx, bm)
 
 	inv := &mockInvalidator{}
 	svc := NewBeatmapService(repo, inv, nil)
 
-	bm.ModString = "HD"
+	bm.Title = "New Title"
 	err := svc.Update(ctx, bm)
 	if err != nil {
 		t.Fatalf("Update: %v", err)

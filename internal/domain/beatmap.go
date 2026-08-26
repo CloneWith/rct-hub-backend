@@ -34,16 +34,6 @@ type Beatmap struct {
 
 	CoverURL string `json:"cover_url" bson:"cover_url"`
 
-	// Extended information
-
-	ModString     string  `json:"mod_string" bson:"mod_string"`
-	ModIndex      int     `json:"mod_index" bson:"mod_index"`
-	SelectorID    int64   `json:"selector_id" bson:"selector_id"`
-	CreditUserIDs []int64 `json:"credit_user_ids" bson:"credit_user_ids"`
-	Skill         string  `json:"skill" bson:"skill"`
-	Comment       string  `json:"comment" bson:"comment"`
-	IsOriginal    bool    `json:"is_original" bson:"is_original"`
-
 	CreatedAt time.Time `json:"created_at" bson:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
 }

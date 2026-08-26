@@ -29,6 +29,12 @@ type RoomReader interface {
 	ByID(context.Context, bson.ObjectID) (*domain.Room, error)
 }
 
+// TeamReader loads Team entities so command authorization can resolve the
+// strategist / captain assignments from the room's team references.
+type TeamReader interface {
+	ByID(context.Context, bson.ObjectID) (*domain.Team, error)
+}
+
 type Clock func() time.Time
 
 type Orchestrator struct {
@@ -36,18 +42,19 @@ type Orchestrator struct {
 	users   UserReader
 	matches MatchReader
 	rooms   RoomReader
+	teams   TeamReader
 	now     Clock
 	log     *zap.Logger
 }
 
-func NewOrchestrator(store TransactionStore, users UserReader, matches MatchReader, rooms RoomReader, now Clock, log *zap.Logger) *Orchestrator {
+func NewOrchestrator(store TransactionStore, users UserReader, matches MatchReader, rooms RoomReader, teams TeamReader, now Clock, log *zap.Logger) *Orchestrator {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &Orchestrator{store: store, users: users, matches: matches, rooms: rooms, now: now, log: log}
+	return &Orchestrator{store: store, users: users, matches: matches, rooms: rooms, teams: teams, now: now, log: log}
 }
 
 func (o *Orchestrator) Execute(ctx context.Context, request Request) (Result, error) {
@@ -204,7 +211,13 @@ func (o *Orchestrator) authorize(ctx context.Context, matchID bson.ObjectID, osu
 		return AuthorizedActor{}, NewError(CodeResourceNotFound, "match is not an authoritative formal room match", nil)
 	}
 
-	actor, adminOverride, refereeOverride, err := actorForCommand(user, room, command)
+	redTeam, blueTeam, teamErr := o.roomTeams(ctx, room)
+	if teamErr != nil {
+		o.log.Error("match command auth: failed to load room teams",
+			zap.String("room_id", room.ID.Hex()), zap.Error(teamErr))
+		return AuthorizedActor{}, NewError(CodeInternalError, "load room teams", teamErr)
+	}
+	actor, adminOverride, refereeOverride, err := actorForCommand(user, room, redTeam, blueTeam, command)
 	if err != nil {
 		o.log.Warn("match command auth: role authorization failed",
 			zap.Int64("osu_id", osuID),
@@ -224,7 +237,7 @@ func (o *Orchestrator) authorize(ctx context.Context, matchID bson.ObjectID, osu
 	}, nil
 }
 
-func actorForCommand(user *domain.User, room *domain.Room, command matchengine.Command) (matchengine.Actor, bool, bool, error) {
+func actorForCommand(user *domain.User, room *domain.Room, redTeam, blueTeam *domain.Team, command matchengine.Command) (matchengine.Actor, bool, bool, error) {
 	if isRefereeCommand(command) || isRefereeProxyCommand(command) {
 		isAdmin := user.HasRole(domain.RoleAdmin)
 		hasRefereeRole := user.HasRole(domain.RoleReferee)
@@ -242,7 +255,7 @@ func actorForCommand(user *domain.User, room *domain.Room, command matchengine.C
 		if !user.HasRole(domain.RoleStrategist) {
 			return matchengine.Actor{}, false, false, NewError(CodeGlobalRoleRequired, "strategist role is required", nil)
 		}
-		side, ok := assignedStrategistSide(room.Settings, user.OnlineID)
+		side, ok := assignedStrategistSide(redTeam, blueTeam, user.OnlineID)
 		if !ok {
 			return matchengine.Actor{}, false, false, NewError(CodeRoomRoleRequired, "user is not an assigned strategist for this room", nil)
 		}
@@ -250,7 +263,7 @@ func actorForCommand(user *domain.User, room *domain.Room, command matchengine.C
 	}
 
 	if isCaptainCommand(command) {
-		side, ok := assignedCaptainSide(room.Settings, user.OnlineID)
+		side, ok := assignedCaptainSide(redTeam, blueTeam, user.OnlineID)
 		if !ok {
 			return matchengine.Actor{}, false, false, NewError(CodeRoomRoleRequired, "user is not a team captain for this room", nil)
 		}
@@ -260,28 +273,52 @@ func actorForCommand(user *domain.User, room *domain.Room, command matchengine.C
 	return matchengine.Actor{}, false, false, NewError(CodeInvalidRequest, "command has no authorization policy", nil)
 }
 
-func assignedStrategistSide(settings domain.RoomSettings, osuID int64) (matchengine.TeamSide, bool) {
-	red := settings.RedStrategistUserID != nil && *settings.RedStrategistUserID == osuID
-	blue := settings.BlueStrategistUserID != nil && *settings.BlueStrategistUserID == osuID
-	if red == blue {
-		return "", false
+// roomTeams resolves the red and blue team entities referenced by the room
+// settings. Missing links (or a missing team reader) yield nil teams.
+func (o *Orchestrator) roomTeams(ctx context.Context, room *domain.Room) (*domain.Team, *domain.Team, error) {
+	if o.teams == nil || room == nil {
+		return nil, nil, nil
 	}
-	if red {
-		return matchengine.TeamRed, true
+	var redTeam, blueTeam *domain.Team
+	if room.Settings.RedTeamID != nil {
+		team, err := o.teams.ByID(ctx, *room.Settings.RedTeamID)
+		if err != nil {
+			return nil, nil, err
+		}
+		redTeam = team
 	}
-	return matchengine.TeamBlue, true
+	if room.Settings.BlueTeamID != nil {
+		team, err := o.teams.ByID(ctx, *room.Settings.BlueTeamID)
+		if err != nil {
+			return nil, nil, err
+		}
+		blueTeam = team
+	}
+	return redTeam, blueTeam, nil
 }
 
-func assignedCaptainSide(settings domain.RoomSettings, osuID int64) (matchengine.TeamSide, bool) {
-	red := settings.RedLeader != nil && *settings.RedLeader == osuID
-	blue := settings.BlueLeader != nil && *settings.BlueLeader == osuID
-	if red == blue {
+func assignedStrategistSide(redTeam, blueTeam *domain.Team, osuID int64) (matchengine.TeamSide, bool) {
+	side, ok := domain.StrategistSide(redTeam, blueTeam, osuID)
+	if !ok {
 		return "", false
 	}
-	if red {
-		return matchengine.TeamRed, true
+	return engineTeamSide(side), true
+}
+
+func assignedCaptainSide(redTeam, blueTeam *domain.Team, osuID int64) (matchengine.TeamSide, bool) {
+	side, ok := domain.CaptainSide(redTeam, blueTeam, osuID)
+	if !ok {
+		return "", false
 	}
-	return matchengine.TeamBlue, true
+	return engineTeamSide(side), true
+}
+
+// engineTeamSide converts the lowercase domain side to the engine-side enum.
+func engineTeamSide(side domain.TeamSide) matchengine.TeamSide {
+	if side == domain.TeamSideBlue {
+		return matchengine.TeamBlue
+	}
+	return matchengine.TeamRed
 }
 
 func isStrategistCommand(command matchengine.Command) bool {

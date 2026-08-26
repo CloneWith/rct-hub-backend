@@ -21,7 +21,8 @@ func TestMockExposesPoolMetadataAndPrivateViews(t *testing.T) {
 	resolver := graphql.NewResolver(nil, matchfixture.NewExecutor(reader)).
 		WithFormalMatchReader(reader).
 		WithBeatmapReader(reader).
-		WithPrivateReaders(reader.PrivateUsers(), reader.PrivateRooms())
+		WithPrivateReaders(reader.PrivateUsers(), reader.PrivateRooms()).
+		WithTeamReader(reader.PrivateTeams())
 	server := graphql.NewHandler(resolver)
 	query := `query {
 		me { onlineID username verifyStatus roles }

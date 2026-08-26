@@ -276,6 +276,7 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 		s.deps.Repos.Users,
 		s.deps.Repos.Matches,
 		s.deps.Repos.Rooms,
+		s.deps.Repos.Teams,
 		nil,
 		matchEngineLog,
 	)
@@ -326,12 +327,11 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 			authorized.POST("/rooms", rooms.Create)
 			authorized.PATCH("/rooms/:id/metadata", rooms.UpdateMetadata)
 			authorized.PUT("/rooms/:id/metadata", rooms.UpdateMetadataPartial)
-			authorized.PATCH("/rooms/:id/strategists", rooms.SetStrategists)
+			authorized.PATCH("/rooms/:id/teams", rooms.SetTeams)
 			authorized.PATCH("/rooms/:id/streamer", rooms.SetStreamer)
 			authorized.PATCH("/rooms/:id/referee", rooms.SetReferee)
 			authorized.PATCH("/rooms/:id/mappool", rooms.SetMappool)
 			authorized.PATCH("/rooms/:id/bp-order", rooms.SetBPOrder)
-			authorized.PATCH("/rooms/:id/players", rooms.SetPlayers)
 			authorized.PATCH("/rooms/:id/mp-link", rooms.SetMPLink)
 			authorized.PATCH("/rooms/:id/stream-link", rooms.SetStreamLink)
 			authorized.POST("/rooms/:id/start-match", rooms.StartMatch)

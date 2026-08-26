@@ -74,6 +74,8 @@ func main() {
 		"moves",
 		"results",
 		"announcements",
+		"teams",
+		"mappools",
 	}
 
 	if *drop {
@@ -197,6 +199,54 @@ func ensureSchemaValidation(ctx context.Context, db *mongo.Database) error {
 		return fmt.Errorf("rooms validation: %w", err)
 	}
 
+	teamValidator := bson.M{
+		"$jsonSchema": bson.M{
+			"bsonType": "object",
+			"required": []string{"name", "created_at", "updated_at"},
+			"properties": bson.M{
+				"name":          bson.M{"bsonType": "string"},
+				"leader_id":     bson.M{"bsonType": []string{"long", "null"}},
+				"strategist_id": bson.M{"bsonType": []string{"long", "null"}},
+				"players":       bson.M{"bsonType": "array"},
+			},
+		},
+	}
+	if err := db.RunCommand(ctx, bson.D{
+		{Key: "collMod", Value: "teams"},
+		{Key: "validator", Value: teamValidator},
+		{Key: "validationLevel", Value: "moderate"},
+	}).Err(); err != nil {
+		return fmt.Errorf("teams validation: %w", err)
+	}
+
+	mappoolValidator := bson.M{
+		"$jsonSchema": bson.M{
+			"bsonType": "object",
+			"required": []string{"name", "entries", "created_at", "updated_at"},
+			"properties": bson.M{
+				"name": bson.M{"bsonType": "string"},
+				"entries": bson.M{
+					"bsonType": "array",
+					"items": bson.M{
+						"bsonType": "object",
+						"required": []string{"mod", "index"},
+						"properties": bson.M{
+							"mod":   bson.M{"enum": []string{"NM", "HD", "HR", "DT", "FM", "Shiro", "TB"}},
+							"index": bson.M{"bsonType": "int"},
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := db.RunCommand(ctx, bson.D{
+		{Key: "collMod", Value: "mappools"},
+		{Key: "validator", Value: mappoolValidator},
+		{Key: "validationLevel", Value: "moderate"},
+	}).Err(); err != nil {
+		return fmt.Errorf("mappools validation: %w", err)
+	}
+
 	if err := persistence.NewSnapshotStore(db).InstallValidator(ctx); err != nil {
 		return err
 	}
@@ -302,13 +352,6 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		ApproachRate:      9,
 		OverallDifficulty: 8,
 		CoverURL:          "https://assets.ppy.sh/beatmaps/500000/covers/cover.jpg",
-		ModString:         "NM",
-		ModIndex:          1,
-		SelectorID:        1,
-		CreditUserIDs:     []int64{1},
-		Skill:             "Stamina",
-		Comment:           "Seed beatmap for testing",
-		IsOriginal:        false,
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}); err != nil {
@@ -316,6 +359,66 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 			log.Info("seed beatmap already exists, skipping")
 		} else {
 			return fmt.Errorf("seed beatmap: %w", err)
+		}
+	}
+
+	teams := db.Collection("teams")
+	seedRedTeamID := bson.NewObjectID()
+	if _, err := teams.InsertOne(ctx, domain.Team{
+		ID:           seedRedTeamID,
+		Name:         "Seed Red",
+		Description:  new(string("Seeded red team")),
+		Seed:         new(string("1")),
+		LeaderID:     new(int64(1)),
+		StrategistID: new(int64(1)),
+		Players:      []int64{1, 2},
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}); err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			log.Info("seed red team already exists, skipping")
+		} else {
+			return fmt.Errorf("seed red team: %w", err)
+		}
+	}
+	seedBlueTeamID := bson.NewObjectID()
+	if _, err := teams.InsertOne(ctx, domain.Team{
+		ID:           seedBlueTeamID,
+		Name:         "Seed Blue",
+		Description:  new(string("Seeded blue team")),
+		Seed:         new(string("2")),
+		LeaderID:     new(int64(3)),
+		StrategistID: new(int64(2)),
+		Players:      []int64{3, 4},
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}); err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			log.Info("seed blue team already exists, skipping")
+		} else {
+			return fmt.Errorf("seed blue team: %w", err)
+		}
+	}
+
+	seedBeatmapID := int64(1000000)
+	mappools := db.Collection("mappools")
+	seedMappoolID := bson.NewObjectID()
+	if _, err := mappools.InsertOne(ctx, domain.Mappool{
+		ID:          seedMappoolID,
+		Name:        "Seed Mappool",
+		Description: new(string("Seeded demo mappool")),
+		Entries: []domain.MappoolEntry{
+			{Mod: domain.PieceModNM, Index: 1, BeatmapID: &seedBeatmapID, SelectorID: new(int64(1))},
+			{Mod: domain.PieceModHD, Index: 1, BeatmapID: &seedBeatmapID, SelectorID: new(int64(1))},
+			{Mod: domain.PieceModShiro, Index: 1},
+		},
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			log.Info("seed mappool already exists, skipping")
+		} else {
+			return fmt.Errorf("seed mappool: %w", err)
 		}
 	}
 
@@ -328,15 +431,11 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		Type:    domain.RoomTypeCasual,
 		OwnerID: 1,
 		Settings: domain.RoomSettings{
-			Mappool:              domain.NewPool(),
-			RedStrategistUserID:  new(int64(1)),
-			BlueStrategistUserID: new(int64(2)),
-			FirstPick:            new(domain.TeamSideRed),
-			FirstBan:             new(domain.TeamSideBlue),
-			RedPlayers:           []int64{1, 2},
-			BluePlayers:          []int64{3, 4},
-			RedLeader:            new(int64(1)),
-			BlueLeader:           new(int64(3)),
+			RedTeamID:  &seedRedTeamID,
+			BlueTeamID: &seedBlueTeamID,
+			MappoolID:  &seedMappoolID,
+			FirstPick:  new(domain.TeamSideRed),
+			FirstBan:   new(domain.TeamSideBlue),
 		},
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -356,10 +455,10 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		Name:     "Seed Match",
 		RoomType: domain.RoomTypeCasual,
 		TeamRed: domain.TeamSnapshot{
-			ID:           bson.NewObjectID(),
+			ID:           seedRedTeamID,
 			Side:         domain.TeamSideRed,
-			Name:         "Red",
-			Description:  "Seed Red Team",
+			Name:         "Seed Red",
+			Description:  "Seeded red team",
 			Seed:         "1",
 			Color:        "#ef4444",
 			LeaderID:     1,
@@ -367,10 +466,10 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 			Players:      []int64{1, 2},
 		},
 		TeamBlue: domain.TeamSnapshot{
-			ID:           bson.NewObjectID(),
+			ID:           seedBlueTeamID,
 			Side:         domain.TeamSideBlue,
-			Name:         "Blue",
-			Description:  "Seed Blue Team",
+			Name:         "Seed Blue",
+			Description:  "Seeded blue team",
 			Seed:         "2",
 			Color:        "#3b82f6",
 			LeaderID:     3,

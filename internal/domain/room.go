@@ -66,62 +66,21 @@ func (m RoomMember) IsPrivileged() bool {
 	return m.Role == RoomRoleAdmin || m.Role == RoomRoleStrategist
 }
 
-// RoomSettings contains editable configuration for a room.
+// RoomSettings contains editable configuration for a room. Team rosters and
+// the pool are referenced as Team / Mappool entities instead of being stored
+// inline: redTeamID / blueTeamID / mappoolID point at the managed entities.
 type RoomSettings struct {
-	RedStrategistUserID  *int64 `json:"red_strategist_user_id,omitempty" bson:"red_strategist_user_id,omitempty"`
-	BlueStrategistUserID *int64 `json:"blue_strategist_user_id,omitempty" bson:"blue_strategist_user_id,omitempty"`
-	StreamerUserID       *int64 `json:"streamer_user_id,omitempty" bson:"streamer_user_id,omitempty"`
+	StreamerUserID *int64 `json:"streamer_user_id,omitempty" bson:"streamer_user_id,omitempty"`
 
-	Mappool   Pool      `json:"mappool" bson:"mappool"`
+	RedTeamID  *bson.ObjectID `json:"red_team_id,omitempty" bson:"red_team_id,omitempty"`
+	BlueTeamID *bson.ObjectID `json:"blue_team_id,omitempty" bson:"blue_team_id,omitempty"`
+	MappoolID  *bson.ObjectID `json:"mappool_id,omitempty" bson:"mappool_id,omitempty"`
+
 	FirstPick *TeamSide `json:"first_pick,omitempty" bson:"first_pick,omitempty"`
 	FirstBan  *TeamSide `json:"first_ban,omitempty" bson:"first_ban,omitempty"`
 
-	RedPlayers  []int64 `json:"red_players" bson:"red_players"`
-	BluePlayers []int64 `json:"blue_players" bson:"blue_players"`
-	RedLeader   *int64  `json:"red_leader,omitempty" bson:"red_leader,omitempty"`
-	BlueLeader  *int64  `json:"blue_leader,omitempty" bson:"blue_leader,omitempty"`
-
 	MPLink     *string `json:"mp_link,omitempty" bson:"mp_link,omitempty"`
 	StreamLink *string `json:"stream_link,omitempty" bson:"stream_link,omitempty"`
-}
-
-// CanStart reports whether the room has the minimum required settings to start a match.
-// Requirements depend on room type:
-//   - Casual/Match: strategists, BP order, players, and mplink must be set.
-//   - Private: no strict requirements.
-func (rs RoomSettings) CanStart(roomType RoomType) bool {
-	return len(rs.MissingStartRequirements(roomType)) == 0
-}
-
-// MissingStartRequirements returns the wire-format paths of the settings that
-// still block starting a match of the given type. An empty result means the
-// room can start. Callers use this to tell the client exactly what is missing.
-func (rs RoomSettings) MissingStartRequirements(roomType RoomType) []string {
-	var missing []string
-	require := func(field string, ok bool) {
-		if !ok {
-			missing = append(missing, field)
-		}
-	}
-	switch roomType {
-	case RoomTypeCasual, RoomTypeMatch:
-		require("settings.red_strategist_user_id", rs.RedStrategistUserID != nil)
-		require("settings.blue_strategist_user_id", rs.BlueStrategistUserID != nil)
-		require("settings.first_pick", rs.FirstPick != nil)
-		require("settings.first_ban", rs.FirstBan != nil)
-		if roomType == RoomTypeMatch {
-			require("settings.red_leader", rs.RedLeader != nil)
-			require("settings.blue_leader", rs.BlueLeader != nil)
-			require("settings.red_players", len(rs.RedPlayers) >= 4)
-			require("settings.blue_players", len(rs.BluePlayers) >= 4)
-			require("settings.mp_link", rs.MPLink != nil && *rs.MPLink != "")
-		}
-	case RoomTypePrivate:
-		// No requirements.
-	default:
-		missing = append(missing, "type")
-	}
-	return missing
 }
 
 // Room represents a place where a match is configured and played.

@@ -68,15 +68,6 @@ type Beatmap struct {
 	ApproachRate      float64   `json:"approachRate"`
 	OverallDifficulty float64   `json:"overallDifficulty"`
 	CoverURL          string    `json:"coverURL"`
-	ModString         string    `json:"modString"`
-	ModIndex          int       `json:"modIndex"`
-	SelectorID        *string   `json:"selectorID,omitempty"`
-	Selector          *User     `json:"selector,omitempty"`
-	CreditUserIDs     []string  `json:"creditUserIDs"`
-	Credits           []*User   `json:"credits"`
-	Skill             *string   `json:"skill,omitempty"`
-	Comment           *string   `json:"comment,omitempty"`
-	IsOriginal        bool      `json:"isOriginal"`
 	CreatedAt         time.Time `json:"createdAt"`
 	UpdatedAt         time.Time `json:"updatedAt"`
 }
@@ -593,21 +584,18 @@ type RoomPage struct {
 }
 
 type RoomSettings struct {
-	RedStrategistUserID  *string   `json:"redStrategistUserID,omitempty"`
-	RedStrategist        *User     `json:"redStrategist,omitempty"`
-	BlueStrategistUserID *string   `json:"blueStrategistUserID,omitempty"`
-	BlueStrategist       *User     `json:"blueStrategist,omitempty"`
-	StreamerUserID       *string   `json:"streamerUserID,omitempty"`
-	Streamer             *User     `json:"streamer,omitempty"`
-	Mappool              *Pool     `json:"mappool"`
-	FirstPick            *TeamSide `json:"firstPick,omitempty"`
-	FirstBan             *TeamSide `json:"firstBan,omitempty"`
-	RedPlayers           []string  `json:"redPlayers"`
-	BluePlayers          []string  `json:"bluePlayers"`
-	RedLeader            *string   `json:"redLeader,omitempty"`
-	BlueLeader           *string   `json:"blueLeader,omitempty"`
-	MpLink               *string   `json:"mpLink,omitempty"`
-	StreamLink           *string   `json:"streamLink,omitempty"`
+	StreamerUserID *string   `json:"streamerUserID,omitempty"`
+	Streamer       *User     `json:"streamer,omitempty"`
+	RedTeamID      *string   `json:"redTeamID,omitempty"`
+	BlueTeamID     *string   `json:"blueTeamID,omitempty"`
+	MappoolID      *string   `json:"mappoolID,omitempty"`
+	RedTeam        *Team     `json:"redTeam,omitempty"`
+	BlueTeam       *Team     `json:"blueTeam,omitempty"`
+	Mappool        *Mappool  `json:"mappool,omitempty"`
+	FirstPick      *TeamSide `json:"firstPick,omitempty"`
+	FirstBan       *TeamSide `json:"firstBan,omitempty"`
+	MpLink         *string   `json:"mpLink,omitempty"`
+	StreamLink     *string   `json:"streamLink,omitempty"`
 }
 
 type SpectatorView struct {

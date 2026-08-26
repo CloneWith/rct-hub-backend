@@ -97,7 +97,8 @@ func (s *BeatmapService) Update(ctx context.Context, beatmap *domain.Beatmap) er
 }
 
 // BeatmapPatch is a partial update request for a beatmap. Only non-nil fields
-// are applied; omitted fields keep their current values.
+// are applied; omitted fields keep their current values. Pool placement
+// (mod/index/selector/skill) lives on MappoolEntry, not on the beatmap.
 type BeatmapPatch struct {
 	BeatmapsetID      *int64   `json:"beatmapset_id,omitempty"`
 	Title             *string  `json:"title,omitempty"`
@@ -114,13 +115,6 @@ type BeatmapPatch struct {
 	ApproachRate      *float64 `json:"ar,omitempty"`
 	OverallDifficulty *float64 `json:"accuracy,omitempty"`
 	CoverURL          *string  `json:"cover_url,omitempty"`
-	ModString         *string  `json:"mod_string,omitempty"`
-	ModIndex          *int     `json:"mod_index,omitempty"`
-	SelectorID        *int64   `json:"selector_id,omitempty"`
-	CreditUserIDs     *[]int64 `json:"credit_user_ids,omitempty"`
-	Skill             *string  `json:"skill,omitempty"`
-	Comment           *string  `json:"comment,omitempty"`
-	IsOriginal        *bool    `json:"is_original,omitempty"`
 }
 
 // Patch applies a partial update to an existing beatmap. The beatmap osu! id
@@ -175,27 +169,6 @@ func (s *BeatmapService) Patch(ctx context.Context, id bson.ObjectID, patch *Bea
 	}
 	if patch.CoverURL != nil {
 		bm.CoverURL = *patch.CoverURL
-	}
-	if patch.ModString != nil {
-		bm.ModString = *patch.ModString
-	}
-	if patch.ModIndex != nil {
-		bm.ModIndex = *patch.ModIndex
-	}
-	if patch.SelectorID != nil {
-		bm.SelectorID = *patch.SelectorID
-	}
-	if patch.CreditUserIDs != nil {
-		bm.CreditUserIDs = *patch.CreditUserIDs
-	}
-	if patch.Skill != nil {
-		bm.Skill = *patch.Skill
-	}
-	if patch.Comment != nil {
-		bm.Comment = *patch.Comment
-	}
-	if patch.IsOriginal != nil {
-		bm.IsOriginal = *patch.IsOriginal
 	}
 
 	if err := s.beatmaps.Update(ctx, bm); err != nil {

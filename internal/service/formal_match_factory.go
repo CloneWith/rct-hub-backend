@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"slices"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -20,16 +19,17 @@ type FormalMatchSeed struct {
 }
 
 // BuildFormalMatchSeed maps organizer-confirmed room configuration into the
-// pure MatchEngine model. It does not start play; StartMatch remains a formal
-// command handled by the M4 orchestrator.
-func BuildFormalMatchSeed(room domain.Room, now time.Time) (FormalMatchSeed, error) {
+// pure MatchEngine model. Team rosters and the pool come from the Team /
+// Mappool entities linked by the room settings. It does not start play;
+// StartMatch remains a formal command handled by the M4 orchestrator.
+func BuildFormalMatchSeed(room domain.Room, redTeam, blueTeam *domain.Team, mappool *domain.Mappool, now time.Time) (FormalMatchSeed, error) {
 	if room.ID == bson.NilObjectID || room.Type != domain.RoomTypeMatch {
 		return FormalMatchSeed{}, fmt.Errorf("%w: a persisted tournament room is required", errs.ErrInvalidInput)
 	}
 	if now.IsZero() {
 		return FormalMatchSeed{}, fmt.Errorf("%w: creation timestamp is required", errs.ErrInvalidInput)
 	}
-	if missing := room.Settings.MissingStartRequirements(room.Type); len(missing) > 0 {
+	if missing := MissingStartRequirements(room, redTeam, blueTeam, mappool); len(missing) > 0 {
 		fields := make([]errs.FieldError, 0, len(missing))
 		for _, m := range missing {
 			fields = append(fields, errs.FieldError{
@@ -40,8 +40,13 @@ func BuildFormalMatchSeed(room domain.Room, now time.Time) (FormalMatchSeed, err
 		}
 		return FormalMatchSeed{}, errs.NewValidationError(fields...)
 	}
+	if mappool == nil {
+		return FormalMatchSeed{}, errs.NewValidationError(
+			errs.FieldError{Field: "settings.mappool_id", Rule: "required", Message: "a mappool must be linked before starting the match"},
+		)
+	}
 
-	configuration, err := engineConfigurationFromRoom(room)
+	configuration, err := engineConfigurationFromEntities(mappool, redTeam, blueTeam, room.Settings.FirstPick, room.Settings.FirstBan)
 	if err != nil {
 		return FormalMatchSeed{}, err
 	}
@@ -50,27 +55,7 @@ func BuildFormalMatchSeed(room domain.Room, now time.Time) (FormalMatchSeed, err
 		return FormalMatchSeed{}, fmt.Errorf("%w: invalid MatchEngine configuration: %v", errs.ErrInvalidInput, err)
 	}
 
-	// RoomSettings has no team presentation fields. These defaults only fill
-	// the temporary legacy read-model shell; they do not configure the engine.
-	redTeam := domain.TeamSnapshot{
-		ID:           bson.NewObjectID(),
-		Side:         domain.TeamSideRed,
-		Name:         "Red",
-		Color:        "#ef4444",
-		LeaderID:     *room.Settings.RedLeader,
-		StrategistID: *room.Settings.RedStrategistUserID,
-		Players:      append([]int64(nil), room.Settings.RedPlayers...),
-	}
-	blueTeam := domain.TeamSnapshot{
-		ID:           bson.NewObjectID(),
-		Side:         domain.TeamSideBlue,
-		Name:         "Blue",
-		Color:        "#3b82f6",
-		LeaderID:     *room.Settings.BlueLeader,
-		StrategistID: *room.Settings.BlueStrategistUserID,
-		Players:      append([]int64(nil), room.Settings.BluePlayers...),
-	}
-	legacy := domain.NewMatch(room, redTeam, blueTeam)
+	legacy := domain.NewMatch(room, redTeam.Snapshot(domain.TeamSideRed), blueTeam.Snapshot(domain.TeamSideBlue), mappool.ToRuntime())
 	legacy.ID = bson.NewObjectID()
 	legacy.Code = room.Code
 	legacy.BPOrder = domain.BPOrder{FirstPick: *room.Settings.FirstPick, FirstBan: *room.Settings.FirstBan}
@@ -81,30 +66,27 @@ func BuildFormalMatchSeed(room domain.Room, now time.Time) (FormalMatchSeed, err
 	return FormalMatchSeed{LegacyMatch: legacy, State: state}, nil
 }
 
-func engineConfigurationFromRoom(room domain.Room) (matchengine.Configuration, error) {
-	poolSlots := make([]matchengine.PoolSlot, 0)
-	mods := make([]domain.PieceMod, 0, len(room.Settings.Mappool.Slots))
-	for mod := range room.Settings.Mappool.Slots {
-		mods = append(mods, mod)
+func engineConfigurationFromEntities(mappool *domain.Mappool, redTeam, blueTeam *domain.Team, firstPick, firstBan *domain.TeamSide) (matchengine.Configuration, error) {
+	runtimePool := mappool.ToRuntime()
+	poolSlots := make([]matchengine.PoolSlot, 0, len(mappool.Entries))
+	// Canonical mod order: NM, HD, HR, DT, FM, Shiro, TB. Within a group the
+	// runtime pieces are ordered by entry index, so the slot ID matches the
+	// entity's per-mod numbering. Entity-derived pools are always fresh
+	// (pieces start NORMAL), unlike the legacy inline pool.
+	modOrder := []domain.PieceMod{
+		domain.PieceModNM, domain.PieceModHD, domain.PieceModHR, domain.PieceModDT,
+		domain.PieceModFM, domain.PieceModShiro, domain.PieceModTB,
 	}
-	slices.Sort(mods)
-	for _, mod := range mods {
+	for _, mod := range modOrder {
+		pieces := runtimePool.Slots[mod]
+		if len(pieces) == 0 {
+			continue
+		}
 		engineMod, ok := engineModFromDomain(mod)
 		if !ok {
 			return matchengine.Configuration{}, fmt.Errorf("%w: unsupported pool mod %q", errs.ErrInvalidInput, mod)
 		}
-		for index, piece := range room.Settings.Mappool.Slots[mod] {
-			if piece.IsRemoved() {
-				continue
-			}
-			if piece.State != "" && piece.State != domain.PieceStateNormal {
-				return matchengine.Configuration{}, fmt.Errorf(
-					"%w: pool slot %s is already in state %q",
-					errs.ErrInvalidInput,
-					domain.PoolSlot{Mod: mod, Index: index + 1}.String(),
-					piece.State,
-				)
-			}
+		for index := range pieces {
 			poolSlots = append(poolSlots, matchengine.PoolSlot{
 				ID:  domain.PoolSlot{Mod: mod, Index: index + 1}.String(),
 				Mod: engineMod,
@@ -113,17 +95,17 @@ func engineConfigurationFromRoom(room domain.Room) (matchengine.Configuration, e
 	}
 
 	return matchengine.Configuration{
-		FirstBan:  engineTeamFromDomain(*room.Settings.FirstBan),
-		FirstPick: engineTeamFromDomain(*room.Settings.FirstPick),
+		FirstBan:  engineTeamFromDomain(*firstBan),
+		FirstPick: engineTeamFromDomain(*firstPick),
 		PoolSlots: poolSlots,
 		Rosters: map[matchengine.TeamSide]matchengine.Roster{
 			matchengine.TeamRed: {
-				LeaderID:  *room.Settings.RedLeader,
-				PlayerIDs: append([]int64(nil), room.Settings.RedPlayers...),
+				LeaderID:  domain.DerefInt64(redTeam.LeaderID, 0),
+				PlayerIDs: append([]int64(nil), redTeam.Players...),
 			},
 			matchengine.TeamBlue: {
-				LeaderID:  *room.Settings.BlueLeader,
-				PlayerIDs: append([]int64(nil), room.Settings.BluePlayers...),
+				LeaderID:  domain.DerefInt64(blueTeam.LeaderID, 0),
+				PlayerIDs: append([]int64(nil), blueTeam.Players...),
 			},
 		},
 		// Formal rooms currently expose no timer-preset setting, so the
@@ -132,16 +114,16 @@ func engineConfigurationFromRoom(room domain.Room) (matchengine.Configuration, e
 	}, nil
 }
 
+// engineTeamFromDomain converts a domain side ("red"/"blue") into the
+// matchengine side ("RED"/"BLUE").
 func engineTeamFromDomain(side domain.TeamSide) matchengine.TeamSide {
-	if side == domain.TeamSideRed {
-		return matchengine.TeamRed
-	}
 	if side == domain.TeamSideBlue {
 		return matchengine.TeamBlue
 	}
-	return matchengine.TeamSide(side)
+	return matchengine.TeamRed
 }
 
+// engineModFromDomain converts a domain pool mod into the matchengine mod.
 func engineModFromDomain(mod domain.PieceMod) (matchengine.Mod, bool) {
 	switch mod {
 	case domain.PieceModNM:

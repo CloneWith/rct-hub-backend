@@ -19,6 +19,7 @@ func TestMongoIntegrationRoomDirectoryFiltersBeforePagination(t *testing.T) {
 	defer cancel()
 
 	roomRepo := repository.NewRoomRepository(db)
+	teamRepo := repository.NewTeamRepository(db)
 	now := time.Date(2026, time.August, 21, 12, 0, 0, 0, time.UTC)
 	allFixtures := integrationLifecycleFixtures(t, now)
 	fixtures := []lifecycleFixture{allFixtures[0], allFixtures[1], allFixtures[3], allFixtures[8]}
@@ -28,15 +29,33 @@ func TestMongoIntegrationRoomDirectoryFiltersBeforePagination(t *testing.T) {
 		redStrategist := int64(301 + index*10)
 		blueStrategist := int64(302 + index*10)
 		streamer := int64(303 + index*10)
-		redPlayers := []int64{int64(401 + index*2), int64(402 + index*2)}
-		bluePlayers := []int64{int64(501 + index*2), int64(502 + index*2)}
+		redTeam := domain.Team{
+			ID:           bson.NewObjectID(),
+			Name:         "Red " + string(rune('A'+index)),
+			LeaderID:     ptrInt64(310 + index*10),
+			StrategistID: &redStrategist,
+			Players:      []int64{int64(401 + index*2), int64(402 + index*2)},
+		}
+		blueTeam := domain.Team{
+			ID:           bson.NewObjectID(),
+			Name:         "Blue " + string(rune('A'+index)),
+			LeaderID:     ptrInt64(320 + index*10),
+			StrategistID: &blueStrategist,
+			Players:      []int64{int64(501 + index*2), int64(502 + index*2)},
+		}
+		if err := teamRepo.Create(ctx, &redTeam); err != nil {
+			t.Fatalf("create red team %s: %v", fixture.name, err)
+		}
+		if err := teamRepo.Create(ctx, &blueTeam); err != nil {
+			t.Fatalf("create blue team %s: %v", fixture.name, err)
+		}
 		room := domain.Room{
 			ID: matchID, Code: "FILTER-" + string(rune('A'+index)), Name: "Needle " + fixture.name,
 			Type: domain.RoomTypeMatch, OwnerID: int64(100 + index), RefereeUserID: ptrInt64(200 + index),
 			Round: "quarterfinal", MatchID: &matchID,
 			Settings: domain.RoomSettings{
-				RedStrategistUserID: &redStrategist, BlueStrategistUserID: &blueStrategist,
-				StreamerUserID: &streamer, RedPlayers: redPlayers, BluePlayers: bluePlayers,
+				RedTeamID: &redTeam.ID, BlueTeamID: &blueTeam.ID,
+				StreamerUserID: &streamer,
 			},
 			CreatedAt: now.Add(time.Duration(index) * time.Minute), UpdatedAt: now,
 		}

@@ -23,6 +23,8 @@ type RoomService struct {
 	rooms         repository.RoomRepository
 	matches       repository.MatchRepository
 	users         repository.UserRepository
+	teams         repository.TeamRepository
+	mappools      repository.MappoolRepository
 	formalMatches FormalMatchBootstrap
 	now           func() time.Time
 	log           *zap.Logger
@@ -33,22 +35,19 @@ type FormalMatchBootstrap interface {
 }
 
 // RoomMetadataUpdate is the administrator-owned pre-game room configuration.
-// Nil optional values clear the corresponding relationship or schedule.
+// Nil optional values clear the corresponding relationship or schedule. Team
+// rosters and the pool are not part of metadata: they are managed through the
+// dedicated team / mappool reference endpoints.
 type RoomMetadataUpdate struct {
 	Name           string
 	Round          string
 	ScheduledAt    *time.Time
 	RefereeUserID  *int64
 	StreamerUserID *int64
-	RedLeader      *int64
-	BlueLeader     *int64
-	RedPlayers     []int64
-	BluePlayers    []int64
 }
 
 // RoomMetadataPatch is an incremental room metadata update. Nil pointer fields
-// and nil slices are left unchanged; only the fields present in the request
-// are written. Present-but-empty player slices replace the stored roster.
+// are left unchanged; only the fields present in the request are written.
 // Clearing an optional field is not supported here; use the full metadata
 // replace or the dedicated per-field endpoints instead.
 type RoomMetadataPatch struct {
@@ -57,18 +56,14 @@ type RoomMetadataPatch struct {
 	ScheduledAt    *time.Time
 	RefereeUserID  *int64
 	StreamerUserID *int64
-	RedLeader      *int64
-	BlueLeader     *int64
-	RedPlayers     []int64
-	BluePlayers    []int64
 }
 
 // NewRoomService creates a new RoomService.
-func NewRoomService(rooms repository.RoomRepository, matches repository.MatchRepository, users repository.UserRepository, formalMatches FormalMatchBootstrap, log *zap.Logger) *RoomService {
+func NewRoomService(rooms repository.RoomRepository, matches repository.MatchRepository, users repository.UserRepository, teams repository.TeamRepository, mappools repository.MappoolRepository, formalMatches FormalMatchBootstrap, log *zap.Logger) *RoomService {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &RoomService{rooms: rooms, matches: matches, users: users, formalMatches: formalMatches, now: func() time.Time { return time.Now().UTC() }, log: log}
+	return &RoomService{rooms: rooms, matches: matches, users: users, teams: teams, mappools: mappools, formalMatches: formalMatches, now: func() time.Time { return time.Now().UTC() }, log: log}
 }
 
 // CreateRoom creates a new room for the given owner.
@@ -95,7 +90,7 @@ func (s *RoomService) CreateRoom(ctx context.Context, ownerID int64, roomType do
 		Name:     name,
 		Type:     roomType,
 		OwnerID:  ownerID,
-		Settings: domain.RoomSettings{Mappool: domain.NewPool()},
+		Settings: domain.RoomSettings{},
 	}
 	if roomType == domain.RoomTypeMatch {
 		room.RefereeUserID = &ownerID
@@ -128,8 +123,10 @@ func (s *RoomService) GetRoomByCode(ctx context.Context, code string) (*domain.R
 	return s.rooms.ByCode(ctx, code)
 }
 
-// SetStrategists assigns the red and blue strategists for a room.
-func (s *RoomService) SetStrategists(ctx context.Context, callerID int64, roomID bson.ObjectID, redUID, blueUID *int64) (*domain.Room, error) {
+// SetTeams assigns the red and blue team references for a room. Both teams
+// must exist and be ready (leader + strategist, R1), must differ, and must not
+// share players. Nil clears the corresponding reference.
+func (s *RoomService) SetTeams(ctx context.Context, callerID int64, roomID bson.ObjectID, redTeamID, blueTeamID *bson.ObjectID) (*domain.Room, error) {
 	room, err := s.authorizedRoomConfiguration(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
@@ -137,10 +134,62 @@ func (s *RoomService) SetStrategists(ctx context.Context, callerID int64, roomID
 	if err := requireRoomSetupOpen(room); err != nil {
 		return nil, err
 	}
+	redTeam, err := s.loadLinkableTeam(ctx, redTeamID, "red_team_id")
+	if err != nil {
+		return nil, err
+	}
+	blueTeam, err := s.loadLinkableTeam(ctx, blueTeamID, "blue_team_id")
+	if err != nil {
+		return nil, err
+	}
+	if redTeamID != nil && blueTeamID != nil && *redTeamID == *blueTeamID {
+		return nil, errs.NewValidationError(
+			errs.FieldError{Field: "blue_team_id", Rule: "distinct", Message: "red and blue teams must differ"},
+		)
+	}
+	if redTeam != nil && blueTeam != nil {
+		if shared := sharedPlayers(redTeam.Players, blueTeam.Players); len(shared) > 0 {
+			return nil, errs.NewValidationError(
+				errs.FieldError{Field: "blue_team_id", Rule: "no_overlap", Message: fmt.Sprintf("teams share players: %v", shared)},
+			)
+		}
+	}
 	return s.updateRoomFields(ctx, roomID, bson.M{
-		"settings.red_strategist_user_id":  redUID,
-		"settings.blue_strategist_user_id": blueUID,
+		"settings.red_team_id":  redTeamID,
+		"settings.blue_team_id": blueTeamID,
 	}, true)
+}
+
+// loadLinkableTeam loads a team by id and enforces the readiness gate (R1).
+// A nil id yields a nil team without error.
+func (s *RoomService) loadLinkableTeam(ctx context.Context, id *bson.ObjectID, field string) (*domain.Team, error) {
+	if id == nil {
+		return nil, nil
+	}
+	team, err := s.teams.ByID(ctx, *id)
+	if err != nil {
+		return nil, err
+	}
+	if !team.IsReady() {
+		return nil, errs.NewValidationError(
+			errs.FieldError{Field: field, Rule: "ready", Message: "team must have both a leader and a strategist before it can be linked"},
+		)
+	}
+	return team, nil
+}
+
+func sharedPlayers(a, b []int64) []int64 {
+	seen := make(map[int64]struct{}, len(a))
+	for _, id := range a {
+		seen[id] = struct{}{}
+	}
+	var shared []int64
+	for _, id := range b {
+		if _, ok := seen[id]; ok {
+			shared = append(shared, id)
+		}
+	}
+	return shared
 }
 
 // SetStreamer assigns the streamer user id for a room.
@@ -155,8 +204,9 @@ func (s *RoomService) SetStreamer(ctx context.Context, callerID int64, roomID bs
 	return s.updateRoomFields(ctx, roomID, bson.M{"settings.streamer_user_id": uid}, true)
 }
 
-// SetMappool replaces the room mappool.
-func (s *RoomService) SetMappool(ctx context.Context, callerID int64, roomID bson.ObjectID, pool domain.Pool) (*domain.Room, error) {
+// SetMappool links a mappool entity to the room. The mappool must exist; its
+// entry invariants were validated at CRUD time. Nil clears the reference.
+func (s *RoomService) SetMappool(ctx context.Context, callerID int64, roomID bson.ObjectID, mappoolID *bson.ObjectID) (*domain.Room, error) {
 	room, err := s.authorizedRoomConfiguration(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
@@ -164,7 +214,12 @@ func (s *RoomService) SetMappool(ctx context.Context, callerID int64, roomID bso
 	if err := requireRoomSetupOpen(room); err != nil {
 		return nil, err
 	}
-	return s.updateRoomFields(ctx, roomID, bson.M{"settings.mappool": pool}, true)
+	if mappoolID != nil {
+		if _, err := s.mappools.ByID(ctx, *mappoolID); err != nil {
+			return nil, err
+		}
+	}
+	return s.updateRoomFields(ctx, roomID, bson.M{"settings.mappool_id": mappoolID}, true)
 }
 
 // SetBPOrder sets the pick/ban order for a room.
@@ -179,23 +234,6 @@ func (s *RoomService) SetBPOrder(ctx context.Context, callerID int64, roomID bso
 	return s.updateRoomFields(ctx, roomID, bson.M{
 		"settings.first_pick": &order.FirstPick,
 		"settings.first_ban":  &order.FirstBan,
-	}, true)
-}
-
-// SetPlayers sets the team rosters for a room.
-func (s *RoomService) SetPlayers(ctx context.Context, callerID int64, roomID bson.ObjectID, redLeader, blueLeader *int64, redPlayers, bluePlayers []int64) (*domain.Room, error) {
-	room, err := s.authorizedRoomConfiguration(ctx, callerID, roomID)
-	if err != nil {
-		return nil, err
-	}
-	if err := requireRoomSetupOpen(room); err != nil {
-		return nil, err
-	}
-	return s.updateRoomFields(ctx, roomID, bson.M{
-		"settings.red_leader":   redLeader,
-		"settings.blue_leader":  blueLeader,
-		"settings.red_players":  append([]int64(nil), redPlayers...),
-		"settings.blue_players": append([]int64(nil), bluePlayers...),
 	}, true)
 }
 
@@ -312,10 +350,6 @@ func (s *RoomService) UpdateRoomMetadata(ctx context.Context, callerID int64, ro
 		"scheduled_at":              update.ScheduledAt,
 		"referee_user_id":           update.RefereeUserID,
 		"settings.streamer_user_id": update.StreamerUserID,
-		"settings.red_leader":       update.RedLeader,
-		"settings.blue_leader":      update.BlueLeader,
-		"settings.red_players":      append([]int64(nil), update.RedPlayers...),
-		"settings.blue_players":     append([]int64(nil), update.BluePlayers...),
 	}
 	if err := s.rooms.UpdateFields(ctx, room.ID, fields, true); err != nil {
 		return nil, err
@@ -368,18 +402,6 @@ func (s *RoomService) UpdateRoomMetadataPartial(ctx context.Context, callerID in
 	if patch.StreamerUserID != nil {
 		fields["settings.streamer_user_id"] = patch.StreamerUserID
 	}
-	if patch.RedLeader != nil {
-		fields["settings.red_leader"] = patch.RedLeader
-	}
-	if patch.BlueLeader != nil {
-		fields["settings.blue_leader"] = patch.BlueLeader
-	}
-	if patch.RedPlayers != nil {
-		fields["settings.red_players"] = append([]int64(nil), patch.RedPlayers...)
-	}
-	if patch.BluePlayers != nil {
-		fields["settings.blue_players"] = append([]int64(nil), patch.BluePlayers...)
-	}
 	if len(fields) == 0 {
 		return nil, errs.ErrInvalidInput
 	}
@@ -389,7 +411,7 @@ func (s *RoomService) UpdateRoomMetadataPartial(ctx context.Context, callerID in
 	return s.rooms.ByID(ctx, roomID)
 }
 
-// StartMatch creates a match from the room settings and transitions the room.
+// StartMatch creates a match from the room's linked entities and transitions the room.
 func (s *RoomService) StartMatch(ctx context.Context, callerID int64, roomID bson.ObjectID) (*domain.Match, error) {
 	room, err := s.authorizedRoom(ctx, callerID, roomID)
 	if err != nil {
@@ -405,8 +427,12 @@ func (s *RoomService) StartMatch(ctx context.Context, callerID int64, roomID bso
 		if s.formalMatches == nil {
 			return nil, fmt.Errorf("formal match bootstrap is not configured")
 		}
+		redTeam, blueTeam, mappool, loadErr := s.roomStartEntities(ctx, room)
+		if loadErr != nil {
+			return nil, loadErr
+		}
 		now := s.now().UTC()
-		seed, seedErr := BuildFormalMatchSeed(*room, now)
+		seed, seedErr := BuildFormalMatchSeed(*room, redTeam, blueTeam, mappool, now)
 		if seedErr != nil {
 			return nil, seedErr
 		}
@@ -422,7 +448,11 @@ func (s *RoomService) StartMatch(ctx context.Context, callerID int64, roomID bso
 		}
 		return &seed.LegacyMatch, nil
 	}
-	if missing := room.Settings.MissingStartRequirements(room.Type); len(missing) > 0 {
+	redTeam, blueTeam, mappool, loadErr := s.roomStartEntities(ctx, room)
+	if loadErr != nil {
+		return nil, loadErr
+	}
+	if missing := MissingStartRequirements(*room, redTeam, blueTeam, mappool); len(missing) > 0 {
 		fields := make([]errs.FieldError, 0, len(missing))
 		for _, m := range missing {
 			fields = append(fields, errs.FieldError{
@@ -434,24 +464,11 @@ func (s *RoomService) StartMatch(ctx context.Context, callerID int64, roomID bso
 		return nil, errs.NewValidationError(fields...)
 	}
 
-	redTeam := domain.TeamSnapshot{
-		Side:         domain.TeamSideRed,
-		Name:         "Red",
-		Color:        "#ef4444",
-		LeaderID:     derefInt64(room.Settings.RedLeader),
-		StrategistID: derefInt64(room.Settings.RedStrategistUserID),
-		Players:      room.Settings.RedPlayers,
+	pool := domain.NewPool()
+	if mappool != nil {
+		pool = mappool.ToRuntime()
 	}
-	blueTeam := domain.TeamSnapshot{
-		Side:         domain.TeamSideBlue,
-		Name:         "Blue",
-		Color:        "#3b82f6",
-		LeaderID:     derefInt64(room.Settings.BlueLeader),
-		StrategistID: derefInt64(room.Settings.BlueStrategistUserID),
-		Players:      room.Settings.BluePlayers,
-	}
-
-	match := domain.NewMatch(*room, redTeam, blueTeam)
+	match := domain.NewMatch(*room, redTeam.Snapshot(domain.TeamSideRed), blueTeam.Snapshot(domain.TeamSideBlue), pool)
 	match.BPOrder = domain.BPOrder{
 		FirstPick: *room.Settings.FirstPick,
 		FirstBan:  *room.Settings.FirstBan,
@@ -491,6 +508,34 @@ func (s *RoomService) existingFormalMatch(ctx context.Context, room *domain.Room
 		return nil, fmt.Errorf("%w: formal room points to a different match", errs.ErrConflict)
 	}
 	return match, nil
+}
+
+// roomStartEntities resolves the Team / Mappool entities referenced by the
+// room settings. A broken reference (deleted entity) fails with ErrNotFound.
+func (s *RoomService) roomStartEntities(ctx context.Context, room *domain.Room) (*domain.Team, *domain.Team, *domain.Mappool, error) {
+	redTeam, err := s.loadTeamRef(ctx, room.Settings.RedTeamID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	blueTeam, err := s.loadTeamRef(ctx, room.Settings.BlueTeamID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var mappool *domain.Mappool
+	if room.Settings.MappoolID != nil {
+		mappool, err = s.mappools.ByID(ctx, *room.Settings.MappoolID)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	return redTeam, blueTeam, mappool, nil
+}
+
+func (s *RoomService) loadTeamRef(ctx context.Context, id *bson.ObjectID) (*domain.Team, error) {
+	if id == nil {
+		return nil, nil
+	}
+	return s.teams.ByID(ctx, *id)
 }
 
 func (s *RoomService) currentEligibleUser(ctx context.Context, osuID int64) (*domain.User, error) {
@@ -558,11 +603,4 @@ func generateRoomCode() (string, error) {
 		b[i] = chars[int(b[i])%len(chars)]
 	}
 	return string(b), nil
-}
-
-func derefInt64(p *int64) int64 {
-	if p == nil {
-		return 0
-	}
-	return *p
 }

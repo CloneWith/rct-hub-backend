@@ -33,8 +33,8 @@ func NewServices(repos *repository.Repositories, invalidator CacheInvalidator, l
 	}
 
 	return &Services{
-		Rooms:         NewRoomService(repos.Rooms, repos.Matches, repos.Users, repos.FormalMatches, auditLog),
-		Matchs:        NewMatchService(repos.Matches, repos.Rooms, repos.Moves, repos.Results),
+		Rooms:         NewRoomService(repos.Rooms, repos.Matches, repos.Users, repos.Teams, repos.Mappools, repos.FormalMatches, auditLog),
+		Matchs:        NewMatchService(repos.Matches, repos.Rooms, repos.Teams, repos.Moves, repos.Results),
 		Moves:         NewMoveService(repos.Moves),
 		Users:         NewUserService(repos.Users, invalidator, sessionRevokers...).WithLogger(auditLog),
 		Beatmaps:      NewBeatmapService(repos.Beatmaps, invalidator, storageLog),

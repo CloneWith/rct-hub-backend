@@ -13,6 +13,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // RoomRepository defines storage operations for rooms.
@@ -38,11 +39,12 @@ type RoomListFilter struct {
 }
 
 type roomRepo struct {
-	coll *mongo.Collection
+	coll  *mongo.Collection
+	teams *mongo.Collection
 }
 
 func NewRoomRepository(db *mongo.Database) RoomRepository {
-	return &roomRepo{coll: db.Collection("rooms")}
+	return &roomRepo{coll: db.Collection("rooms"), teams: db.Collection("teams")}
 }
 
 func (r *roomRepo) Create(ctx context.Context, room *domain.Room) error {
@@ -138,17 +140,21 @@ func (r *roomRepo) List(ctx context.Context, params paginate.Params, filter Room
 	}
 	if filter.RelatedUserID != nil {
 		userID := *filter.RelatedUserID
-		conditions = append(conditions, bson.M{"$or": bson.A{
+		related := bson.M{"$or": bson.A{
 			bson.M{"owner_id": userID},
 			bson.M{"referee_user_id": userID},
-			bson.M{"settings.red_strategist_user_id": userID},
-			bson.M{"settings.blue_strategist_user_id": userID},
 			bson.M{"settings.streamer_user_id": userID},
-			bson.M{"settings.red_players": userID},
-			bson.M{"settings.blue_players": userID},
-			bson.M{"settings.red_leader": userID},
-			bson.M{"settings.blue_leader": userID},
-		}})
+		}}
+		// Team membership (leader / strategist / player) is resolved through
+		// the linked team entities rather than the room settings.
+		teamIDs := r.userTeamIDs(ctx, userID)
+		if len(teamIDs) > 0 {
+			related["$or"] = append(related["$or"].(bson.A),
+				bson.M{"settings.red_team_id": bson.M{"$in": teamIDs}},
+				bson.M{"settings.blue_team_id": bson.M{"$in": teamIDs}},
+			)
+		}
+		conditions = append(conditions, related)
 	}
 	if len(conditions) > 0 {
 		match["$and"] = conditions
@@ -210,4 +216,29 @@ func (r *roomRepo) Delete(ctx context.Context, id bson.ObjectID) error {
 		return errs.ErrNotFound
 	}
 	return nil
+}
+
+// userTeamIDs returns the ids of the teams where the user is the leader, the
+// strategist, or a player. Failures degrade to an empty list: the related-user
+// filter then matches only the direct room assignments.
+func (r *roomRepo) userTeamIDs(ctx context.Context, userID int64) []bson.ObjectID {
+	cur, err := r.teams.Find(ctx, bson.M{"$or": bson.A{
+		bson.M{"leader_id": userID},
+		bson.M{"strategist_id": userID},
+		bson.M{"players": userID},
+	}}, options.Find().SetProjection(bson.M{"_id": 1}))
+	if err != nil {
+		return nil
+	}
+	defer cur.Close(ctx)
+	var ids []bson.ObjectID
+	for cur.Next(ctx) {
+		var doc struct {
+			ID bson.ObjectID `bson:"_id"`
+		}
+		if err := cur.Decode(&doc); err == nil {
+			ids = append(ids, doc.ID)
+		}
+	}
+	return ids
 }

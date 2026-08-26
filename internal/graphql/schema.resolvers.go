@@ -59,49 +59,6 @@ func (r *beatmapResolver) Author(ctx context.Context, obj *Beatmap) (*User, erro
 	return mapUser(u), nil
 }
 
-// Selector is the resolver for the selector field.
-func (r *beatmapResolver) Selector(ctx context.Context, obj *Beatmap) (*User, error) {
-	if obj.SelectorID == nil {
-		return nil, nil
-	}
-	id, err := parsePositiveInt64ID(*obj.SelectorID)
-	if err != nil {
-		return nil, err
-	}
-	loader := UserLoaderFromCtx(ctx)
-	if loader == nil {
-		return nil, fmt.Errorf("UserLoader not found in context")
-	}
-	u, err := loader.Load(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return mapUser(u), nil
-}
-
-// Credits is the resolver for the credits field.
-func (r *beatmapResolver) Credits(ctx context.Context, obj *Beatmap) ([]*User, error) {
-	loader := UserLoaderFromCtx(ctx)
-	if loader == nil {
-		return nil, fmt.Errorf("UserLoader not found in context")
-	}
-	users := make([]*User, 0, len(obj.CreditUserIDs))
-	for _, id := range obj.CreditUserIDs {
-		parsedID, err := parsePositiveInt64ID(id)
-		if err != nil {
-			return nil, err
-		}
-		u, err := loader.Load(ctx, parsedID)
-		if err != nil {
-			return nil, err
-		}
-		if u != nil {
-			users = append(users, mapUser(u))
-		}
-	}
-	return users, nil
-}
-
 // Beatmap is the resolver for the beatmap field.
 func (r *mappoolEntryResolver) Beatmap(ctx context.Context, obj *MappoolEntry) (*Beatmap, error) {
 	if obj == nil || obj.BeatmapID == nil {
@@ -158,7 +115,11 @@ func (r *matchResolver) StrategistView(ctx context.Context, obj *Match) (*Strate
 	if err != nil {
 		return nil, err
 	}
-	team, err := strategistViewerTeam(user, room)
+	redTeam, blueTeam, err := r.loadLinkedTeams(ctx, room)
+	if err != nil {
+		return nil, err
+	}
+	team, err := strategistViewerTeam(user, room, redTeam, blueTeam)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +132,11 @@ func (r *matchResolver) CaptainView(ctx context.Context, obj *Match) (*CaptainVi
 	if err != nil {
 		return nil, err
 	}
-	team, err := captainViewerTeam(user, room)
+	redTeam, blueTeam, err := r.loadLinkedTeams(ctx, room)
+	if err != nil {
+		return nil, err
+	}
+	team, err := captainViewerTeam(user, room, redTeam, blueTeam)
 	if err != nil {
 		return nil, err
 	}
@@ -1159,46 +1124,6 @@ func (r *roomResolver) Match(ctx context.Context, obj *Room) (*Match, error) {
 	return mapFormalMatch(m), nil
 }
 
-// RedStrategist is the resolver for the redStrategist field.
-func (r *roomSettingsResolver) RedStrategist(ctx context.Context, obj *RoomSettings) (*User, error) {
-	if obj.RedStrategistUserID == nil {
-		return nil, nil
-	}
-	id, err := parsePositiveInt64ID(*obj.RedStrategistUserID)
-	if err != nil {
-		return nil, err
-	}
-	loader := UserLoaderFromCtx(ctx)
-	if loader == nil {
-		return nil, fmt.Errorf("UserLoader not found in context")
-	}
-	u, err := loader.Load(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return mapUser(u), nil
-}
-
-// BlueStrategist is the resolver for the blueStrategist field.
-func (r *roomSettingsResolver) BlueStrategist(ctx context.Context, obj *RoomSettings) (*User, error) {
-	if obj.BlueStrategistUserID == nil {
-		return nil, nil
-	}
-	id, err := parsePositiveInt64ID(*obj.BlueStrategistUserID)
-	if err != nil {
-		return nil, err
-	}
-	loader := UserLoaderFromCtx(ctx)
-	if loader == nil {
-		return nil, fmt.Errorf("UserLoader not found in context")
-	}
-	u, err := loader.Load(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return mapUser(u), nil
-}
-
 // Streamer is the resolver for the streamer field.
 func (r *roomSettingsResolver) Streamer(ctx context.Context, obj *RoomSettings) (*User, error) {
 	if obj.StreamerUserID == nil {
@@ -1217,6 +1142,52 @@ func (r *roomSettingsResolver) Streamer(ctx context.Context, obj *RoomSettings) 
 		return nil, err
 	}
 	return mapUser(u), nil
+}
+
+// RedTeam is the resolver for the redTeam field.
+func (r *roomSettingsResolver) RedTeam(ctx context.Context, obj *RoomSettings) (*Team, error) {
+	if obj == nil || obj.RedTeamID == nil {
+		return nil, nil
+	}
+	team, err := r.loadTeamByID(ctx, *obj.RedTeamID)
+	if err != nil {
+		return nil, err
+	}
+	return mapTeam(team), nil
+}
+
+// BlueTeam is the resolver for the blueTeam field.
+func (r *roomSettingsResolver) BlueTeam(ctx context.Context, obj *RoomSettings) (*Team, error) {
+	if obj == nil || obj.BlueTeamID == nil {
+		return nil, nil
+	}
+	team, err := r.loadTeamByID(ctx, *obj.BlueTeamID)
+	if err != nil {
+		return nil, err
+	}
+	return mapTeam(team), nil
+}
+
+// Mappool is the resolver for the mappool field.
+func (r *roomSettingsResolver) Mappool(ctx context.Context, obj *RoomSettings) (*Mappool, error) {
+	if obj == nil || obj.MappoolID == nil {
+		return nil, nil
+	}
+	if r.svc == nil || r.svc.Mappools == nil {
+		return nil, nil
+	}
+	parsed, err := bson.ObjectIDFromHex(*obj.MappoolID)
+	if err != nil {
+		return nil, nil
+	}
+	pool, err := r.svc.Mappools.Get(ctx, parsed)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) || errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return mapMappool(pool), nil
 }
 
 // Leader is the resolver for the leader field.

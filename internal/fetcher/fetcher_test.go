@@ -680,7 +680,7 @@ func TestFetcherGetBeatmapFallbackToAPI(t *testing.T) {
 	}
 }
 
-func TestFetcherSyncBeatmapPreservesLocalFields(t *testing.T) {
+func TestFetcherSyncBeatmapUpsertsInPlace(t *testing.T) {
 	srv := newOsuTestServer(t)
 	srv.beatmapResp[100] = sampleBeatmapResp(100)
 	rdb, _ := newMiniRedis(t)
@@ -688,11 +688,9 @@ func TestFetcherSyncBeatmapPreservesLocalFields(t *testing.T) {
 
 	bmRepo := newFakeBeatmapRepo()
 	existing := &domain.Beatmap{
-		OnlineID:  100,
-		Title:     "Old Title",
-		ModString: "HD",
-		ModIndex:  2,
-		Skill:     "alt",
+		ID:       bson.NewObjectID(),
+		OnlineID: 100,
+		Title:    "Old Title",
 	}
 	_ = bmRepo.Create(context.Background(), existing)
 
@@ -705,14 +703,8 @@ func TestFetcherSyncBeatmapPreservesLocalFields(t *testing.T) {
 	if bm.Title != "Test Song" {
 		t.Errorf("expected updated title, got %s", bm.Title)
 	}
-	if bm.ModString != "HD" {
-		t.Errorf("expected preserved mod_string, got %s", bm.ModString)
-	}
-	if bm.ModIndex != 2 {
-		t.Errorf("expected preserved mod_index, got %d", bm.ModIndex)
-	}
-	if bm.Skill != "alt" {
-		t.Errorf("expected preserved skill, got %s", bm.Skill)
+	if bm.ID != existing.ID {
+		t.Errorf("upsert must reuse the existing document identity")
 	}
 }
 

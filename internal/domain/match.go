@@ -56,8 +56,9 @@ type TeamSnapshot struct {
 	Players      []int64       `json:"players" bson:"players"` // osu uids
 }
 
-// NewMatch creates a new match from room settings.
-func NewMatch(room Room, redTeam, blueTeam TeamSnapshot) Match {
+// NewMatch creates a new match from a room, both team snapshots, and the
+// runtime pool snapshot derived from the linked mappool entity.
+func NewMatch(room Room, redTeam, blueTeam TeamSnapshot, pool Pool) Match {
 	now := time.Now()
 	return Match{
 		RoomID:    room.ID,
@@ -65,7 +66,7 @@ func NewMatch(room Room, redTeam, blueTeam TeamSnapshot) Match {
 		Name:      room.Name,
 		TeamRed:   redTeam,
 		TeamBlue:  blueTeam,
-		Mappool:   room.Settings.Mappool,
+		Mappool:   pool,
 		Board:     NewBoard(),
 		BPOrder:   BPOrder{},
 		TurnState: NewTurnState(),

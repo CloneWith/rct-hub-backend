@@ -167,8 +167,10 @@ func TestRoomQueryContractUsesStableIdentifiersAndFormalSnapshot(t *testing.T) {
 	if got := fieldType(response.Data.Room.Fields, "ownerID"); got.Kind != "NON_NULL" || got.OfType == nil || got.OfType.Name != "ID" {
 		t.Fatalf("Room.ownerID must be ID!, got %+v", got)
 	}
-	if got := fieldType(response.Data.Settings.Fields, "redPlayers"); got.Kind != "NON_NULL" || got.OfType == nil || got.OfType.Kind != "LIST" || got.OfType.OfType == nil || got.OfType.OfType.Kind != "NON_NULL" || got.OfType.OfType.OfType == nil || got.OfType.OfType.OfType.Name != "ID" {
-		t.Fatalf("RoomSettings.redPlayers must be [ID!]!, got %+v", got)
+	for _, name := range []string{"redTeamID", "blueTeamID", "mappoolID"} {
+		if got := fieldType(response.Data.Settings.Fields, name); got.Kind != "SCALAR" || got.Name != "ObjectID" {
+			t.Fatalf("RoomSettings.%s must be ObjectID, got %+v", name, got)
+		}
 	}
 	if got := fieldType(response.Data.Match.Fields, "snapshot"); got.Kind != "NON_NULL" || got.OfType == nil || got.OfType.Name != "MatchSnapshot" {
 		t.Fatalf("Match.snapshot must be MatchSnapshot!, got %+v", got)

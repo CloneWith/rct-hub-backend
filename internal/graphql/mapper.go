@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/v2/bson"
+
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/service"
 	"rctHubBackend/pkg/paginate"
@@ -133,18 +135,14 @@ func mapRoomSettings(s *domain.RoomSettings) *RoomSettings {
 		return nil
 	}
 	return &RoomSettings{
-		RedStrategistUserID:  int64PtrToStringPtr(s.RedStrategistUserID),
-		BlueStrategistUserID: int64PtrToStringPtr(s.BlueStrategistUserID),
-		StreamerUserID:       int64PtrToStringPtr(s.StreamerUserID),
-		Mappool:              mapPool(&s.Mappool),
-		FirstPick:            mapTeamSidePtr(s.FirstPick),
-		FirstBan:             mapTeamSidePtr(s.FirstBan),
-		RedPlayers:           int64SliceToStringSlice(s.RedPlayers),
-		BluePlayers:          int64SliceToStringSlice(s.BluePlayers),
-		RedLeader:            int64PtrToStringPtr(s.RedLeader),
-		BlueLeader:           int64PtrToStringPtr(s.BlueLeader),
-		MpLink:               s.MPLink,
-		StreamLink:           s.StreamLink,
+		StreamerUserID: int64PtrToStringPtr(s.StreamerUserID),
+		RedTeamID:      objectIDPtrToStringPtr(s.RedTeamID),
+		BlueTeamID:     objectIDPtrToStringPtr(s.BlueTeamID),
+		MappoolID:      objectIDPtrToStringPtr(s.MappoolID),
+		FirstPick:      mapTeamSidePtr(s.FirstPick),
+		FirstBan:       mapTeamSidePtr(s.FirstBan),
+		MpLink:         s.MPLink,
+		StreamLink:     s.StreamLink,
 	}
 }
 
@@ -229,13 +227,6 @@ func mapBeatmap(b *domain.Beatmap) *Beatmap {
 		ApproachRate:      b.ApproachRate,
 		OverallDifficulty: b.OverallDifficulty,
 		CoverURL:          b.CoverURL,
-		ModString:         b.ModString,
-		ModIndex:          b.ModIndex,
-		SelectorID:        int64ValToStringPtr(b.SelectorID),
-		CreditUserIDs:     int64SliceToStringSlice(b.CreditUserIDs),
-		Skill:             nullableStr(b.Skill),
-		Comment:           nullableStr(b.Comment),
-		IsOriginal:        b.IsOriginal,
 		CreatedAt:         b.CreatedAt,
 		UpdatedAt:         b.UpdatedAt,
 	}
@@ -471,27 +462,12 @@ func int64PtrToStringPtr(p *int64) *string {
 	return &value
 }
 
-func int64ValToStringPtr(v int64) *string {
-	if v == 0 {
+func objectIDPtrToStringPtr(p *bson.ObjectID) *string {
+	if p == nil {
 		return nil
 	}
-	value := strconv.FormatInt(v, 10)
+	value := p.Hex()
 	return &value
-}
-
-func int64SliceToStringSlice(s []int64) []string {
-	result := make([]string, len(s))
-	for i, v := range s {
-		result[i] = strconv.FormatInt(v, 10)
-	}
-	return result
-}
-
-func nullableStr(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
 }
 
 // --- int ↔ int64 转换（GraphQL Int → Go int；domain osu ID 用 int64）---

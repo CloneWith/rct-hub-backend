@@ -55,6 +55,7 @@ func (s *MappoolService) Create(ctx context.Context, m *domain.Mappool) error {
 	if problems := m.ValidateEntries(); len(problems) > 0 {
 		return entryValidationError(problems)
 	}
+	normalizeEntryIndexes(m)
 	return s.mappools.Create(ctx, m)
 }
 
@@ -83,6 +84,7 @@ func (s *MappoolService) Patch(ctx context.Context, id bson.ObjectID, patch *Map
 	if m.Entries == nil {
 		m.Entries = []domain.MappoolEntry{}
 	}
+	normalizeEntryIndexes(m)
 	if err := s.mappools.Update(ctx, m); err != nil {
 		return nil, err
 	}
@@ -128,4 +130,25 @@ func entryValidationError(problems []string) error {
 		})
 	}
 	return errs.NewValidationError(fields...)
+}
+
+// normalizeEntryIndexes rewrites entry indexes to be contiguous 1..N within
+// each mod group (in sorted order). Stored indexes then always match the
+// runtime pool slot IDs the match engine derives from group positions, even
+// when a client submits sparse or unsorted indexes.
+func normalizeEntryIndexes(m *domain.Mappool) {
+	normalized := m.SortedEntries()
+	for _, mod := range []domain.PieceMod{
+		domain.PieceModNM, domain.PieceModHD, domain.PieceModHR, domain.PieceModDT,
+		domain.PieceModFM, domain.PieceModShiro, domain.PieceModTB,
+	} {
+		index := 1
+		for i := range normalized {
+			if normalized[i].Mod == mod {
+				normalized[i].Index = index
+				index++
+			}
+		}
+	}
+	m.Entries = normalized
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -17,8 +18,8 @@ func TestBuildFormalMatchSeedCreatesReadyAuthoritativeState(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
-	room := formalRoomFixture()
-	seed, err := BuildFormalMatchSeed(room, now)
+	room, redTeam, blueTeam, mappool := formalSeedFixture()
+	seed, err := BuildFormalMatchSeed(room, &redTeam, &blueTeam, &mappool, now)
 	if err != nil {
 		t.Fatalf("BuildFormalMatchSeed: %v", err)
 	}
@@ -27,6 +28,12 @@ func TestBuildFormalMatchSeedCreatesReadyAuthoritativeState(t *testing.T) {
 	}
 	if seed.LegacyMatch.Status != domain.MatchStatusPending || seed.LegacyMatch.StartedAt != nil {
 		t.Fatalf("legacy shell must remain pending until formal StartMatch command: %+v", seed.LegacyMatch)
+	}
+	if seed.LegacyMatch.TeamRed.ID != redTeam.ID || seed.LegacyMatch.TeamBlue.ID != blueTeam.ID {
+		t.Fatalf("legacy snapshots must carry the linked team identities")
+	}
+	if !reflect.DeepEqual(seed.LegacyMatch.TeamRed.Players, redTeam.Players) {
+		t.Fatalf("red snapshot roster changed during mapping")
 	}
 	if seed.State.Lifecycle != matchengine.LifecycleReady || seed.State.Version != 0 {
 		t.Fatalf("authoritative state = lifecycle %q version %d", seed.State.Lifecycle, seed.State.Version)
@@ -43,7 +50,7 @@ func TestBuildFormalMatchSeedCreatesReadyAuthoritativeState(t *testing.T) {
 	if _, ok := seed.State.PoolSlots["TB-1"]; !ok {
 		t.Fatalf("TB slot missing from mapped pool: %+v", seed.State.PoolSlots)
 	}
-	if !reflect.DeepEqual(seed.State.Rosters[matchengine.TeamRed].PlayerIDs, room.Settings.RedPlayers) {
+	if !reflect.DeepEqual(seed.State.Rosters[matchengine.TeamRed].PlayerIDs, redTeam.Players) {
 		t.Fatalf("red roster changed during mapping")
 	}
 }
@@ -54,23 +61,31 @@ func TestBuildFormalMatchSeedRejectsAmbiguousOrInvalidConfiguration(t *testing.T
 	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
 		name   string
-		mutate func(*domain.Room)
+		mutate func(room *domain.Room, red, blue *domain.Team, pool *domain.Mappool)
 	}{
-		{name: "casual room", mutate: func(room *domain.Room) { room.Type = domain.RoomTypeCasual }},
-		{name: "seven players", mutate: func(room *domain.Room) { room.Settings.RedPlayers = room.Settings.RedPlayers[:7] }},
-		{name: "missing Shiro", mutate: func(room *domain.Room) { delete(room.Settings.Mappool.Slots, domain.PieceModShiro) }},
-		{name: "duplicate player", mutate: func(room *domain.Room) { room.Settings.BluePlayers[7] = room.Settings.RedPlayers[0] }},
-		{name: "pre-mutated pool", mutate: func(room *domain.Room) {
-			pieces := room.Settings.Mappool.Slots[domain.PieceModNM]
-			pieces[0].State = domain.PieceStateBanned
-			room.Settings.Mappool.Slots[domain.PieceModNM] = pieces
+		{name: "casual room", mutate: func(room *domain.Room, _, _ *domain.Team, _ *domain.Mappool) {
+			room.Type = domain.RoomTypeCasual
+		}},
+		{name: "seven players", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
+			red.Players = red.Players[:7]
+		}},
+		{name: "unready red team", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
+			red.LeaderID = nil
+		}},
+		{name: "missing Shiro", mutate: func(room *domain.Room, _, _ *domain.Team, pool *domain.Mappool) {
+			pool.Entries = slices.DeleteFunc(pool.Entries, func(e domain.MappoolEntry) bool {
+				return e.Mod == domain.PieceModShiro
+			})
+		}},
+		{name: "duplicate player", mutate: func(room *domain.Room, red, blue *domain.Team, _ *domain.Mappool) {
+			blue.Players[7] = red.Players[0]
 		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			room := formalRoomFixture()
-			tt.mutate(&room)
-			if _, err := BuildFormalMatchSeed(room, now); !errors.Is(err, errs.ErrInvalidInput) {
+			room, redTeam, blueTeam, mappool := formalSeedFixture()
+			tt.mutate(&room, &redTeam, &blueTeam, &mappool)
+			if _, err := BuildFormalMatchSeed(room, &redTeam, &blueTeam, &mappool, now); !errors.Is(err, errs.ErrInvalidInput) {
 				t.Fatalf("error = %v, want invalid input", err)
 			}
 		})
@@ -83,33 +98,33 @@ func TestBuildFormalMatchSeedReportsMissingFields(t *testing.T) {
 	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
 		name   string
-		mutate func(*domain.Room)
+		mutate func(room *domain.Room, red, blue *domain.Team, pool *domain.Mappool)
 		fields []string
 	}{
 		{
 			name:   "missing first pick",
-			mutate: func(room *domain.Room) { room.Settings.FirstPick = nil },
+			mutate: func(room *domain.Room, _, _ *domain.Team, _ *domain.Mappool) { room.Settings.FirstPick = nil },
 			fields: []string{"settings.first_pick"},
 		},
 		{
 			name:   "missing mp link",
-			mutate: func(room *domain.Room) { room.Settings.MPLink = nil },
+			mutate: func(room *domain.Room, _, _ *domain.Team, _ *domain.Mappool) { room.Settings.MPLink = nil },
 			fields: []string{"settings.mp_link"},
 		},
 		{
 			name: "missing multiple",
-			mutate: func(room *domain.Room) {
+			mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
 				room.Settings.FirstPick = nil
-				room.Settings.RedLeader = nil
+				red.LeaderID = nil
 			},
-			fields: []string{"settings.first_pick", "settings.red_leader"},
+			fields: []string{"settings.red_team_id", "settings.first_pick"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			room := formalRoomFixture()
-			tt.mutate(&room)
-			_, err := BuildFormalMatchSeed(room, now)
+			room, redTeam, blueTeam, mappool := formalSeedFixture()
+			tt.mutate(&room, &redTeam, &blueTeam, &mappool)
+			_, err := BuildFormalMatchSeed(room, &redTeam, &blueTeam, &mappool, now)
 			if err == nil {
 				t.Fatal("BuildFormalMatchSeed succeeded with missing settings")
 			}
@@ -129,20 +144,46 @@ func TestBuildFormalMatchSeedReportsMissingFields(t *testing.T) {
 	}
 }
 
-func formalRoomFixture() domain.Room {
-	redStrategist, blueStrategist := int64(101), int64(201)
+// formalSeedFixture returns a fully configured tournament room plus the
+// linked team and mappool entities it references.
+func formalSeedFixture() (domain.Room, domain.Team, domain.Team, domain.Mappool) {
 	redLeader, blueLeader := int64(1), int64(11)
+	redStrategist, blueStrategist := int64(101), int64(201)
 	firstPick, firstBan := domain.TeamSideRed, domain.TeamSideBlue
 	mpLink := "https://osu.ppy.sh/community/matches/1"
-	pool := domain.NewPool()
-	pool.Slots[domain.PieceModNM] = []domain.Piece{{}, {}}
-	pool.Slots[domain.PieceModHD] = []domain.Piece{{}}
-	pool.Slots[domain.PieceModHR] = []domain.Piece{{}}
-	pool.Slots[domain.PieceModDT] = []domain.Piece{{}}
-	pool.Slots[domain.PieceModFM] = []domain.Piece{{}}
-	pool.Slots[domain.PieceModShiro] = []domain.Piece{{}}
-	pool.Slots[domain.PieceModTB] = []domain.Piece{{}}
-	return domain.Room{
+
+	redTeam := domain.Team{
+		ID:           bson.NewObjectID(),
+		Name:         "Fixture Red",
+		LeaderID:     &redLeader,
+		StrategistID: &redStrategist,
+		Players:      []int64{1, 2, 3, 4, 5, 6, 7, 8},
+	}
+	blueTeam := domain.Team{
+		ID:           bson.NewObjectID(),
+		Name:         "Fixture Blue",
+		LeaderID:     &blueLeader,
+		StrategistID: &blueStrategist,
+		Players:      []int64{11, 12, 13, 14, 15, 16, 17, 18},
+	}
+
+	beatmap := int64(1000000)
+	mappool := domain.Mappool{
+		ID:   bson.NewObjectID(),
+		Name: "Fixture Pool",
+		Entries: []domain.MappoolEntry{
+			{Mod: domain.PieceModNM, Index: 1, BeatmapID: &beatmap},
+			{Mod: domain.PieceModNM, Index: 2, BeatmapID: &beatmap},
+			{Mod: domain.PieceModHD, Index: 1, BeatmapID: &beatmap},
+			{Mod: domain.PieceModHR, Index: 1, BeatmapID: &beatmap},
+			{Mod: domain.PieceModDT, Index: 1, BeatmapID: &beatmap},
+			{Mod: domain.PieceModFM, Index: 1, BeatmapID: &beatmap},
+			{Mod: domain.PieceModShiro, Index: 1},
+			{Mod: domain.PieceModTB, Index: 1, BeatmapID: &beatmap},
+		},
+	}
+
+	room := domain.Room{
 		ID:            bson.NewObjectID(),
 		Code:          "FORMAL",
 		Name:          "Formal Match",
@@ -150,16 +191,13 @@ func formalRoomFixture() domain.Room {
 		OwnerID:       999,
 		RefereeUserID: func() *int64 { v := int64(999); return &v }(),
 		Settings: domain.RoomSettings{
-			RedStrategistUserID:  &redStrategist,
-			BlueStrategistUserID: &blueStrategist,
-			Mappool:              pool,
-			FirstPick:            &firstPick,
-			FirstBan:             &firstBan,
-			RedPlayers:           []int64{1, 2, 3, 4, 5, 6, 7, 8},
-			BluePlayers:          []int64{11, 12, 13, 14, 15, 16, 17, 18},
-			RedLeader:            &redLeader,
-			BlueLeader:           &blueLeader,
-			MPLink:               &mpLink,
+			RedTeamID:  &redTeam.ID,
+			BlueTeamID: &blueTeam.ID,
+			MappoolID:  &mappool.ID,
+			FirstPick:  &firstPick,
+			FirstBan:   &firstBan,
+			MPLink:     &mpLink,
 		},
 	}
+	return room, redTeam, blueTeam, mappool
 }

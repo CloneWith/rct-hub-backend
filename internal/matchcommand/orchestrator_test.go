@@ -162,17 +162,17 @@ func TestActorForCommandSeparatesGlobalAndRoomRoles(t *testing.T) {
 
 	fixture := newCommandFixture(t)
 	red := fixture.users[redStrategistOsuID]
-	actor, admin, proxy, err := actorForCommand(red, fixture.room, matchengine.BanPoolSlot{PoolSlotID: "NM-1"})
+	actor, admin, proxy, err := actorForCommand(red, fixture.room, fixture.redTeam, fixture.blueTeam, matchengine.BanPoolSlot{PoolSlotID: "NM-1"})
 	if err != nil || actor.Team == nil || *actor.Team != matchengine.TeamRed || admin || proxy {
 		t.Fatalf("red strategist actor = %+v admin=%v proxy=%v err=%v", actor, admin, proxy, err)
 	}
 
 	red.Roles = []domain.UserRole{domain.RolePlayer}
-	_, _, _, err = actorForCommand(red, fixture.room, matchengine.BanPoolSlot{PoolSlotID: "NM-1"})
+	_, _, _, err = actorForCommand(red, fixture.room, fixture.redTeam, fixture.blueTeam, matchengine.BanPoolSlot{PoolSlotID: "NM-1"})
 	assertCommandError(t, err, CodeGlobalRoleRequired)
 
 	captain := &domain.User{ID: bson.NewObjectID(), OnlineID: 1101, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RolePlayer}}
-	actor, _, _, err = actorForCommand(captain, fixture.room, matchengine.RequestTB{RequestID: "tb", Basis: matchengine.TBBasisCaptainAgreement})
+	actor, _, _, err = actorForCommand(captain, fixture.room, fixture.redTeam, fixture.blueTeam, matchengine.RequestTB{RequestID: "tb", Basis: matchengine.TBBasisCaptainAgreement})
 	if err != nil || actor.Team == nil || *actor.Team != matchengine.TeamRed || actor.Capability != matchengine.CapabilityCaptain {
 		t.Fatalf("captain actor = %+v err=%v", actor, err)
 	}
@@ -184,20 +184,20 @@ func TestActorForCommandRecordsOverridesAccurately(t *testing.T) {
 	fixture := newCommandFixture(t)
 	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 3001, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
 	fixture.room.RefereeUserID = func() *int64 { v := admin.OnlineID; return &v }()
-	actor, adminOverride, refereeOverride, err := actorForCommand(admin, fixture.room, matchengine.StartMatch{})
+	actor, adminOverride, refereeOverride, err := actorForCommand(admin, fixture.room, fixture.redTeam, fixture.blueTeam, matchengine.StartMatch{})
 	if err != nil || actor.Capability != matchengine.CapabilityReferee || !adminOverride || refereeOverride {
 		t.Fatalf("admin referee command = %+v admin=%v proxy=%v err=%v", actor, adminOverride, refereeOverride, err)
 	}
 
 	fixture.room.RefereeUserID = func() *int64 { v := refereeOsuID; return &v }()
 	referee := fixture.users[refereeOsuID]
-	actor, adminOverride, refereeOverride, err = actorForCommand(referee, fixture.room, matchengine.StartMatch{})
+	actor, adminOverride, refereeOverride, err = actorForCommand(referee, fixture.room, fixture.redTeam, fixture.blueTeam, matchengine.StartMatch{})
 	if err != nil || actor.Capability != matchengine.CapabilityReferee || adminOverride || refereeOverride {
 		t.Fatalf("assigned referee command = %+v admin=%v proxy=%v err=%v", actor, adminOverride, refereeOverride, err)
 	}
 
 	fixture.room.RefereeUserID = func() *int64 { v := admin.OnlineID; return &v }()
-	actor, adminOverride, refereeOverride, err = actorForCommand(admin, fixture.room, matchengine.RefereeBanPoolSlot{PoolSlotID: "NM-1", Reason: "proxy"})
+	actor, adminOverride, refereeOverride, err = actorForCommand(admin, fixture.room, fixture.redTeam, fixture.blueTeam, matchengine.RefereeBanPoolSlot{PoolSlotID: "NM-1", Reason: "proxy"})
 	if err != nil || actor.Capability != matchengine.CapabilityReferee || !adminOverride || !refereeOverride {
 		t.Fatalf("admin proxy command = %+v admin=%v proxy=%v err=%v", actor, adminOverride, refereeOverride, err)
 	}
@@ -391,6 +391,8 @@ type commandFixture struct {
 	users        map[int64]*domain.User
 	match        *domain.Match
 	room         *domain.Room
+	redTeam      *domain.Team
+	blueTeam     *domain.Team
 }
 
 func newCommandFixture(t *testing.T) *commandFixture {
@@ -398,11 +400,23 @@ func newCommandFixture(t *testing.T) *commandFixture {
 	roomID, matchID := bson.NewObjectID(), bson.NewObjectID()
 	redStrategist, blueStrategist := redStrategistOsuID, blueStrategistOsuID
 	redLeader, blueLeader := int64(1101), int64(2101)
+	redTeam := &domain.Team{
+		ID:           bson.NewObjectID(),
+		LeaderID:     &redLeader,
+		StrategistID: &redStrategist,
+		Players:      []int64{1101, 1102, 1103, 1104, 1105, 1106, 1107, 1108},
+	}
+	blueTeam := &domain.Team{
+		ID:           bson.NewObjectID(),
+		LeaderID:     &blueLeader,
+		StrategistID: &blueStrategist,
+		Players:      []int64{2101, 2102, 2103, 2104, 2105, 2106, 2107, 2108},
+	}
 	room := &domain.Room{
 		ID: roomID, Type: domain.RoomTypeMatch, OwnerID: refereeOsuID, RefereeUserID: func() *int64 { v := refereeOsuID; return &v }(), MatchID: &matchID,
 		Settings: domain.RoomSettings{
-			RedStrategistUserID: &redStrategist, BlueStrategistUserID: &blueStrategist,
-			RedLeader: &redLeader, BlueLeader: &blueLeader,
+			RedTeamID:  &redTeam.ID,
+			BlueTeamID: &blueTeam.ID,
 		},
 	}
 	match := &domain.Match{ID: matchID, RoomID: roomID, RoomType: domain.RoomTypeMatch}
@@ -414,16 +428,28 @@ func newCommandFixture(t *testing.T) *commandFixture {
 		2101:                {ID: bson.NewObjectID(), OnlineID: 2101, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RolePlayer}},
 	}
 	store := &memoryTransactionStore{state: commandReadyState(t), receipts: make(map[string]memoryReceipt)}
-	fixture := &commandFixture{store: store, users: users, match: match, room: room}
+	fixture := &commandFixture{store: store, users: users, match: match, room: room, redTeam: redTeam, blueTeam: blueTeam}
 	fixture.orchestrator = NewOrchestrator(
 		store,
 		userMapReader(users),
 		matchMapReader{matchID: match},
 		roomMapReader{roomID: room},
+		teamMapReader{redTeam.ID: redTeam, blueTeam.ID: blueTeam},
 		func() time.Time { return commandTestNow },
 		nil,
 	)
 	return fixture
+}
+
+type teamMapReader map[bson.ObjectID]*domain.Team
+
+func (r teamMapReader) ByID(_ context.Context, id bson.ObjectID) (*domain.Team, error) {
+	team, ok := r[id]
+	if !ok {
+		return nil, errs.ErrNotFound
+	}
+	clone := *team
+	return &clone, nil
 }
 
 type userMapReader map[int64]*domain.User

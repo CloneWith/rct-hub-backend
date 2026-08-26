@@ -68,8 +68,9 @@ func TestMongoIntegrationFormalOrchestratorSurvivesRestart(t *testing.T) {
 	users := repository.NewUserRepository(db)
 	rooms := repository.NewRoomRepository(db)
 	matches := repository.NewMatchRepository(db)
-	room := integrationFormalRoom()
-	room.Settings.Mappool.Slots[domain.PieceModNM] = make([]domain.Piece, 20)
+	teams := repository.NewTeamRepository(db)
+	mappools := repository.NewMappoolRepository(db)
+	room, redTeam, blueTeam, mappool := integrationFormalRoom()
 	refereeID := room.OwnerID
 	for _, user := range []*domain.User{
 		{ID: bson.NewObjectID(), OnlineID: refereeID, Username: "referee", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}},
@@ -79,6 +80,15 @@ func TestMongoIntegrationFormalOrchestratorSurvivesRestart(t *testing.T) {
 		if err := users.Create(ctx, user); err != nil {
 			t.Fatalf("create user %d: %v", user.OnlineID, err)
 		}
+	}
+	if err := teams.Create(ctx, &redTeam); err != nil {
+		t.Fatalf("create red team: %v", err)
+	}
+	if err := teams.Create(ctx, &blueTeam); err != nil {
+		t.Fatalf("create blue team: %v", err)
+	}
+	if err := mappools.Create(ctx, &mappool); err != nil {
+		t.Fatalf("create mappool: %v", err)
 	}
 	if err := rooms.Create(ctx, &room); err != nil {
 		t.Fatalf("create room: %v", err)
@@ -100,7 +110,7 @@ func TestMongoIntegrationFormalOrchestratorSurvivesRestart(t *testing.T) {
 	}
 
 	seedTime := time.Date(2026, time.August, 14, 12, 0, 0, 0, time.UTC)
-	seed, err := service.BuildFormalMatchSeed(room, seedTime)
+	seed, err := service.BuildFormalMatchSeed(room, &redTeam, &blueTeam, &mappool, seedTime)
 	if err != nil {
 		t.Fatalf("BuildFormalMatchSeed: %v", err)
 	}
@@ -110,7 +120,7 @@ func TestMongoIntegrationFormalOrchestratorSurvivesRestart(t *testing.T) {
 
 	newOrchestrator := func() *matchcommand.Orchestrator {
 		return matchcommand.NewOrchestrator(
-			persistence.NewCommandStore(client, db), users, matches, rooms,
+			persistence.NewCommandStore(client, db), users, matches, rooms, teams,
 			func() time.Time { return time.Date(2026, time.August, 14, 12, 0, 0, 0, time.UTC) }, nil,
 		)
 	}
@@ -233,8 +243,9 @@ func TestMongoIntegrationFormalMatchScenarioReachesNegotiatedTB(t *testing.T) {
 	users := repository.NewUserRepository(db)
 	rooms := repository.NewRoomRepository(db)
 	matches := repository.NewMatchRepository(db)
-	room := integrationFormalRoom()
-	room.Settings.Mappool.Slots[domain.PieceModNM] = make([]domain.Piece, 20)
+	teams := repository.NewTeamRepository(db)
+	mappools := repository.NewMappoolRepository(db)
+	room, redTeam, blueTeam, mappool := integrationFormalRoom()
 	refereeID := room.OwnerID
 	for _, user := range []*domain.User{
 		{ID: bson.NewObjectID(), OnlineID: refereeID, Username: "referee", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}},
@@ -246,6 +257,15 @@ func TestMongoIntegrationFormalMatchScenarioReachesNegotiatedTB(t *testing.T) {
 		if err := users.Create(ctx, user); err != nil {
 			t.Fatalf("create user %d: %v", user.OnlineID, err)
 		}
+	}
+	if err := teams.Create(ctx, &redTeam); err != nil {
+		t.Fatalf("create red team: %v", err)
+	}
+	if err := teams.Create(ctx, &blueTeam); err != nil {
+		t.Fatalf("create blue team: %v", err)
+	}
+	if err := mappools.Create(ctx, &mappool); err != nil {
+		t.Fatalf("create mappool: %v", err)
 	}
 	if err := rooms.Create(ctx, &room); err != nil {
 		t.Fatalf("create room: %v", err)
@@ -266,7 +286,7 @@ func TestMongoIntegrationFormalMatchScenarioReachesNegotiatedTB(t *testing.T) {
 	}
 
 	seedTime := time.Date(2026, time.August, 14, 13, 0, 0, 0, time.UTC)
-	seed, err := service.BuildFormalMatchSeed(room, seedTime)
+	seed, err := service.BuildFormalMatchSeed(room, &redTeam, &blueTeam, &mappool, seedTime)
 	if err != nil {
 		t.Fatalf("BuildFormalMatchSeed: %v", err)
 	}
@@ -275,7 +295,7 @@ func TestMongoIntegrationFormalMatchScenarioReachesNegotiatedTB(t *testing.T) {
 	}
 	newOrchestrator := func() *matchcommand.Orchestrator {
 		return matchcommand.NewOrchestrator(
-			persistence.NewCommandStore(client, db), users, matches, rooms,
+			persistence.NewCommandStore(client, db), users, matches, rooms, teams,
 			func() time.Time { return seedTime.Add(time.Minute) }, nil,
 		)
 	}
@@ -589,11 +609,11 @@ func TestMongoIntegrationFormalBootstrapIsAtomic(t *testing.T) {
 	store := persistence.NewSnapshotStore(db)
 	bootstrap := persistence.NewFormalMatchBootstrapStore(client, db)
 	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
-	room := integrationFormalRoom()
+	room, redTeam, blueTeam, mappool := integrationFormalRoom()
 	if _, err := db.Collection("rooms").InsertOne(ctx, room); err != nil {
 		t.Fatalf("insert room: %v", err)
 	}
-	seed, err := service.BuildFormalMatchSeed(room, now)
+	seed, err := service.BuildFormalMatchSeed(room, &redTeam, &blueTeam, &mappool, now)
 	if err != nil {
 		t.Fatalf("BuildFormalMatchSeed: %v", err)
 	}
@@ -617,12 +637,12 @@ func TestMongoIntegrationFormalBootstrapIsAtomic(t *testing.T) {
 	}
 	assertJSONEqual(t, recovered, seed.State)
 
-	rollbackRoom := integrationFormalRoom()
+	rollbackRoom, rollbackRed, rollbackBlue, rollbackPool := integrationFormalRoom()
 	rollbackRoom.Code = "ROLLBACK"
 	if _, err := db.Collection("rooms").InsertOne(ctx, rollbackRoom); err != nil {
 		t.Fatalf("insert rollback room: %v", err)
 	}
-	rollbackSeed, err := service.BuildFormalMatchSeed(rollbackRoom, now)
+	rollbackSeed, err := service.BuildFormalMatchSeed(rollbackRoom, &rollbackRed, &rollbackBlue, &rollbackPool, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -649,14 +669,14 @@ func TestMongoIntegrationFormalBootstrapConcurrentStartHasOneWinner(t *testing.T
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	room := integrationFormalRoom()
+	room, redTeam, blueTeam, mappool := integrationFormalRoom()
 	if _, err := db.Collection("rooms").InsertOne(ctx, room); err != nil {
 		t.Fatalf("insert room: %v", err)
 	}
 	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
 	seeds := make([]service.FormalMatchSeed, 2)
 	for index := range seeds {
-		seed, err := service.BuildFormalMatchSeed(room, now.Add(time.Duration(index)*time.Second))
+		seed, err := service.BuildFormalMatchSeed(room, &redTeam, &blueTeam, &mappool, now.Add(time.Duration(index)*time.Second))
 		if err != nil {
 			t.Fatalf("BuildFormalMatchSeed %d: %v", index, err)
 		}
@@ -732,7 +752,7 @@ func TestMongoIntegrationRepositoriesAssignObjectIDs(t *testing.T) {
 	defer cancel()
 
 	roomRepo := repository.NewRoomRepository(db)
-	room := &domain.Room{Code: "IDTEST", Name: "ID Test", Type: domain.RoomTypePrivate, OwnerID: 1, Settings: domain.RoomSettings{Mappool: domain.NewPool()}}
+	room := &domain.Room{Code: "IDTEST", Name: "ID Test", Type: domain.RoomTypePrivate, OwnerID: 1}
 	if err := roomRepo.Create(ctx, room); err != nil {
 		t.Fatalf("create room: %v", err)
 	}
@@ -1008,31 +1028,57 @@ func assertVersionConflict(t *testing.T, err error, expected, current uint64) {
 	}
 }
 
-func integrationFormalRoom() domain.Room {
+// integrationFormalRoom returns a fully configured tournament room plus the
+// linked team and mappool entities it references. The mappool carries 20 NM
+// entries plus one entry for every other mod so ban/pick scenarios always
+// have spare NM slots.
+func integrationFormalRoom() (domain.Room, domain.Team, domain.Team, domain.Mappool) {
 	redStrategist, blueStrategist := int64(101), int64(201)
 	redLeader, blueLeader := int64(1), int64(11)
 	refereeID := int64(999)
 	firstPick, firstBan := domain.TeamSideRed, domain.TeamSideBlue
 	mpLink := "https://osu.ppy.sh/community/matches/1"
-	pool := domain.NewPool()
-	pool.Slots[domain.PieceModNM] = []domain.Piece{{}, {}, {}, {}, {}}
-	pool.Slots[domain.PieceModHD] = []domain.Piece{{}}
-	pool.Slots[domain.PieceModHR] = []domain.Piece{{}}
-	pool.Slots[domain.PieceModDT] = []domain.Piece{{}}
-	pool.Slots[domain.PieceModFM] = []domain.Piece{{}}
-	pool.Slots[domain.PieceModShiro] = []domain.Piece{{}}
-	pool.Slots[domain.PieceModTB] = []domain.Piece{{}}
+
+	redTeam := domain.Team{
+		ID:           bson.NewObjectID(),
+		Name:         "Integration Red",
+		LeaderID:     &redLeader,
+		StrategistID: &redStrategist,
+		Players:      []int64{1, 2, 3, 4, 5, 6, 7, 8},
+	}
+	blueTeam := domain.Team{
+		ID:           bson.NewObjectID(),
+		Name:         "Integration Blue",
+		LeaderID:     &blueLeader,
+		StrategistID: &blueStrategist,
+		Players:      []int64{11, 12, 13, 14, 15, 16, 17, 18},
+	}
+
+	beatmap := int64(1000000)
+	entries := make([]domain.MappoolEntry, 0, 26)
+	for index := 1; index <= 20; index++ {
+		entries = append(entries, domain.MappoolEntry{Mod: domain.PieceModNM, Index: index, BeatmapID: &beatmap})
+	}
+	for _, mod := range []domain.PieceMod{domain.PieceModHD, domain.PieceModHR, domain.PieceModDT, domain.PieceModFM, domain.PieceModTB} {
+		entries = append(entries, domain.MappoolEntry{Mod: mod, Index: 1, BeatmapID: &beatmap})
+	}
+	entries = append(entries, domain.MappoolEntry{Mod: domain.PieceModShiro, Index: 1})
+	mappool := domain.Mappool{ID: bson.NewObjectID(), Name: "Integration Pool", Entries: entries}
+
 	now := time.Date(2026, time.August, 3, 11, 0, 0, 0, time.UTC)
-	return domain.Room{
+	room := domain.Room{
 		ID: bson.NewObjectID(), Code: "FORMAL-" + bson.NewObjectID().Hex(), Name: "Formal", Type: domain.RoomTypeMatch, OwnerID: 999, RefereeUserID: &refereeID,
 		Settings: domain.RoomSettings{
-			RedStrategistUserID: &redStrategist, BlueStrategistUserID: &blueStrategist,
-			Mappool: pool, FirstPick: &firstPick, FirstBan: &firstBan,
-			RedPlayers: []int64{1, 2, 3, 4, 5, 6, 7, 8}, BluePlayers: []int64{11, 12, 13, 14, 15, 16, 17, 18},
-			RedLeader: &redLeader, BlueLeader: &blueLeader, MPLink: &mpLink,
+			RedTeamID:  &redTeam.ID,
+			BlueTeamID: &blueTeam.ID,
+			MappoolID:  &mappool.ID,
+			FirstPick:  &firstPick,
+			FirstBan:   &firstBan,
+			MPLink:     &mpLink,
 		},
 		CreatedAt: now, UpdatedAt: now,
 	}
+	return room, redTeam, blueTeam, mappool
 }
 
 func assertJSONEqual(t *testing.T, got, want any) {

@@ -27,3 +27,70 @@ type Team struct {
 func (t *Team) IsReady() bool {
 	return t.LeaderID != nil && t.StrategistID != nil
 }
+
+// Snapshot builds the immutable per-side roster snapshot embedded in a match
+// when the match starts. Color derives from the side, not the entity.
+func (t *Team) Snapshot(side TeamSide) TeamSnapshot {
+	snapshot := TeamSnapshot{
+		ID:           t.ID,
+		Side:         side,
+		Name:         t.Name,
+		Color:        SideColor(side),
+		LeaderID:     DerefInt64(t.LeaderID, 0),
+		StrategistID: DerefInt64(t.StrategistID, 0),
+		Players:      append([]int64(nil), t.Players...),
+	}
+	if t.Description != nil {
+		snapshot.Description = *t.Description
+	}
+	if t.Seed != nil {
+		snapshot.Seed = *t.Seed
+	}
+	return snapshot
+}
+
+// SideColor returns the canonical display color for a team side.
+func SideColor(side TeamSide) string {
+	if side == TeamSideBlue {
+		return "#3b82f6"
+	}
+	return "#ef4444"
+}
+
+// StrategistSide reports which side the given osu user is the assigned
+// strategist of. ok is false when the user is not assigned to exactly one
+// side; unlinked teams count as unassigned.
+func StrategistSide(redTeam, blueTeam *Team, osuID int64) (TeamSide, bool) {
+	return sideByAssignment(
+		redTeam != nil && redTeam.StrategistID != nil && *redTeam.StrategistID == osuID,
+		blueTeam != nil && blueTeam.StrategistID != nil && *blueTeam.StrategistID == osuID,
+	)
+}
+
+// CaptainSide reports which side the given osu user is the captain (leader)
+// of. ok is false when the user is not assigned to exactly one side.
+func CaptainSide(redTeam, blueTeam *Team, osuID int64) (TeamSide, bool) {
+	return sideByAssignment(
+		redTeam != nil && redTeam.LeaderID != nil && *redTeam.LeaderID == osuID,
+		blueTeam != nil && blueTeam.LeaderID != nil && *blueTeam.LeaderID == osuID,
+	)
+}
+
+func sideByAssignment(red, blue bool) (TeamSide, bool) {
+	switch {
+	case red && !blue:
+		return TeamSideRed, true
+	case blue && !red:
+		return TeamSideBlue, true
+	default:
+		return "", false
+	}
+}
+
+// DerefInt64 returns the dereferenced value or fallback when p is nil.
+func DerefInt64(p *int64, fallback int64) int64 {
+	if p == nil {
+		return fallback
+	}
+	return *p
+}

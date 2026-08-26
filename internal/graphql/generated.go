@@ -87,23 +87,14 @@ type ComplexityRoot struct {
 		BeatmapsetID      func(childComplexity int) int
 		Bpm               func(childComplexity int) int
 		CircleSize        func(childComplexity int) int
-		Comment           func(childComplexity int) int
 		CoverURL          func(childComplexity int) int
 		CreatedAt         func(childComplexity int) int
-		CreditUserIDs     func(childComplexity int) int
-		Credits           func(childComplexity int) int
 		DifficultyName    func(childComplexity int) int
 		DrainRate         func(childComplexity int) int
 		ID                func(childComplexity int) int
-		IsOriginal        func(childComplexity int) int
-		ModIndex          func(childComplexity int) int
-		ModString         func(childComplexity int) int
 		OnlineID          func(childComplexity int) int
 		OverallDifficulty func(childComplexity int) int
 		RulesetID         func(childComplexity int) int
-		Selector          func(childComplexity int) int
-		SelectorID        func(childComplexity int) int
-		Skill             func(childComplexity int) int
 		StarRating        func(childComplexity int) int
 		Status            func(childComplexity int) int
 		Title             func(childComplexity int) int
@@ -527,21 +518,18 @@ type ComplexityRoot struct {
 	}
 
 	RoomSettings struct {
-		BlueLeader           func(childComplexity int) int
-		BluePlayers          func(childComplexity int) int
-		BlueStrategist       func(childComplexity int) int
-		BlueStrategistUserID func(childComplexity int) int
-		FirstBan             func(childComplexity int) int
-		FirstPick            func(childComplexity int) int
-		Mappool              func(childComplexity int) int
-		MpLink               func(childComplexity int) int
-		RedLeader            func(childComplexity int) int
-		RedPlayers           func(childComplexity int) int
-		RedStrategist        func(childComplexity int) int
-		RedStrategistUserID  func(childComplexity int) int
-		StreamLink           func(childComplexity int) int
-		Streamer             func(childComplexity int) int
-		StreamerUserID       func(childComplexity int) int
+		BlueTeam       func(childComplexity int) int
+		BlueTeamID     func(childComplexity int) int
+		FirstBan       func(childComplexity int) int
+		FirstPick      func(childComplexity int) int
+		Mappool        func(childComplexity int) int
+		MappoolID      func(childComplexity int) int
+		MpLink         func(childComplexity int) int
+		RedTeam        func(childComplexity int) int
+		RedTeamID      func(childComplexity int) int
+		StreamLink     func(childComplexity int) int
+		Streamer       func(childComplexity int) int
+		StreamerUserID func(childComplexity int) int
 	}
 
 	SpectatorView struct {
@@ -636,10 +624,6 @@ type AnnouncementResolver interface {
 }
 type BeatmapResolver interface {
 	Author(ctx context.Context, obj *Beatmap) (*User, error)
-
-	Selector(ctx context.Context, obj *Beatmap) (*User, error)
-
-	Credits(ctx context.Context, obj *Beatmap) ([]*User, error)
 }
 type MappoolEntryResolver interface {
 	Beatmap(ctx context.Context, obj *MappoolEntry) (*Beatmap, error)
@@ -738,11 +722,11 @@ type RoomResolver interface {
 	Match(ctx context.Context, obj *Room) (*Match, error)
 }
 type RoomSettingsResolver interface {
-	RedStrategist(ctx context.Context, obj *RoomSettings) (*User, error)
-
-	BlueStrategist(ctx context.Context, obj *RoomSettings) (*User, error)
-
 	Streamer(ctx context.Context, obj *RoomSettings) (*User, error)
+
+	RedTeam(ctx context.Context, obj *RoomSettings) (*Team, error)
+	BlueTeam(ctx context.Context, obj *RoomSettings) (*Team, error)
+	Mappool(ctx context.Context, obj *RoomSettings) (*Mappool, error)
 }
 type TeamResolver interface {
 	Leader(ctx context.Context, obj *Team) (*User, error)
@@ -959,12 +943,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Beatmap.CircleSize(childComplexity), true
-	case "Beatmap.comment":
-		if e.ComplexityRoot.Beatmap.Comment == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Beatmap.Comment(childComplexity), true
 	case "Beatmap.coverURL":
 		if e.ComplexityRoot.Beatmap.CoverURL == nil {
 			break
@@ -977,18 +955,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Beatmap.CreatedAt(childComplexity), true
-	case "Beatmap.creditUserIDs":
-		if e.ComplexityRoot.Beatmap.CreditUserIDs == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Beatmap.CreditUserIDs(childComplexity), true
-	case "Beatmap.credits":
-		if e.ComplexityRoot.Beatmap.Credits == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Beatmap.Credits(childComplexity), true
 	case "Beatmap.difficultyName":
 		if e.ComplexityRoot.Beatmap.DifficultyName == nil {
 			break
@@ -1007,24 +973,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Beatmap.ID(childComplexity), true
-	case "Beatmap.isOriginal":
-		if e.ComplexityRoot.Beatmap.IsOriginal == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Beatmap.IsOriginal(childComplexity), true
-	case "Beatmap.modIndex":
-		if e.ComplexityRoot.Beatmap.ModIndex == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Beatmap.ModIndex(childComplexity), true
-	case "Beatmap.modString":
-		if e.ComplexityRoot.Beatmap.ModString == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Beatmap.ModString(childComplexity), true
 	case "Beatmap.onlineID":
 		if e.ComplexityRoot.Beatmap.OnlineID == nil {
 			break
@@ -1043,24 +991,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Beatmap.RulesetID(childComplexity), true
-	case "Beatmap.selector":
-		if e.ComplexityRoot.Beatmap.Selector == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Beatmap.Selector(childComplexity), true
-	case "Beatmap.selectorID":
-		if e.ComplexityRoot.Beatmap.SelectorID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Beatmap.SelectorID(childComplexity), true
-	case "Beatmap.skill":
-		if e.ComplexityRoot.Beatmap.Skill == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Beatmap.Skill(childComplexity), true
 	case "Beatmap.starRating":
 		if e.ComplexityRoot.Beatmap.StarRating == nil {
 			break
@@ -3171,30 +3101,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.RoomPage.TotalPages(childComplexity), true
 
-	case "RoomSettings.blueLeader":
-		if e.ComplexityRoot.RoomSettings.BlueLeader == nil {
+	case "RoomSettings.blueTeam":
+		if e.ComplexityRoot.RoomSettings.BlueTeam == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RoomSettings.BlueLeader(childComplexity), true
-	case "RoomSettings.bluePlayers":
-		if e.ComplexityRoot.RoomSettings.BluePlayers == nil {
+		return e.ComplexityRoot.RoomSettings.BlueTeam(childComplexity), true
+	case "RoomSettings.blueTeamID":
+		if e.ComplexityRoot.RoomSettings.BlueTeamID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RoomSettings.BluePlayers(childComplexity), true
-	case "RoomSettings.blueStrategist":
-		if e.ComplexityRoot.RoomSettings.BlueStrategist == nil {
-			break
-		}
-
-		return e.ComplexityRoot.RoomSettings.BlueStrategist(childComplexity), true
-	case "RoomSettings.blueStrategistUserID":
-		if e.ComplexityRoot.RoomSettings.BlueStrategistUserID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.RoomSettings.BlueStrategistUserID(childComplexity), true
+		return e.ComplexityRoot.RoomSettings.BlueTeamID(childComplexity), true
 	case "RoomSettings.firstBan":
 		if e.ComplexityRoot.RoomSettings.FirstBan == nil {
 			break
@@ -3213,36 +3131,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.RoomSettings.Mappool(childComplexity), true
+	case "RoomSettings.mappoolID":
+		if e.ComplexityRoot.RoomSettings.MappoolID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.RoomSettings.MappoolID(childComplexity), true
 	case "RoomSettings.mpLink":
 		if e.ComplexityRoot.RoomSettings.MpLink == nil {
 			break
 		}
 
 		return e.ComplexityRoot.RoomSettings.MpLink(childComplexity), true
-	case "RoomSettings.redLeader":
-		if e.ComplexityRoot.RoomSettings.RedLeader == nil {
+	case "RoomSettings.redTeam":
+		if e.ComplexityRoot.RoomSettings.RedTeam == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RoomSettings.RedLeader(childComplexity), true
-	case "RoomSettings.redPlayers":
-		if e.ComplexityRoot.RoomSettings.RedPlayers == nil {
+		return e.ComplexityRoot.RoomSettings.RedTeam(childComplexity), true
+	case "RoomSettings.redTeamID":
+		if e.ComplexityRoot.RoomSettings.RedTeamID == nil {
 			break
 		}
 
-		return e.ComplexityRoot.RoomSettings.RedPlayers(childComplexity), true
-	case "RoomSettings.redStrategist":
-		if e.ComplexityRoot.RoomSettings.RedStrategist == nil {
-			break
-		}
-
-		return e.ComplexityRoot.RoomSettings.RedStrategist(childComplexity), true
-	case "RoomSettings.redStrategistUserID":
-		if e.ComplexityRoot.RoomSettings.RedStrategistUserID == nil {
-			break
-		}
-
-		return e.ComplexityRoot.RoomSettings.RedStrategistUserID(childComplexity), true
+		return e.ComplexityRoot.RoomSettings.RedTeamID(childComplexity), true
 	case "RoomSettings.streamLink":
 		if e.ComplexityRoot.RoomSettings.StreamLink == nil {
 			break
@@ -3792,20 +3704,17 @@ type Room {
 }
 
 type RoomSettings {
-  redStrategistUserID: ID
-  redStrategist: User @goField(forceResolver: true)
-  blueStrategistUserID: ID
-  blueStrategist: User @goField(forceResolver: true)
   streamerUserID: ID
   streamer: User @goField(forceResolver: true)
-  # 运行时图池视图（实体化前的内嵌图池；P2 起切换为 Mappool 实体引用）
-  mappool: Pool!
+  # 实体引用（D1）：队伍与图池由管理后台维护，房间仅持有 ID
+  redTeamID: ObjectID
+  blueTeamID: ObjectID
+  mappoolID: ObjectID
+  redTeam: Team @goField(forceResolver: true)
+  blueTeam: Team @goField(forceResolver: true)
+  mappool: Mappool @goField(forceResolver: true)
   firstPick: TeamSide
   firstBan: TeamSide
-  redPlayers: [ID!]!
-  bluePlayers: [ID!]!
-  redLeader: ID
-  blueLeader: ID
   mpLink: String
   streamLink: String
 }
@@ -4056,15 +3965,6 @@ type Beatmap {
   approachRate: Float!
   overallDifficulty: Float!
   coverURL: String!
-  modString: String!
-  modIndex: Int!
-  selectorID: ID                # domain: SelectorID int64 (谱面选择者)
-  selector: User @goField(forceResolver: true)
-  creditUserIDs: [ID!]!         # domain: CreditUserIDs []int64 (贡献者)
-  credits: [User!]! @goField(forceResolver: true)
-  skill: String
-  comment: String
-  isOriginal: Boolean!
   createdAt: Time!
   updatedAt: Time!
 }
@@ -4611,24 +4511,6 @@ func (ec *executionContext) childFields_Beatmap(ctx context.Context, field graph
 		return ec.fieldContext_Beatmap_overallDifficulty(ctx, field)
 	case "coverURL":
 		return ec.fieldContext_Beatmap_coverURL(ctx, field)
-	case "modString":
-		return ec.fieldContext_Beatmap_modString(ctx, field)
-	case "modIndex":
-		return ec.fieldContext_Beatmap_modIndex(ctx, field)
-	case "selectorID":
-		return ec.fieldContext_Beatmap_selectorID(ctx, field)
-	case "selector":
-		return ec.fieldContext_Beatmap_selector(ctx, field)
-	case "creditUserIDs":
-		return ec.fieldContext_Beatmap_creditUserIDs(ctx, field)
-	case "credits":
-		return ec.fieldContext_Beatmap_credits(ctx, field)
-	case "skill":
-		return ec.fieldContext_Beatmap_skill(ctx, field)
-	case "comment":
-		return ec.fieldContext_Beatmap_comment(ctx, field)
-	case "isOriginal":
-		return ec.fieldContext_Beatmap_isOriginal(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_Beatmap_createdAt(ctx, field)
 	case "updatedAt":
@@ -5209,14 +5091,6 @@ func (ec *executionContext) childFields_PendingTBRequest(ctx context.Context, fi
 	return nil, fmt.Errorf("no field named %q was found under type PendingTBRequest", field.Name)
 }
 
-func (ec *executionContext) childFields_Pool(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-	switch field.Name {
-	case "slots":
-		return ec.fieldContext_Pool_slots(ctx, field)
-	}
-	return nil, fmt.Errorf("no field named %q was found under type Pool", field.Name)
-}
-
 func (ec *executionContext) childFields_PoolSlot(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "mod":
@@ -5343,32 +5217,26 @@ func (ec *executionContext) childFields_RoomPage(ctx context.Context, field grap
 
 func (ec *executionContext) childFields_RoomSettings(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
-	case "redStrategistUserID":
-		return ec.fieldContext_RoomSettings_redStrategistUserID(ctx, field)
-	case "redStrategist":
-		return ec.fieldContext_RoomSettings_redStrategist(ctx, field)
-	case "blueStrategistUserID":
-		return ec.fieldContext_RoomSettings_blueStrategistUserID(ctx, field)
-	case "blueStrategist":
-		return ec.fieldContext_RoomSettings_blueStrategist(ctx, field)
 	case "streamerUserID":
 		return ec.fieldContext_RoomSettings_streamerUserID(ctx, field)
 	case "streamer":
 		return ec.fieldContext_RoomSettings_streamer(ctx, field)
+	case "redTeamID":
+		return ec.fieldContext_RoomSettings_redTeamID(ctx, field)
+	case "blueTeamID":
+		return ec.fieldContext_RoomSettings_blueTeamID(ctx, field)
+	case "mappoolID":
+		return ec.fieldContext_RoomSettings_mappoolID(ctx, field)
+	case "redTeam":
+		return ec.fieldContext_RoomSettings_redTeam(ctx, field)
+	case "blueTeam":
+		return ec.fieldContext_RoomSettings_blueTeam(ctx, field)
 	case "mappool":
 		return ec.fieldContext_RoomSettings_mappool(ctx, field)
 	case "firstPick":
 		return ec.fieldContext_RoomSettings_firstPick(ctx, field)
 	case "firstBan":
 		return ec.fieldContext_RoomSettings_firstBan(ctx, field)
-	case "redPlayers":
-		return ec.fieldContext_RoomSettings_redPlayers(ctx, field)
-	case "bluePlayers":
-		return ec.fieldContext_RoomSettings_bluePlayers(ctx, field)
-	case "redLeader":
-		return ec.fieldContext_RoomSettings_redLeader(ctx, field)
-	case "blueLeader":
-		return ec.fieldContext_RoomSettings_blueLeader(ctx, field)
 	case "mpLink":
 		return ec.fieldContext_RoomSettings_mpLink(ctx, field)
 	case "streamLink":
@@ -7681,231 +7549,6 @@ func (ec *executionContext) _Beatmap_coverURL(ctx context.Context, field graphql
 }
 func (ec *executionContext) fieldContext_Beatmap_coverURL(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Beatmap_modString(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Beatmap_modString(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ModString, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Beatmap_modString(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Beatmap_modIndex(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Beatmap_modIndex(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.ModIndex, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
-			return ec.marshalNInt2int(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Beatmap_modIndex(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type Int does not have child fields"))
-}
-
-func (ec *executionContext) _Beatmap_selectorID(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Beatmap_selectorID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.SelectorID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOID2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Beatmap_selectorID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type ID does not have child fields"))
-}
-
-func (ec *executionContext) _Beatmap_selector(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Beatmap_selector(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Beatmap().Selector(ctx, obj)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
-			return ec.marshalOUser2ᚖrctHubBackendᚋinternalᚋgraphqlᚐUser(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Beatmap_selector(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Beatmap",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_User(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Beatmap_creditUserIDs(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Beatmap_creditUserIDs(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.CreditUserIDs, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
-			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Beatmap_creditUserIDs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type ID does not have child fields"))
-}
-
-func (ec *executionContext) _Beatmap_credits(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Beatmap_credits(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Beatmap().Credits(ctx, obj)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*User) graphql.Marshaler {
-			return ec.marshalNUser2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐUserᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Beatmap_credits(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Beatmap",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_User(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Beatmap_skill(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Beatmap_skill(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Skill, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Beatmap_skill(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Beatmap_comment(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Beatmap_comment(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Comment, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_Beatmap_comment(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _Beatmap_isOriginal(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Beatmap_isOriginal(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.IsOriginal, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
-			return ec.marshalNBoolean2bool(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Beatmap_isOriginal(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Beatmap", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _Beatmap_createdAt(ctx context.Context, field graphql.CollectedField, obj *Beatmap) (ret graphql.Marshaler) {
@@ -16438,116 +16081,6 @@ func (ec *executionContext) fieldContext_RoomPage_totalPages(_ context.Context, 
 	return graphql.NewScalarFieldContext("RoomPage", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
-func (ec *executionContext) _RoomSettings_redStrategistUserID(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RoomSettings_redStrategistUserID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.RedStrategistUserID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOID2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_RoomSettings_redStrategistUserID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
-}
-
-func (ec *executionContext) _RoomSettings_redStrategist(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RoomSettings_redStrategist(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.RoomSettings().RedStrategist(ctx, obj)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
-			return ec.marshalOUser2ᚖrctHubBackendᚋinternalᚋgraphqlᚐUser(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_RoomSettings_redStrategist(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RoomSettings",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_User(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _RoomSettings_blueStrategistUserID(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RoomSettings_blueStrategistUserID(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BlueStrategistUserID, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOID2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_RoomSettings_blueStrategistUserID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
-}
-
-func (ec *executionContext) _RoomSettings_blueStrategist(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RoomSettings_blueStrategist(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.RoomSettings().BlueStrategist(ctx, obj)
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
-			return ec.marshalOUser2ᚖrctHubBackendᚋinternalᚋgraphqlᚐUser(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_RoomSettings_blueStrategist(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RoomSettings",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_User(ctx, field)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _RoomSettings_streamerUserID(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -16603,6 +16136,139 @@ func (ec *executionContext) fieldContext_RoomSettings_streamer(_ context.Context
 	return fc, nil
 }
 
+func (ec *executionContext) _RoomSettings_redTeamID(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomSettings_redTeamID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RedTeamID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOObjectID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoomSettings_redTeamID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ObjectID does not have child fields"))
+}
+
+func (ec *executionContext) _RoomSettings_blueTeamID(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomSettings_blueTeamID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BlueTeamID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOObjectID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoomSettings_blueTeamID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ObjectID does not have child fields"))
+}
+
+func (ec *executionContext) _RoomSettings_mappoolID(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomSettings_mappoolID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MappoolID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOObjectID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoomSettings_mappoolID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ObjectID does not have child fields"))
+}
+
+func (ec *executionContext) _RoomSettings_redTeam(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomSettings_redTeam(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.RoomSettings().RedTeam(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Team) graphql.Marshaler {
+			return ec.marshalOTeam2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeam(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoomSettings_redTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RoomSettings",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Team(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RoomSettings_blueTeam(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_RoomSettings_blueTeam(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.RoomSettings().BlueTeam(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Team) graphql.Marshaler {
+			return ec.marshalOTeam2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeam(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_RoomSettings_blueTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RoomSettings",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Team(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _RoomSettings_mappool(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -16612,24 +16278,24 @@ func (ec *executionContext) _RoomSettings_mappool(ctx context.Context, field gra
 			return ec.fieldContext_RoomSettings_mappool(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Mappool, nil
+			return ec.Resolvers.RoomSettings().Mappool(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Pool) graphql.Marshaler {
-			return ec.marshalNPool2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPool(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *Mappool) graphql.Marshaler {
+			return ec.marshalOMappool2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMappool(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_RoomSettings_mappool(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "RoomSettings",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Pool(ctx, field)
+			return ec.childFields_Mappool(ctx, field)
 		},
 	}
 	return fc, nil
@@ -16679,98 +16345,6 @@ func (ec *executionContext) _RoomSettings_firstBan(ctx context.Context, field gr
 }
 func (ec *executionContext) fieldContext_RoomSettings_firstBan(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type TeamSide does not have child fields"))
-}
-
-func (ec *executionContext) _RoomSettings_redPlayers(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RoomSettings_redPlayers(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.RedPlayers, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
-			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_RoomSettings_redPlayers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
-}
-
-func (ec *executionContext) _RoomSettings_bluePlayers(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RoomSettings_bluePlayers(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BluePlayers, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
-			return ec.marshalNID2ᚕstringᚄ(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_RoomSettings_bluePlayers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
-}
-
-func (ec *executionContext) _RoomSettings_redLeader(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RoomSettings_redLeader(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.RedLeader, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOID2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_RoomSettings_redLeader(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
-}
-
-func (ec *executionContext) _RoomSettings_blueLeader(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_RoomSettings_blueLeader(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BlueLeader, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOID2ᚖstring(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_RoomSettings_blueLeader(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("RoomSettings", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _RoomSettings_mpLink(ctx context.Context, field graphql.CollectedField, obj *RoomSettings) (ret graphql.Marshaler) {
@@ -20757,117 +20331,6 @@ func (ec *executionContext) _Beatmap(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "modString":
-			out.Values[i] = ec._Beatmap_modString(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "modIndex":
-			out.Values[i] = ec._Beatmap_modIndex(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "selectorID":
-			out.Values[i] = ec._Beatmap_selectorID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "selector":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Beatmap_selector(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
-				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "creditUserIDs":
-			out.Values[i] = ec._Beatmap_creditUserIDs(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "credits":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Beatmap_credits(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
-				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "skill":
-			out.Values[i] = ec._Beatmap_skill(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "comment":
-			out.Values[i] = ec._Beatmap_comment(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "isOriginal":
-			out.Values[i] = ec._Beatmap_isOriginal(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "createdAt":
 			out.Values[i] = ec._Beatmap_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -24810,92 +24273,6 @@ func (ec *executionContext) _RoomSettings(ctx context.Context, sel ast.Selection
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("RoomSettings")
-		case "redStrategistUserID":
-			out.Values[i] = ec._RoomSettings_redStrategistUserID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "redStrategist":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._RoomSettings_redStrategist(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
-				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "blueStrategistUserID":
-			out.Values[i] = ec._RoomSettings_blueStrategistUserID(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "blueStrategist":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._RoomSettings_blueStrategist(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
-				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "streamerUserID":
 			out.Values[i] = ec._RoomSettings_streamerUserID(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -24939,11 +24316,135 @@ func (ec *executionContext) _RoomSettings(ctx context.Context, sel ast.Selection
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-		case "mappool":
-			out.Values[i] = ec._RoomSettings_mappool(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+		case "redTeamID":
+			out.Values[i] = ec._RoomSettings_redTeamID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "blueTeamID":
+			out.Values[i] = ec._RoomSettings_blueTeamID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "mappoolID":
+			out.Values[i] = ec._RoomSettings_mappoolID(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "redTeam":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._RoomSettings_redTeam(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "blueTeam":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._RoomSettings_blueTeam(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "mappool":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._RoomSettings_mappool(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "firstPick":
 			out.Values[i] = ec._RoomSettings_firstPick(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -24951,26 +24452,6 @@ func (ec *executionContext) _RoomSettings(ctx context.Context, sel ast.Selection
 			}
 		case "firstBan":
 			out.Values[i] = ec._RoomSettings_firstBan(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "redPlayers":
-			out.Values[i] = ec._RoomSettings_redPlayers(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "bluePlayers":
-			out.Values[i] = ec._RoomSettings_bluePlayers(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "redLeader":
-			out.Values[i] = ec._RoomSettings_redLeader(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "blueLeader":
-			out.Values[i] = ec._RoomSettings_blueLeader(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
@@ -27038,16 +26519,6 @@ func (ec *executionContext) unmarshalNPlaceShiroInput2rctHubBackendᚋinternal�
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNPool2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPool(ctx context.Context, sel ast.SelectionSet, v *Pool) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._Pool(ctx, sel, v)
-}
-
 func (ec *executionContext) marshalNPoolSlot2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐPoolSlotᚄ(ctx context.Context, sel ast.SelectionSet, v []*PoolSlot) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
@@ -27885,6 +27356,13 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
+func (ec *executionContext) marshalOMappool2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMappool(ctx context.Context, sel ast.SelectionSet, v *Mappool) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Mappool(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOMatch2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatch(ctx context.Context, sel ast.SelectionSet, v *Match) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -27936,6 +27414,24 @@ func (ec *executionContext) marshalOMatchSnapshot2ᚖrctHubBackendᚋinternalᚋ
 		return graphql.Null
 	}
 	return ec._MatchSnapshot(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOObjectID2ᚖstring(ctx context.Context, v any) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalString(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOObjectID2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(*v)
+	return res
 }
 
 func (ec *executionContext) marshalOPendingTBRequest2ᚖrctHubBackendᚋinternalᚋgraphqlᚐPendingTBRequest(ctx context.Context, sel ast.SelectionSet, v *PendingTBRequest) graphql.Marshaler {
@@ -28035,6 +27531,13 @@ func (ec *executionContext) marshalOTBEntry2ᚖrctHubBackendᚋinternalᚋgraphq
 		return graphql.Null
 	}
 	return ec._TBEntry(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOTeam2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeam(ctx context.Context, sel ast.SelectionSet, v *Team) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Team(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOTeamSide2ᚖrctHubBackendᚋinternalᚋgraphqlᚐTeamSide(ctx context.Context, v any) (*TeamSide, error) {

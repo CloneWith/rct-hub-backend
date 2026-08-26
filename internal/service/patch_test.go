@@ -67,11 +67,11 @@ func TestBeatmapServicePatchOnlyChangesProvidedFields(t *testing.T) {
 	repo := newFakeBeatmapRepo()
 	bid := bson.NewObjectID()
 	bm := &domain.Beatmap{
-		ID:        bid,
-		OnlineID:  100,
-		Title:     "Old Title",
-		Artist:    "Old Artist",
-		ModString: "NM",
+		ID:       bid,
+		OnlineID: 100,
+		Title:    "Old Title",
+		Artist:   "Old Artist",
+		Status:   "ranked",
 	}
 	_ = repo.Create(ctx, bm)
 
@@ -90,8 +90,8 @@ func TestBeatmapServicePatchOnlyChangesProvidedFields(t *testing.T) {
 	if patched.Artist != "Old Artist" {
 		t.Errorf("artist changed unexpectedly to %q", patched.Artist)
 	}
-	if patched.ModString != "NM" {
-		t.Errorf("mod_string changed unexpectedly to %q", patched.ModString)
+	if patched.Status != "ranked" {
+		t.Errorf("status changed unexpectedly to %q", patched.Status)
 	}
 	if len(inv.beatmapCalls) != 1 || inv.beatmapCalls[0] != 100 {
 		t.Errorf("expected InvalidateBeatmap(100), got %v", inv.beatmapCalls)

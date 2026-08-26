@@ -33,13 +33,24 @@ func TestMongoIntegrationGraphQLAndRealtimeConverge(t *testing.T) {
 	users := repository.NewUserRepository(db)
 	rooms := repository.NewRoomRepository(db)
 	matches := repository.NewMatchRepository(db)
-	room := integrationFormalRoom()
+	teams := repository.NewTeamRepository(db)
+	mappools := repository.NewMappoolRepository(db)
+	room, redTeam, blueTeam, mappool := integrationFormalRoom()
 	referee := &domain.User{
 		ID: bson.NewObjectID(), OnlineID: room.OwnerID, Username: "web-referee",
 		VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee},
 	}
 	if err := users.Create(ctx, referee); err != nil {
 		t.Fatalf("create referee: %v", err)
+	}
+	if err := teams.Create(ctx, &redTeam); err != nil {
+		t.Fatalf("create red team: %v", err)
+	}
+	if err := teams.Create(ctx, &blueTeam); err != nil {
+		t.Fatalf("create blue team: %v", err)
+	}
+	if err := mappools.Create(ctx, &mappool); err != nil {
+		t.Fatalf("create mappool: %v", err)
 	}
 	if err := rooms.Create(ctx, &room); err != nil {
 		t.Fatalf("create room: %v", err)
@@ -59,7 +70,7 @@ func TestMongoIntegrationGraphQLAndRealtimeConverge(t *testing.T) {
 		t.Fatalf("install command validators: %v", err)
 	}
 	seedTime := time.Date(2026, time.August, 14, 14, 0, 0, 0, time.UTC)
-	seed, err := service.BuildFormalMatchSeed(room, seedTime)
+	seed, err := service.BuildFormalMatchSeed(room, &redTeam, &blueTeam, &mappool, seedTime)
 	if err != nil {
 		t.Fatalf("BuildFormalMatchSeed: %v", err)
 	}
@@ -67,7 +78,7 @@ func TestMongoIntegrationGraphQLAndRealtimeConverge(t *testing.T) {
 		t.Fatalf("bootstrap formal match: %v", err)
 	}
 
-	orchestrator := matchcommand.NewOrchestrator(commands, users, matches, rooms, func() time.Time { return seedTime.Add(time.Second) }, nil)
+	orchestrator := matchcommand.NewOrchestrator(commands, users, matches, rooms, teams, func() time.Time { return seedTime.Add(time.Second) }, nil)
 	signer := jwtutil.NewSigner(strings.Repeat("x", 32), "test")
 	token, err := signer.Generate(referee.ID.Hex(), referee.OnlineID, referee.Username, referee.Roles, time.Hour)
 	if err != nil {

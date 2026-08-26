@@ -186,10 +186,12 @@ type Reader struct {
 	beatmaps map[int64]domain.Beatmap
 	users    map[int64]domain.User
 	rooms    map[bson.ObjectID]domain.Room
+	teams    map[bson.ObjectID]domain.Team
 }
 
 type UserReader struct{ reader *Reader }
 type RoomReader struct{ reader *Reader }
+type TeamReader struct{ reader *Reader }
 
 func NewReader() (*Reader, error) {
 	scenarios, err := Scenarios()
@@ -200,6 +202,7 @@ func NewReader() (*Reader, error) {
 		byID: make(map[bson.ObjectID]service.FormalMatch, len(scenarios)), byCode: make(map[string]service.FormalMatch, len(scenarios)),
 		items: make([]service.FormalMatch, len(scenarios)), beatmaps: make(map[int64]domain.Beatmap),
 		users: make(map[int64]domain.User), rooms: make(map[bson.ObjectID]domain.Room, len(scenarios)),
+		teams: make(map[bson.ObjectID]domain.Team, len(scenarios)*2),
 	}
 	reader.users[1001] = domain.User{OnlineID: 1001, Username: "fixture-user", VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleStrategist, domain.RoleAdmin}}
 	for index, scenario := range scenarios {
@@ -208,9 +211,20 @@ func NewReader() (*Reader, error) {
 		reader.items[index] = scenario.Match
 		matchID := scenario.Match.ID
 		redID, blueID := int64(1001), int64(2001)
+		redTeamID, blueTeamID := bson.NewObjectID(), bson.NewObjectID()
 		reader.rooms[scenario.Match.RoomID] = domain.Room{
 			ID: scenario.Match.RoomID, Type: domain.RoomTypeMatch, OwnerID: redID, RefereeUserID: &redID, MatchID: &matchID,
-			Settings: domain.RoomSettings{RedStrategistUserID: &redID, BlueStrategistUserID: &blueID, RedLeader: &redID, BlueLeader: &blueID},
+			Settings: domain.RoomSettings{RedTeamID: &redTeamID, BlueTeamID: &blueTeamID},
+		}
+		reader.teams[redTeamID] = domain.Team{
+			ID: redTeamID, Name: "Fixture Red", LeaderID: &redID, StrategistID: &redID,
+			Players:   []int64{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008},
+			CreatedAt: fixtureTime, UpdatedAt: fixtureTime,
+		}
+		reader.teams[blueTeamID] = domain.Team{
+			ID: blueTeamID, Name: "Fixture Blue", LeaderID: &blueID, StrategistID: &blueID,
+			Players:   []int64{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008},
+			CreatedAt: fixtureTime, UpdatedAt: fixtureTime,
 		}
 		for slotID, beatmapID := range scenario.Match.Pool {
 			if beatmapID == nil {
@@ -221,7 +235,6 @@ func NewReader() (*Reader, error) {
 				ID: objectID, OnlineID: *beatmapID, BeatmapsetID: *beatmapID,
 				Title: "Fixture " + slotID, Artist: "RCTS1", DifficultyName: slotID,
 				Status: "ranked", AuthorID: 1001, RulesetID: 0,
-				ModString: string(scenario.Match.State.PoolSlots[slotID].Mod),
 				CreatedAt: fixtureTime, UpdatedAt: fixtureTime,
 			}
 		}
@@ -232,6 +245,7 @@ func NewReader() (*Reader, error) {
 
 func (r *Reader) PrivateUsers() *UserReader { return &UserReader{reader: r} }
 func (r *Reader) PrivateRooms() *RoomReader { return &RoomReader{reader: r} }
+func (r *Reader) PrivateTeams() *TeamReader { return &TeamReader{reader: r} }
 
 func (r *UserReader) GetByOsuID(_ context.Context, id int64) (*domain.User, error) {
 	r.reader.mu.RLock()
@@ -251,6 +265,16 @@ func (r *RoomReader) GetRoom(_ context.Context, id bson.ObjectID) (*domain.Room,
 		return nil, errs.ErrNotFound
 	}
 	return &room, nil
+}
+
+func (r *TeamReader) ByID(_ context.Context, id bson.ObjectID) (*domain.Team, error) {
+	r.reader.mu.RLock()
+	defer r.reader.mu.RUnlock()
+	team, exists := r.reader.teams[id]
+	if !exists {
+		return nil, errs.ErrNotFound
+	}
+	return &team, nil
 }
 
 func (r *Reader) GetByOsuID(_ context.Context, id int64) (*domain.Beatmap, error) {

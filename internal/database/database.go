@@ -86,8 +86,9 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 		{Keys: bson.D{{Key: "round", Value: 1}, {Key: "created_at", Value: -1}}},
 		{Keys: bson.D{{Key: "match_id", Value: 1}}},
 		{Keys: bson.D{{Key: "referee_user_id", Value: 1}}},
-		{Keys: bson.D{{Key: "settings.red_strategist_user_id", Value: 1}}},
-		{Keys: bson.D{{Key: "settings.blue_strategist_user_id", Value: 1}}},
+		{Keys: bson.D{{Key: "settings.red_team_id", Value: 1}}},
+		{Keys: bson.D{{Key: "settings.blue_team_id", Value: 1}}},
+		{Keys: bson.D{{Key: "settings.mappool_id", Value: 1}}},
 		{Keys: bson.D{{Key: "settings.streamer_user_id", Value: 1}}},
 	}); err != nil {
 		return fmt.Errorf("rooms indexes: %w", err)

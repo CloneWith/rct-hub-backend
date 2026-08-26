@@ -35,10 +35,6 @@ func (h *RoomHandler) UpdateMetadata(c *gin.Context) {
 		ScheduledAt    *time.Time `json:"scheduled_at"`
 		RefereeUserID  *int64     `json:"referee_user_id"`
 		StreamerUserID *int64     `json:"streamer_user_id"`
-		RedLeader      *int64     `json:"red_leader"`
-		BlueLeader     *int64     `json:"blue_leader"`
-		RedPlayers     []int64    `json:"red_players"`
-		BluePlayers    []int64    `json:"blue_players"`
 	}
 	if err := bindJSON(c, &req); err != nil {
 		_ = c.Error(err)
@@ -50,8 +46,7 @@ func (h *RoomHandler) UpdateMetadata(c *gin.Context) {
 	}
 	room, err := h.svc.UpdateRoomMetadata(c.Request.Context(), callerID, id, service.RoomMetadataUpdate{
 		Name: req.Name, Round: req.Round, ScheduledAt: req.ScheduledAt, RefereeUserID: req.RefereeUserID,
-		StreamerUserID: req.StreamerUserID, RedLeader: req.RedLeader, BlueLeader: req.BlueLeader,
-		RedPlayers: req.RedPlayers, BluePlayers: req.BluePlayers,
+		StreamerUserID: req.StreamerUserID,
 	})
 	if err != nil {
 		writeRoomError(c, err)
@@ -75,10 +70,6 @@ func (h *RoomHandler) UpdateMetadataPartial(c *gin.Context) {
 		ScheduledAt    *time.Time `json:"scheduled_at"`
 		RefereeUserID  *int64     `json:"referee_user_id"`
 		StreamerUserID *int64     `json:"streamer_user_id"`
-		RedLeader      *int64     `json:"red_leader"`
-		BlueLeader     *int64     `json:"blue_leader"`
-		RedPlayers     []int64    `json:"red_players"`
-		BluePlayers    []int64    `json:"blue_players"`
 	}
 	if err := bindJSON(c, &req); err != nil {
 		_ = c.Error(err)
@@ -90,8 +81,7 @@ func (h *RoomHandler) UpdateMetadataPartial(c *gin.Context) {
 	}
 	room, err := h.svc.UpdateRoomMetadataPartial(c.Request.Context(), callerID, id, service.RoomMetadataPatch{
 		Name: req.Name, Round: req.Round, ScheduledAt: req.ScheduledAt, RefereeUserID: req.RefereeUserID,
-		StreamerUserID: req.StreamerUserID, RedLeader: req.RedLeader, BlueLeader: req.BlueLeader,
-		RedPlayers: req.RedPlayers, BluePlayers: req.BluePlayers,
+		StreamerUserID: req.StreamerUserID,
 	})
 	if err != nil {
 		writeRoomError(c, err)
@@ -130,35 +120,6 @@ func (h *RoomHandler) Create(c *gin.Context) {
 		return
 	}
 	response.Created(c, room)
-}
-
-// SetStrategists assigns red and blue strategists.
-func (h *RoomHandler) SetStrategists(c *gin.Context) {
-	id, err := bson.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid room id")
-		return
-	}
-
-	var req struct {
-		RedUID  *int64 `json:"red_strategist_user_id"`
-		BlueUID *int64 `json:"blue_strategist_user_id"`
-	}
-	if err := bindJSON(c, &req); err != nil {
-		_ = c.Error(err)
-		return
-	}
-
-	callerID, ok := roomCallerID(c)
-	if !ok {
-		return
-	}
-	room, err := h.svc.SetStrategists(c.Request.Context(), callerID, id, req.RedUID, req.BlueUID)
-	if err != nil {
-		writeRoomError(c, err)
-		return
-	}
-	response.JSON(c, room)
 }
 
 // SetStreamer assigns the streamer.
@@ -215,7 +176,7 @@ func (h *RoomHandler) SetReferee(c *gin.Context) {
 	response.JSON(c, room)
 }
 
-// SetMappool replaces the room's pre-game pool configuration.
+// SetMappool links the room to a mappool entity (nil clears the reference).
 func (h *RoomHandler) SetMappool(c *gin.Context) {
 	id, err := bson.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
@@ -223,17 +184,60 @@ func (h *RoomHandler) SetMappool(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Mappool domain.Pool `json:"mappool" binding:"required"`
+		MappoolID *string `json:"mappool_id"`
 	}
 	if err := bindJSON(c, &req); err != nil {
 		_ = c.Error(err)
+		return
+	}
+	mappoolID, err := roomObjectIDPtr(req.MappoolID, "mappool_id")
+	if err != nil {
+		writeRoomError(c, err)
 		return
 	}
 	callerID, ok := roomCallerID(c)
 	if !ok {
 		return
 	}
-	room, err := h.svc.SetMappool(c.Request.Context(), callerID, id, req.Mappool)
+	room, err := h.svc.SetMappool(c.Request.Context(), callerID, id, mappoolID)
+	if err != nil {
+		writeRoomError(c, err)
+		return
+	}
+	response.JSON(c, room)
+}
+
+// SetTeams links the red and blue team entities (nil clears a side). The
+// request carries the full target state of both sides.
+func (h *RoomHandler) SetTeams(c *gin.Context) {
+	id, err := bson.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		response.BadRequest(c, "invalid room id")
+		return
+	}
+	var req struct {
+		RedTeamID  *string `json:"red_team_id"`
+		BlueTeamID *string `json:"blue_team_id"`
+	}
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
+		return
+	}
+	redTeamID, err := roomObjectIDPtr(req.RedTeamID, "red_team_id")
+	if err != nil {
+		writeRoomError(c, err)
+		return
+	}
+	blueTeamID, err := roomObjectIDPtr(req.BlueTeamID, "blue_team_id")
+	if err != nil {
+		writeRoomError(c, err)
+		return
+	}
+	callerID, ok := roomCallerID(c)
+	if !ok {
+		return
+	}
+	room, err := h.svc.SetTeams(c.Request.Context(), callerID, id, redTeamID, blueTeamID)
 	if err != nil {
 		writeRoomError(c, err)
 		return
@@ -266,37 +270,6 @@ func (h *RoomHandler) SetBPOrder(c *gin.Context) {
 		FirstPick: req.FirstPick,
 		FirstBan:  req.FirstBan,
 	})
-	if err != nil {
-		writeRoomError(c, err)
-		return
-	}
-	response.JSON(c, room)
-}
-
-// SetPlayers sets team rosters.
-func (h *RoomHandler) SetPlayers(c *gin.Context) {
-	id, err := bson.ObjectIDFromHex(c.Param("id"))
-	if err != nil {
-		response.BadRequest(c, "invalid room id")
-		return
-	}
-
-	var req struct {
-		RedLeader   *int64  `json:"red_leader"`
-		BlueLeader  *int64  `json:"blue_leader"`
-		RedPlayers  []int64 `json:"red_players"`
-		BluePlayers []int64 `json:"blue_players"`
-	}
-	if err := bindJSON(c, &req); err != nil {
-		_ = c.Error(err)
-		return
-	}
-
-	callerID, ok := roomCallerID(c)
-	if !ok {
-		return
-	}
-	room, err := h.svc.SetPlayers(c.Request.Context(), callerID, id, req.RedLeader, req.BlueLeader, req.RedPlayers, req.BluePlayers)
 	if err != nil {
 		writeRoomError(c, err)
 		return
@@ -397,6 +370,21 @@ func roomCallerID(c *gin.Context) (int64, bool) {
 		return 0, false
 	}
 	return claims.OsuID, true
+}
+
+// roomObjectIDPtr parses an optional ObjectID hex string. nil or an empty
+// string yield nil (cleared reference); an invalid hex is a field error.
+func roomObjectIDPtr(raw *string, field string) (*bson.ObjectID, error) {
+	if raw == nil || *raw == "" {
+		return nil, nil
+	}
+	id, err := bson.ObjectIDFromHex(*raw)
+	if err != nil {
+		return nil, errs.NewValidationError(
+			errs.FieldError{Field: field, Rule: "objectid", Message: "invalid " + field},
+		)
+	}
+	return &id, nil
 }
 
 func roomErrorStatus(err error) int {

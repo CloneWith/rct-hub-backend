@@ -17,13 +17,14 @@ import (
 type MatchService struct {
 	matches repository.MatchRepository
 	rooms   repository.RoomRepository
+	teams   repository.TeamRepository
 	moves   repository.MoveRepository
 	results repository.ResultRepository
 }
 
 // NewMatchService creates a new MatchService.
-func NewMatchService(matches repository.MatchRepository, rooms repository.RoomRepository, moves repository.MoveRepository, results repository.ResultRepository) *MatchService {
-	return &MatchService{matches: matches, rooms: rooms, moves: moves, results: results}
+func NewMatchService(matches repository.MatchRepository, rooms repository.RoomRepository, teams repository.TeamRepository, moves repository.MoveRepository, results repository.ResultRepository) *MatchService {
+	return &MatchService{matches: matches, rooms: rooms, teams: teams, moves: moves, results: results}
 }
 
 // List returns a paginated list of matches filtered by optional status.
@@ -311,25 +312,50 @@ func (s *MatchService) ResolveMember(ctx context.Context, matchID bson.ObjectID,
 		JoinedAt: time.Now().UTC(),
 	}
 
-	// Determine role from room settings.
+	// Determine role from the linked team entities.
+	redTeam, blueTeam, teamErr := s.roomTeams(ctx, room)
+	if teamErr != nil {
+		return domain.RoomMember{}, teamErr
+	}
 	switch {
 	case room.OwnerID == userID:
 		member.Role = domain.RoomRoleAdmin
-	case room.Settings.RedStrategistUserID != nil && *room.Settings.RedStrategistUserID == userID:
-		member.Role = domain.RoomRoleStrategist
-		side := domain.TeamSideRed
-		member.TeamSide = &side
-	case room.Settings.BlueStrategistUserID != nil && *room.Settings.BlueStrategistUserID == userID:
-		member.Role = domain.RoomRoleStrategist
-		side := domain.TeamSideBlue
-		member.TeamSide = &side
-	case room.Settings.StreamerUserID != nil && *room.Settings.StreamerUserID == userID:
-		member.Role = domain.RoomRoleStreamer
 	default:
 		member.Role = domain.RoomRoleSpectator
+		if side, ok := domain.StrategistSide(redTeam, blueTeam, userID); ok {
+			member.Role = domain.RoomRoleStrategist
+			sideCopy := side
+			member.TeamSide = &sideCopy
+		} else if room.Settings.StreamerUserID != nil && *room.Settings.StreamerUserID == userID {
+			member.Role = domain.RoomRoleStreamer
+		}
 	}
 
 	return member, nil
+}
+
+// roomTeams resolves the red and blue team entities referenced by the room
+// settings. Missing links yield nil teams without error.
+func (s *MatchService) roomTeams(ctx context.Context, room *domain.Room) (*domain.Team, *domain.Team, error) {
+	if s.teams == nil {
+		return nil, nil, nil
+	}
+	var redTeam, blueTeam *domain.Team
+	if room.Settings.RedTeamID != nil {
+		team, err := s.teams.ByID(ctx, *room.Settings.RedTeamID)
+		if err != nil {
+			return nil, nil, err
+		}
+		redTeam = team
+	}
+	if room.Settings.BlueTeamID != nil {
+		team, err := s.teams.ByID(ctx, *room.Settings.BlueTeamID)
+		if err != nil {
+			return nil, nil, err
+		}
+		blueTeam = team
+	}
+	return redTeam, blueTeam, nil
 }
 
 // PauseMatch pauses the match timer. Thin wrapper around TimerState.Pause.

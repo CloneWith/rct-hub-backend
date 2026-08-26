@@ -2,10 +2,12 @@ package graphql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"rctHubBackend/internal/beatmapmetadata"
 	"rctHubBackend/internal/domain"
@@ -14,6 +16,7 @@ import (
 	"rctHubBackend/internal/matchengine"
 	"rctHubBackend/internal/persistence"
 	"rctHubBackend/internal/service"
+	"rctHubBackend/pkg/errs"
 	"rctHubBackend/pkg/paginate"
 )
 
@@ -109,6 +112,20 @@ type UserFetcher interface {
 type PrivateRoomReader interface {
 	GetRoom(context.Context, bson.ObjectID) (*domain.Room, error)
 }
+
+// TeamReader loads team entities by ID. It backs the room-settings team
+// resolvers and the strategist/captain access predicates.
+type TeamReader interface {
+	ByID(context.Context, bson.ObjectID) (*domain.Team, error)
+}
+
+// teamServiceReader adapts the TeamService getter to the TeamReader shape.
+type teamServiceReader struct{ svc *service.TeamService }
+
+func (t teamServiceReader) ByID(ctx context.Context, id bson.ObjectID) (*domain.Team, error) {
+	return t.svc.Get(ctx, id)
+}
+
 type IRCObservationReader interface {
 	List(context.Context, string, int64) ([]persistence.IRCObservation, error)
 	ByID(context.Context, string) (*persistence.IRCObservation, error)
@@ -133,6 +150,7 @@ type Resolver struct {
 	metadata   BeatmapMetadataReader
 	users      PrivateUserReader
 	rooms      PrivateRoomReader
+	teams      TeamReader
 	irc        IRCObservationReader
 	ircJobs    IRCJobReader
 	ircStatus  IRCStatusReader
@@ -160,6 +178,9 @@ func NewResolver(svc *service.Services, commands ...CommandExecutor) *Resolver {
 		resolver.beatmaps = svc.Beatmaps
 		resolver.users = svc.Users
 		resolver.rooms = svc.Rooms
+		if svc.Teams != nil {
+			resolver.teams = teamServiceReader{svc: svc.Teams}
+		}
 	}
 	if len(commands) > 0 {
 		resolver.commands = commands[0]
@@ -170,6 +191,13 @@ func NewResolver(svc *service.Services, commands ...CommandExecutor) *Resolver {
 func (r *Resolver) WithPrivateReaders(users PrivateUserReader, rooms PrivateRoomReader) *Resolver {
 	r.users = users
 	r.rooms = rooms
+	return r
+}
+
+// WithTeamReader overrides the team lookup channel (used by fixture-backed
+// mocks where the service container is absent).
+func (r *Resolver) WithTeamReader(teams TeamReader) *Resolver {
+	r.teams = teams
 	return r
 }
 
@@ -191,6 +219,67 @@ func (r *Resolver) WithFormalMatchReader(reader FormalMatchReader) *Resolver {
 func (r *Resolver) WithUserFetcher(fetcher UserFetcher) *Resolver {
 	r.fetcher = fetcher
 	return r
+}
+
+// loadLinkedTeams resolves the room's red/blue team entity references.
+// Missing references yield nil (unlinked side) rather than an error so the
+// access predicates treat them as unassigned; a dangling reference surfaces
+// the underlying read error.
+func (r *Resolver) loadLinkedTeams(ctx context.Context, room *domain.Room) (*domain.Team, *domain.Team, error) {
+	if room == nil {
+		return nil, nil, nil
+	}
+	var source TeamReader
+	if r != nil && r.teams != nil {
+		source = r.teams
+	}
+	if source == nil {
+		if room.Settings.RedTeamID == nil && room.Settings.BlueTeamID == nil {
+			return nil, nil, nil
+		}
+		return nil, nil, fmt.Errorf("team service is unavailable")
+	}
+	var redTeam, blueTeam *domain.Team
+	if room.Settings.RedTeamID != nil {
+		team, err := source.ByID(ctx, *room.Settings.RedTeamID)
+		if err != nil {
+			return nil, nil, err
+		}
+		redTeam = team
+	}
+	if room.Settings.BlueTeamID != nil {
+		team, err := source.ByID(ctx, *room.Settings.BlueTeamID)
+		if err != nil {
+			return nil, nil, err
+		}
+		blueTeam = team
+	}
+	return redTeam, blueTeam, nil
+}
+
+// loadTeamByID resolves a single room-settings team reference to its entity.
+// A dangling reference (team deleted after linking) or an unparsable id
+// yields nil so the GraphQL field resolves to null instead of failing the
+// whole query; a broken lookup channel surfaces its error.
+func (r *Resolver) loadTeamByID(ctx context.Context, id string) (*domain.Team, error) {
+	if id == "" {
+		return nil, nil
+	}
+	if r == nil || r.teams == nil {
+		return nil, fmt.Errorf("team service is unavailable")
+	}
+	parsed, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, nil
+	}
+	team, err := r.teams.ByID(ctx, parsed)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) || errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return team, nil
 }
 
 func buildPageParams(page, perPage *int) paginate.Params {

@@ -19,6 +19,7 @@ import (
 
 type roomQueryRepo struct {
 	rooms      []domain.Room
+	teams      []domain.Team
 	lifecycles map[bson.ObjectID]string
 }
 
@@ -58,7 +59,7 @@ func (r *roomQueryRepo) List(_ context.Context, params paginate.Params, filter r
 		if filter.Lifecycle != "" && r.lifecycles[room.ID] != filter.Lifecycle {
 			continue
 		}
-		if filter.RelatedUserID != nil && !roomRelatedTo(room, *filter.RelatedUserID) {
+		if filter.RelatedUserID != nil && !roomRelatedTo(room, r.teams, *filter.RelatedUserID) {
 			continue
 		}
 		items = append(items, room)
@@ -68,19 +69,30 @@ func (r *roomQueryRepo) List(_ context.Context, params paginate.Params, filter r
 	return paginate.NewResult(items[start:end], params, int64(len(items))), nil
 }
 
-func roomRelatedTo(room domain.Room, userID int64) bool {
+func roomRelatedTo(room domain.Room, teams []domain.Team, userID int64) bool {
 	if room.OwnerID == userID || (room.RefereeUserID != nil && *room.RefereeUserID == userID) {
 		return true
 	}
 	settings := room.Settings
-	if (settings.RedStrategistUserID != nil && *settings.RedStrategistUserID == userID) ||
-		(settings.BlueStrategistUserID != nil && *settings.BlueStrategistUserID == userID) ||
-		(settings.StreamerUserID != nil && *settings.StreamerUserID == userID) ||
-		(settings.RedLeader != nil && *settings.RedLeader == userID) ||
-		(settings.BlueLeader != nil && *settings.BlueLeader == userID) {
+	if settings.StreamerUserID != nil && *settings.StreamerUserID == userID {
 		return true
 	}
-	return slices.Contains(append(append([]int64(nil), settings.RedPlayers...), settings.BluePlayers...), userID)
+	// Team membership (leader / strategist / player) is resolved through the
+	// linked team entities, mirroring the repository's related-user filter.
+	for i := range teams {
+		team := &teams[i]
+		linked := (settings.RedTeamID != nil && team.ID == *settings.RedTeamID) ||
+			(settings.BlueTeamID != nil && team.ID == *settings.BlueTeamID)
+		if !linked {
+			continue
+		}
+		if (team.LeaderID != nil && *team.LeaderID == userID) ||
+			(team.StrategistID != nil && *team.StrategistID == userID) ||
+			slices.Contains(team.Players, userID) {
+			return true
+		}
+	}
+	return false
 }
 
 var _ repository.RoomRepository = (*roomQueryRepo)(nil)
@@ -96,8 +108,8 @@ func (r roomQueryUserReader) GetByOsuID(context.Context, int64) (*domain.User, e
 	return r.user, nil
 }
 
-func roomQueryResolver(user *domain.User, rooms []domain.Room) *Resolver {
-	roomService := service.NewRoomService(&roomQueryRepo{rooms: rooms, lifecycles: make(map[bson.ObjectID]string)}, nil, nil, nil, nil)
+func roomQueryResolver(user *domain.User, rooms []domain.Room, teams []domain.Team) *Resolver {
+	roomService := service.NewRoomService(&roomQueryRepo{rooms: rooms, teams: teams, lifecycles: make(map[bson.ObjectID]string)}, nil, nil, nil, nil, nil, nil)
 	return NewResolver(&service.Services{Rooms: roomService}).WithPrivateReaders(roomQueryUserReader{user: user}, roomService)
 }
 
@@ -122,7 +134,7 @@ func TestRoomQueriesRequireVerifiedUnbannedViewer(t *testing.T) {
 		{VerifyStatus: domain.Unverified},
 		{VerifyStatus: domain.Verified, IsBanned: true},
 	} {
-		resolver := roomQueryResolver(user, rooms)
+		resolver := roomQueryResolver(user, rooms, nil)
 		ctx := context.Background()
 		if user != nil {
 			ctx = WithClaims(ctx, &jwtutil.Claims{OsuID: user.OnlineID})
@@ -144,7 +156,7 @@ func TestRoomQueriesAllowVerifiedUnbannedViewerAndPreservePagination(t *testing.
 		{ID: secondID, Code: "ROOM02", Name: "Second room", Type: domain.RoomTypeCasual},
 	}
 	user := &domain.User{OnlineID: 42, VerifyStatus: domain.Verified}
-	resolver := roomQueryResolver(user, rooms)
+	resolver := roomQueryResolver(user, rooms, nil)
 	ctx := WithClaims(context.Background(), &jwtutil.Claims{OsuID: user.OnlineID})
 
 	page, err := resolver.Query().Rooms(ctx, nil, nil, nil, nil, nil, new(2), new(1))
@@ -187,7 +199,7 @@ func TestRoomsApplySearchRoundStatusAndRelatedFiltersBeforePaging(t *testing.T) 
 		rooms[2].ID: string(MatchLifecycleRunning),
 	}
 	repo := &roomQueryRepo{rooms: rooms, lifecycles: lifecycles}
-	roomService := service.NewRoomService(repo, nil, nil, nil, nil)
+	roomService := service.NewRoomService(repo, nil, nil, nil, nil, nil, nil)
 	resolver := NewResolver(&service.Services{Rooms: roomService}).WithPrivateReaders(roomQueryUserReader{user: user}, roomService)
 	ctx := WithClaims(context.Background(), &jwtutil.Claims{OsuID: user.OnlineID})
 
@@ -212,16 +224,21 @@ func TestRoomsApplySearchRoundStatusAndRelatedFiltersBeforePaging(t *testing.T) 
 		}
 	}
 
+	strategistTeamID, playerTeamID := bson.NewObjectID(), bson.NewObjectID()
 	relatedRooms := []domain.Room{
 		{ID: bson.NewObjectID(), Code: "OWNER", OwnerID: 42},
 		{ID: bson.NewObjectID(), Code: "REFEREE", RefereeUserID: ptrInt64Value(42)},
-		{ID: bson.NewObjectID(), Code: "STRATEGIST", Settings: domain.RoomSettings{RedStrategistUserID: ptrInt64Value(42)}},
+		{ID: bson.NewObjectID(), Code: "STRATEGIST", Settings: domain.RoomSettings{RedTeamID: &strategistTeamID}},
 		{ID: bson.NewObjectID(), Code: "STREAMER", Settings: domain.RoomSettings{StreamerUserID: ptrInt64Value(42)}},
-		{ID: bson.NewObjectID(), Code: "PLAYER", Settings: domain.RoomSettings{RedPlayers: []int64{42}}},
+		{ID: bson.NewObjectID(), Code: "PLAYER", Settings: domain.RoomSettings{BlueTeamID: &playerTeamID}},
 		{ID: bson.NewObjectID(), Code: "UNRELATED", OwnerID: 99},
 	}
-	relatedRepo := &roomQueryRepo{rooms: relatedRooms, lifecycles: make(map[bson.ObjectID]string)}
-	relatedService := service.NewRoomService(relatedRepo, nil, nil, nil, nil)
+	relatedTeams := []domain.Team{
+		{ID: strategistTeamID, Name: "Strategists", StrategistID: ptrInt64Value(42)},
+		{ID: playerTeamID, Name: "Players", LeaderID: ptrInt64Value(77), Players: []int64{42}},
+	}
+	relatedRepo := &roomQueryRepo{rooms: relatedRooms, teams: relatedTeams, lifecycles: make(map[bson.ObjectID]string)}
+	relatedService := service.NewRoomService(relatedRepo, nil, nil, nil, nil, nil, nil)
 	relatedResolver := NewResolver(&service.Services{Rooms: relatedService}).WithPrivateReaders(roomQueryUserReader{user: user}, relatedService)
 	related := true
 	relatedPage, err := relatedResolver.Query().Rooms(ctx, nil, nil, nil, nil, &related, nil, nil)

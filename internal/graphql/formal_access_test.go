@@ -3,6 +3,8 @@ package graphql
 import (
 	"testing"
 
+	"go.mongodb.org/mongo-driver/v2/bson"
+
 	"rctHubBackend/internal/domain"
 	"rctHubBackend/internal/matchengine"
 )
@@ -30,24 +32,27 @@ func TestPrivateViewerUsesCurrentUserState(t *testing.T) {
 
 func TestStrategistViewerRequiresCurrentRoleAndRoomAssignment(t *testing.T) {
 	redID, blueID := int64(1001), int64(2001)
-	room := &domain.Room{Settings: domain.RoomSettings{RedStrategistUserID: &redID, BlueStrategistUserID: &blueID}}
+	redTeamID, blueTeamID := bson.NewObjectID(), bson.NewObjectID()
+	room := &domain.Room{Settings: domain.RoomSettings{RedTeamID: &redTeamID, BlueTeamID: &blueTeamID}}
+	redTeam := &domain.Team{ID: redTeamID, StrategistID: &redID}
+	blueTeam := &domain.Team{ID: blueTeamID, StrategistID: &blueID}
 	user := &domain.User{OnlineID: redID, Roles: []domain.UserRole{domain.RoleStrategist}}
-	team, err := strategistViewerTeam(user, room)
+	team, err := strategistViewerTeam(user, room, redTeam, blueTeam)
 	if err != nil || team != matchengine.TeamRed {
 		t.Fatalf("assigned strategist = %s, %v", team, err)
 	}
 	user.Roles = []domain.UserRole{domain.RolePlayer}
-	if _, err := strategistViewerTeam(user, room); err == nil {
+	if _, err := strategistViewerTeam(user, room, redTeam, blueTeam); err == nil {
 		t.Fatal("revoked strategist role remained authorized")
 	}
 	user.Roles = []domain.UserRole{domain.RoleStrategist}
 	user.OnlineID = 9999
-	if _, err := strategistViewerTeam(user, room); err == nil {
+	if _, err := strategistViewerTeam(user, room, redTeam, blueTeam); err == nil {
 		t.Fatal("strategist from another match remained authorized")
 	}
 	user.OnlineID = redID
-	room.Settings.BlueStrategistUserID = &redID
-	if _, err := strategistViewerTeam(user, room); err == nil {
+	blueTeam.StrategistID = &redID
+	if _, err := strategistViewerTeam(user, room, redTeam, blueTeam); err == nil {
 		t.Fatal("strategist assigned to both teams remained authorized")
 	}
 }
@@ -71,16 +76,19 @@ func TestRefereeViewerRequiresAssignmentUnlessAdmin(t *testing.T) {
 
 func TestCaptainViewerRequiresRoomLeaderAssignment(t *testing.T) {
 	redID := int64(1001)
-	room := &domain.Room{Settings: domain.RoomSettings{RedLeader: &redID}}
-	team, err := captainViewerTeam(&domain.User{OnlineID: redID}, room)
+	redTeamID, blueTeamID := bson.NewObjectID(), bson.NewObjectID()
+	room := &domain.Room{Settings: domain.RoomSettings{RedTeamID: &redTeamID, BlueTeamID: &blueTeamID}}
+	redTeam := &domain.Team{ID: redTeamID, LeaderID: &redID}
+	blueTeam := &domain.Team{ID: blueTeamID}
+	team, err := captainViewerTeam(&domain.User{OnlineID: redID}, room, redTeam, blueTeam)
 	if err != nil || team != matchengine.TeamRed {
 		t.Fatalf("assigned captain = %s, %v", team, err)
 	}
-	if _, err := captainViewerTeam(&domain.User{OnlineID: 9999}, room); err == nil {
+	if _, err := captainViewerTeam(&domain.User{OnlineID: 9999}, room, redTeam, blueTeam); err == nil {
 		t.Fatal("unassigned captain remained authorized")
 	}
-	room.Settings.BlueLeader = &redID
-	if _, err := captainViewerTeam(&domain.User{OnlineID: redID}, room); err == nil {
+	blueTeam.LeaderID = &redID
+	if _, err := captainViewerTeam(&domain.User{OnlineID: redID}, room, redTeam, blueTeam); err == nil {
 		t.Fatal("captain assigned to both teams remained authorized")
 	}
 }

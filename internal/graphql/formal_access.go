@@ -96,34 +96,35 @@ func (r *Resolver) adminViewer(ctx context.Context) (*domain.User, error) {
 	return user, nil
 }
 
-func strategistViewerTeam(user *domain.User, room *domain.Room) (matchengine.TeamSide, error) {
+// engineSideFromDomain converts a domain side ("red"/"blue") into the
+// matchengine side ("RED"/"BLUE").
+func engineSideFromDomain(side domain.TeamSide) matchengine.TeamSide {
+	if side == domain.TeamSideBlue {
+		return matchengine.TeamBlue
+	}
+	return matchengine.TeamRed
+}
+
+func strategistViewerTeam(user *domain.User, room *domain.Room, redTeam, blueTeam *domain.Team) (matchengine.TeamSide, error) {
 	if user == nil || room == nil || !user.HasRole(domain.RoleStrategist) {
 		return "", fmt.Errorf("ACTION_NOT_ALLOWED: current strategist role is required")
 	}
-	red := room.Settings.RedStrategistUserID != nil && *room.Settings.RedStrategistUserID == user.OnlineID
-	blue := room.Settings.BlueStrategistUserID != nil && *room.Settings.BlueStrategistUserID == user.OnlineID
-	if red == blue {
+	side, ok := domain.StrategistSide(redTeam, blueTeam, user.OnlineID)
+	if !ok {
 		return "", fmt.Errorf("ACTION_NOT_ALLOWED: user is not uniquely assigned to this match")
 	}
-	if red {
-		return matchengine.TeamRed, nil
-	}
-	return matchengine.TeamBlue, nil
+	return engineSideFromDomain(side), nil
 }
 
-func captainViewerTeam(user *domain.User, room *domain.Room) (matchengine.TeamSide, error) {
+func captainViewerTeam(user *domain.User, room *domain.Room, redTeam, blueTeam *domain.Team) (matchengine.TeamSide, error) {
 	if user == nil || room == nil {
 		return "", fmt.Errorf("ACTION_NOT_ALLOWED: user is not a captain for this match")
 	}
-	red := room.Settings.RedLeader != nil && *room.Settings.RedLeader == user.OnlineID
-	blue := room.Settings.BlueLeader != nil && *room.Settings.BlueLeader == user.OnlineID
-	if red == blue {
+	side, ok := domain.CaptainSide(redTeam, blueTeam, user.OnlineID)
+	if !ok {
 		return "", fmt.Errorf("ACTION_NOT_ALLOWED: user is not uniquely assigned as captain")
 	}
-	if red {
-		return matchengine.TeamRed, nil
-	}
-	return matchengine.TeamBlue, nil
+	return engineSideFromDomain(side), nil
 }
 
 func authorizeRefereeViewer(user *domain.User, room *domain.Room) error {
