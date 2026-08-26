@@ -31,7 +31,7 @@ func TestFormalMatchReadUsesSnapshotAsStateSource(t *testing.T) {
 	repo := newFakeMatchRepo()
 	formalID, casualID := bson.NewObjectID(), bson.NewObjectID()
 	beatmapID := int64(4_294_967_296)
-	repo.matches[formalID] = &domain.Match{ID: formalID, Code: "FORMAL", RoomType: domain.RoomTypeMatch, Status: domain.MatchStatusFinished, Mappool: domain.Mappool{Slots: map[domain.PieceMod][]domain.Piece{domain.PieceModNM: {{BeatmapID: &beatmapID}}}}}
+	repo.matches[formalID] = &domain.Match{ID: formalID, Code: "FORMAL", RoomType: domain.RoomTypeMatch, Status: domain.MatchStatusFinished, Mappool: domain.Pool{Slots: map[domain.PieceMod][]domain.Piece{domain.PieceModNM: {{BeatmapID: &beatmapID}}}}}
 	repo.matches[casualID] = &domain.Match{ID: casualID, Code: "CASUAL", RoomType: domain.RoomTypeCasual}
 	snapshots := &snapshotReaderStub{states: map[bson.ObjectID]matchengine.State{formalID: {Version: 42, Lifecycle: matchengine.LifecycleRunning, PoolSlots: map[string]matchengine.PoolSlot{"NM-1": {ID: "NM-1", Mod: matchengine.ModNM}}}}}
 	reader := NewFormalMatchReadService(repo, snapshots)

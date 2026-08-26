@@ -16,6 +16,8 @@ type Services struct {
 	Users         *UserService
 	Beatmaps      *BeatmapService
 	Announcements *AnnouncementService
+	Teams         *TeamService
+	Mappools      *MappoolService
 	FormalMatches *FormalMatchReadService
 }
 
@@ -37,6 +39,8 @@ func NewServices(repos *repository.Repositories, invalidator CacheInvalidator, l
 		Users:         NewUserService(repos.Users, invalidator, sessionRevokers...).WithLogger(auditLog),
 		Beatmaps:      NewBeatmapService(repos.Beatmaps, invalidator, storageLog),
 		Announcements: NewAnnouncementService(repos.Announcements),
+		Teams:         NewTeamService(repos.Teams),
+		Mappools:      NewMappoolService(repos.Mappools),
 		FormalMatches: NewFormalMatchReadService(repos.Matches, repos.MatchSnapshots),
 	}
 }

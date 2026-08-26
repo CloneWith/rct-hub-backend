@@ -72,7 +72,7 @@ type RoomSettings struct {
 	BlueStrategistUserID *int64 `json:"blue_strategist_user_id,omitempty" bson:"blue_strategist_user_id,omitempty"`
 	StreamerUserID       *int64 `json:"streamer_user_id,omitempty" bson:"streamer_user_id,omitempty"`
 
-	Mappool   Mappool   `json:"mappool" bson:"mappool"`
+	Mappool   Pool      `json:"mappool" bson:"mappool"`
 	FirstPick *TeamSide `json:"first_pick,omitempty" bson:"first_pick,omitempty"`
 	FirstBan  *TeamSide `json:"first_ban,omitempty" bson:"first_ban,omitempty"`
 

@@ -103,7 +103,8 @@ type RoomSettings {
   blueStrategist: User @goField(forceResolver: true)
   streamerUserID: ID
   streamer: User @goField(forceResolver: true)
-  mappool: Mappool!
+  # 运行时图池视图（实体化前的内嵌图池；P2 起切换为 Mappool 实体引用）
+  mappool: Pool!
   firstPick: TeamSide
   firstBan: TeamSide
   redPlayers: [ID!]!
@@ -319,7 +320,9 @@ type Position {
   col: Int!   # domain: X
 }
 
-type Mappool {
+# 运行时图池视图：内嵌图池按 mod 分组的槽位展示（match 视图 / overlay / 房间配置）。
+# 与 Mappool 实体区分：本类型是引擎运行时结构，不落库。
+type Pool {
   slots: [PoolSlotGroup!]!
 }
 
@@ -382,6 +385,46 @@ type Announcement {
   publishedAt: Time
   createdAt: Time!
   updatedAt: Time!
+}
+
+# =============================================================================
+# 队伍 / 图池实体（管理后台维护，房间通过 ID 引用 —— D1/D2）
+# =============================================================================
+
+type Team {
+  id: ObjectID!
+  name: String!
+  description: String
+  seed: String
+  leaderID: Int              # osu! user ID
+  leader: User @goField(forceResolver: true)
+  strategistID: Int           # osu! user ID
+  strategist: User @goField(forceResolver: true)
+  playerIDs: [Int!]!         # osu! user IDs
+  players: [User!]! @goField(forceResolver: true)
+  isReady: Boolean!          # 队长 + 策略师齐备（被房间引用的门槛，R1）
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+# Mappool 实体：可独立维护的图池，条目内嵌于文档（全量替换语义，R2）。
+type Mappool {
+  id: ObjectID!
+  name: String!
+  description: String
+  entries: [MappoolEntry!]!  # 按 mod 分组、index 升序返回
+  createdAt: Time!
+  updatedAt: Time!
+}
+
+type MappoolEntry {
+  mod: PieceMod!
+  index: Int!                # 组内 1-based 序号
+  beatmapID: Int             # osu! beatmap ID，SHIRO 槽为 null
+  beatmap: Beatmap @goField(forceResolver: true)
+  selectorID: Int            # osu! user ID（选图者）
+  selector: User @goField(forceResolver: true)
+  skill: String
 }
 
 # =============================================================================
@@ -497,6 +540,22 @@ type AnnouncementPage {
   totalPages: Int!
 }
 
+type TeamPage {
+  items: [Team!]!
+  page: Int!
+  perPage: Int!
+  total: Int!
+  totalPages: Int!
+}
+
+type MappoolPage {
+  items: [Mappool!]!
+  page: Int!
+  perPage: Int!
+  total: Int!
+  totalPages: Int!
+}
+
 # =============================================================================
 # Query
 # =============================================================================
@@ -530,6 +589,15 @@ type Query {
   # 公告
   announcements(page: Int = 1, perPage: Int = 20): AnnouncementPage!
   announcement(id: ID!): Announcement
+
+  # 队伍 / 图池实体（admin 门控；详见 mutation 一节）
+  teams(search: String, page: Int = 1, perPage: Int = 20): TeamPage!
+  mappools(search: String, page: Int = 1, perPage: Int = 20): MappoolPage!
+
+  # 按 osu! ID 拉取用户（admin；读穿 upsert —— 不存在时从 osu! API 创建，
+  # 默认 player + pending，与 OAuth 首登一致，D4）
+  userByOsuId(osuId: Int!): User!
+
   ircObservations(matchId: ID!, channel: String!): [IRCObservation!]!
   ircJobs(matchId: ID!): [IRCJob!]!
   ircConnectionStatus(matchId: ID!): IRCConnectionStatus!
@@ -551,6 +619,35 @@ input RetryIRCJobInput { matchID: ID!, jobID: ID! }
 input RetryMatchAutomationInput { matchID: ID!, eventID: ID! }
 input RetryBeatmapMetadataInput { matchID: ID!, beatmapID: ID! }
 input ConfirmIRCResultInput { matchId: ID!, expectedVersion: UInt64!, commandId: String!, observationId: ID!, boardPieceId: ID!, winningTeam: TeamSide! }
+
+# =============================================================================
+# 队伍 / 图池管理输入（admin）
+# GraphQL 省略与显式 null 均视为"不提供"：nullable 输入字段无法清空为 null
+# （与 REST PATCH 语义一致）；列表字段为全量替换。
+# =============================================================================
+
+input TeamInput {
+  name: String!
+  description: String
+  seed: String
+  leaderID: Int
+  strategistID: Int
+  playerIDs: [Int!]!        # 全量替换
+}
+
+input MappoolEntryInput {
+  mod: PieceMod!
+  index: Int!
+  beatmapID: Int             # SHIRO 条目省略
+  selectorID: Int
+  skill: String
+}
+
+input MappoolInput {
+  name: String!
+  description: String
+  entries: [MappoolEntryInput!]!  # 全量替换（R2）
+}
 
 # =============================================================================
 # Authoritative formal-match commands
@@ -698,4 +795,12 @@ type Mutation {
   startTb(input: ReasonCommandInput!): MatchCommandResult!
   confirmTbResult(input: ConfirmTbResultInput!): MatchCommandResult!
   recordSurrender(input: RecordSurrenderInput!): MatchCommandResult!
+
+  # --- 队伍 / 图池管理（admin 门控）---
+  createTeam(input: TeamInput!): Team!
+  updateTeam(id: ID!, input: TeamInput!): Team!
+  deleteTeam(id: ID!): Boolean!
+  createMappool(input: MappoolInput!): Mappool!
+  updateMappool(id: ID!, input: MappoolInput!): Mappool!
+  deleteMappool(id: ID!): Boolean!
 }

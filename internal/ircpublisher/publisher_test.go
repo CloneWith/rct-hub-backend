@@ -70,8 +70,8 @@ func TestPublisherMapsMatchStartRosterAndTB(t *testing.T) {
 	mp := "https://osu.ppy.sh/community/matches/42"
 	match := &domain.Match{
 		ID: matchID, RoomID: roomID,
-		TeamRed: domain.Team{Players: []int64{1, 2}}, TeamBlue: domain.Team{Players: []int64{2, 3}},
-		Mappool: domain.Mappool{Slots: map[domain.PieceMod][]domain.Piece{domain.PieceModTB: {{BeatmapID: &tbID}}}},
+		TeamRed: domain.TeamSnapshot{Players: []int64{1, 2}}, TeamBlue: domain.TeamSnapshot{Players: []int64{2, 3}},
+		Mappool: domain.Pool{Slots: map[domain.PieceMod][]domain.Piece{domain.PieceModTB: {{BeatmapID: &tbID}}}},
 	}
 	tests := []struct {
 		name  string
@@ -126,7 +126,7 @@ func TestPublisherAcceptsAuthoritativeEngineSlotIDs(t *testing.T) {
 	nmID, tbID := int64(123), int64(999)
 	match := &domain.Match{
 		ID: matchID, RoomID: roomID,
-		Mappool: domain.Mappool{Slots: map[domain.PieceMod][]domain.Piece{
+		Mappool: domain.Pool{Slots: map[domain.PieceMod][]domain.Piece{
 			domain.PieceModNM: {{BeatmapID: &nmID}},
 			domain.PieceModTB: {{BeatmapID: &tbID}},
 		}},
@@ -193,7 +193,7 @@ func TestPublisherMapsCommittedPieceToIdempotentMapJob(t *testing.T) {
 	events := &eventMemory{events: []persistence.MatchOutboxDocument{{EventID: "event-1", MatchID: matchID, Type: matchengine.EventPiecePlaced, Payload: payload}}}
 	jobs := &jobMemory{}
 	mp := "https://osu.ppy.sh/community/matches/42"
-	match := &domain.Match{ID: matchID, RoomID: roomID, Mappool: domain.Mappool{Slots: map[domain.PieceMod][]domain.Piece{domain.PieceModNM: {{BeatmapID: &beatmapID}}}}}
+	match := &domain.Match{ID: matchID, RoomID: roomID, Mappool: domain.Pool{Slots: map[domain.PieceMod][]domain.Piece{domain.PieceModNM: {{BeatmapID: &beatmapID}}}}}
 	pub := New(events, jobs, matchMemory{match}, roomMemory{&domain.Room{ID: roomID, Settings: domain.RoomSettings{MPLink: &mp}}}, userMemory{})
 	if err := pub.RunOnce(context.Background()); err != nil {
 		t.Fatal(err)

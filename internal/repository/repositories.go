@@ -15,6 +15,8 @@ type Repositories struct {
 	Moves          MoveRepository
 	Results        ResultRepository
 	Announcements  AnnouncementRepository
+	Teams          TeamRepository
+	Mappools       MappoolRepository
 	MatchSnapshots *persistence.SnapshotStore
 	FormalMatches  *persistence.FormalMatchBootstrapStore
 	MatchCommands  *persistence.CommandStore
@@ -30,6 +32,8 @@ func NewRepositories(client *mongo.Client, db *mongo.Database) *Repositories {
 		Moves:          NewMoveRepository(db),
 		Results:        NewResultRepository(db),
 		Announcements:  NewAnnouncementRepository(db),
+		Teams:          NewTeamRepository(db),
+		Mappools:       NewMappoolRepository(db),
 		MatchSnapshots: persistence.NewSnapshotStore(db),
 		FormalMatches:  persistence.NewFormalMatchBootstrapStore(client, db),
 		MatchCommands:  persistence.NewCommandStore(client, db),

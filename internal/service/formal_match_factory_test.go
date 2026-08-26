@@ -134,7 +134,7 @@ func formalRoomFixture() domain.Room {
 	redLeader, blueLeader := int64(1), int64(11)
 	firstPick, firstBan := domain.TeamSideRed, domain.TeamSideBlue
 	mpLink := "https://osu.ppy.sh/community/matches/1"
-	pool := domain.NewMappool()
+	pool := domain.NewPool()
 	pool.Slots[domain.PieceModNM] = []domain.Piece{{}, {}}
 	pool.Slots[domain.PieceModHD] = []domain.Piece{{}}
 	pool.Slots[domain.PieceModHR] = []domain.Piece{{}}

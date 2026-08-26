@@ -63,6 +63,8 @@ type Deps struct {
 	UserSvc      *service.UserService
 	BeatmapSvc   *service.BeatmapService
 	AnnounceSvc  *service.AnnouncementService
+	TeamSvc      *service.TeamService
+	MappoolSvc   *service.MappoolService
 	Fetcher      fetcher.Fetcher
 	JWTSigner    *jwtutil.Signer
 	AuthSessions *authsession.Store
@@ -131,6 +133,8 @@ func New(cfg *config.Config, db *database.DB, logs *logger.Provider) *Server {
 		UserSvc:      services.Users,
 		BeatmapSvc:   services.Beatmaps,
 		AnnounceSvc:  service.NewAnnouncementService(repos.Announcements),
+		TeamSvc:      services.Teams,
+		MappoolSvc:   services.Mappools,
 		Fetcher:      osuFetcher,
 		JWTSigner:    signer,
 		AuthSessions: browserSessions,
@@ -275,7 +279,7 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 		nil,
 		matchEngineLog,
 	)
-	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands).WithAutomationIssues(s.deps.Repos.MatchCommands).WithBeatmapMetadata(s.metadata).WithIRCReader(persistence.NewIRCObservationStore(s.deps.DB.MongoDB)).WithIRCJobs(s.ircJobs).WithIRCStatus(s.ircClient)
+	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands).WithAutomationIssues(s.deps.Repos.MatchCommands).WithBeatmapMetadata(s.metadata).WithIRCReader(persistence.NewIRCObservationStore(s.deps.DB.MongoDB)).WithIRCJobs(s.ircJobs).WithIRCStatus(s.ircClient).WithUserFetcher(s.deps.Fetcher)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
 	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Services, sessionCookie))
@@ -307,6 +311,8 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc, auditLog)
 	rooms := handler.NewRoomHandler(s.deps.Services.Rooms, auditLog)
 	announcements := handler.NewAnnouncementHandler(s.deps.AnnounceSvc)
+	teams := handler.NewTeamHandler(s.deps.TeamSvc)
+	mappools := handler.NewMappoolHandler(s.deps.MappoolSvc)
 
 	api := s.router.Group("/api/v1")
 	{
@@ -348,6 +354,14 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 			admin.PATCH("/announcements/:id", announcements.Patch)
 			admin.DELETE("/announcements/:id", announcements.Delete)
 			admin.POST("/announcements/:id/publish", announcements.Publish)
+
+			admin.POST("/teams", teams.Create)
+			admin.PATCH("/teams/:id", teams.Patch)
+			admin.DELETE("/teams/:id", teams.Delete)
+
+			admin.POST("/mappools", mappools.Create)
+			admin.PATCH("/mappools/:id", mappools.Patch)
+			admin.DELETE("/mappools/:id", mappools.Delete)
 		}
 	}
 }

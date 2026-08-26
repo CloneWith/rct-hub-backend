@@ -70,7 +70,7 @@ func (r *fakeRoomRepo) UpdateFields(_ context.Context, id bson.ObjectID, fields 
 		case "settings.streamer_user_id":
 			room.Settings.StreamerUserID, _ = value.(*int64)
 		case "settings.mappool":
-			room.Settings.Mappool = value.(domain.Mappool)
+			room.Settings.Mappool = value.(domain.Pool)
 		case "settings.first_pick":
 			room.Settings.FirstPick, _ = value.(*domain.TeamSide)
 		case "settings.first_ban":
@@ -613,7 +613,7 @@ func TestFormalRefereeCanOnlyUpdateMPLinkAmongRoomSetupEndpoints(t *testing.T) {
 	if _, err := svc.SetStreamer(ctx, referee.OnlineID, room.ID, &red); !errors.Is(err, errs.ErrForbidden) {
 		t.Fatalf("referee streamer error = %v, want forbidden", err)
 	}
-	if _, err := svc.SetMappool(ctx, referee.OnlineID, room.ID, domain.NewMappool()); !errors.Is(err, errs.ErrForbidden) {
+	if _, err := svc.SetMappool(ctx, referee.OnlineID, room.ID, domain.NewPool()); !errors.Is(err, errs.ErrForbidden) {
 		t.Fatalf("referee mappool error = %v, want forbidden", err)
 	}
 	if _, err := svc.SetBPOrder(ctx, referee.OnlineID, room.ID, domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue}); !errors.Is(err, errs.ErrForbidden) {
@@ -760,7 +760,7 @@ func makeTestMatch() *domain.Match {
 		ID:        bson.NewObjectID(),
 		RoomID:    bson.NewObjectID(),
 		RoomType:  domain.RoomTypeCasual,
-		Mappool:   domain.NewMappool(),
+		Mappool:   domain.NewPool(),
 		Board:     domain.NewBoard(),
 		BPOrder:   domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue},
 		TurnState: domain.NewTurnState(),

@@ -25,11 +25,11 @@ type Match struct {
 
 	RoomType RoomType `json:"room_type" bson:"room_type"`
 
-	TeamRed  Team `json:"team_red" bson:"team_red"`
-	TeamBlue Team `json:"team_blue" bson:"team_blue"`
+	TeamRed  TeamSnapshot `json:"team_red" bson:"team_red"`
+	TeamBlue TeamSnapshot `json:"team_blue" bson:"team_blue"`
 
-	Mappool Mappool `json:"mappool" bson:"mappool"`
-	Board   Board   `json:"board" bson:"board"`
+	Mappool Pool  `json:"mappool" bson:"mappool"`
+	Board   Board `json:"board" bson:"board"`
 
 	BPOrder   BPOrder    `json:"bp_order" bson:"bp_order"`
 	TurnState TurnState  `json:"turn_state" bson:"turn_state"`
@@ -42,8 +42,9 @@ type Match struct {
 	UpdatedAt  time.Time   `json:"updated_at" bson:"updated_at"`
 }
 
-// Team represents a side in a match.
-type Team struct {
+// TeamSnapshot is the immutable per-side roster snapshot embedded in a match.
+// It is built from the Team entity when a match starts.
+type TeamSnapshot struct {
 	ID           bson.ObjectID `json:"id" bson:"_id,omitempty"`
 	Side         TeamSide      `json:"side" bson:"side"`
 	Name         string        `json:"name" bson:"name"`
@@ -56,7 +57,7 @@ type Team struct {
 }
 
 // NewMatch creates a new match from room settings.
-func NewMatch(room Room, redTeam, blueTeam Team) Match {
+func NewMatch(room Room, redTeam, blueTeam TeamSnapshot) Match {
 	now := time.Now()
 	return Match{
 		RoomID:    room.ID,
@@ -86,7 +87,7 @@ func (m *Match) IsFinished() bool {
 }
 
 // TeamBySide returns the team for the given side.
-func (m *Match) TeamBySide(side TeamSide) *Team {
+func (m *Match) TeamBySide(side TeamSide) *TeamSnapshot {
 	if side == TeamSideRed {
 		return &m.TeamRed
 	}

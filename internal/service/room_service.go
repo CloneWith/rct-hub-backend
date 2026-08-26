@@ -95,7 +95,7 @@ func (s *RoomService) CreateRoom(ctx context.Context, ownerID int64, roomType do
 		Name:     name,
 		Type:     roomType,
 		OwnerID:  ownerID,
-		Settings: domain.RoomSettings{Mappool: domain.NewMappool()},
+		Settings: domain.RoomSettings{Mappool: domain.NewPool()},
 	}
 	if roomType == domain.RoomTypeMatch {
 		room.RefereeUserID = &ownerID
@@ -156,7 +156,7 @@ func (s *RoomService) SetStreamer(ctx context.Context, callerID int64, roomID bs
 }
 
 // SetMappool replaces the room mappool.
-func (s *RoomService) SetMappool(ctx context.Context, callerID int64, roomID bson.ObjectID, pool domain.Mappool) (*domain.Room, error) {
+func (s *RoomService) SetMappool(ctx context.Context, callerID int64, roomID bson.ObjectID, pool domain.Pool) (*domain.Room, error) {
 	room, err := s.authorizedRoomConfiguration(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
@@ -434,7 +434,7 @@ func (s *RoomService) StartMatch(ctx context.Context, callerID int64, roomID bso
 		return nil, errs.NewValidationError(fields...)
 	}
 
-	redTeam := domain.Team{
+	redTeam := domain.TeamSnapshot{
 		Side:         domain.TeamSideRed,
 		Name:         "Red",
 		Color:        "#ef4444",
@@ -442,7 +442,7 @@ func (s *RoomService) StartMatch(ctx context.Context, callerID int64, roomID bso
 		StrategistID: derefInt64(room.Settings.RedStrategistUserID),
 		Players:      room.Settings.RedPlayers,
 	}
-	blueTeam := domain.Team{
+	blueTeam := domain.TeamSnapshot{
 		Side:         domain.TeamSideBlue,
 		Name:         "Blue",
 		Color:        "#3b82f6",

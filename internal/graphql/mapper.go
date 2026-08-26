@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"rctHubBackend/internal/domain"
+	"rctHubBackend/internal/service"
 	"rctHubBackend/pkg/paginate"
 )
 
@@ -135,7 +136,7 @@ func mapRoomSettings(s *domain.RoomSettings) *RoomSettings {
 		RedStrategistUserID:  int64PtrToStringPtr(s.RedStrategistUserID),
 		BlueStrategistUserID: int64PtrToStringPtr(s.BlueStrategistUserID),
 		StreamerUserID:       int64PtrToStringPtr(s.StreamerUserID),
-		Mappool:              mapMappool(&s.Mappool),
+		Mappool:              mapPool(&s.Mappool),
 		FirstPick:            mapTeamSidePtr(s.FirstPick),
 		FirstBan:             mapTeamSidePtr(s.FirstBan),
 		RedPlayers:           int64SliceToStringSlice(s.RedPlayers),
@@ -161,7 +162,8 @@ func mapPositionPtr(p *domain.Position) *Position {
 	return mapPosition(*p)
 }
 
-func mapMappool(m *domain.Mappool) *Mappool {
+// mapPool maps the runtime pool (slots grouped by mod) into the GraphQL view.
+func mapPool(m *domain.Pool) *Pool {
 	if m == nil {
 		return nil
 	}
@@ -186,7 +188,7 @@ func mapMappool(m *domain.Mappool) *Mappool {
 			Pieces: slots,
 		})
 	}
-	return &Mappool{Slots: groups}
+	return &Pool{Slots: groups}
 }
 
 func mapPieceToPoolSlot(mod domain.PieceMod, index int, p *domain.Piece) *PoolSlot {
@@ -256,6 +258,123 @@ func mapAnnouncement(a *domain.Announcement) *Announcement {
 	}
 }
 
+func mapTeam(t *domain.Team) *Team {
+	if t == nil {
+		return nil
+	}
+	return &Team{
+		ID:           t.ID.Hex(),
+		Name:         t.Name,
+		Description:  t.Description,
+		Seed:         t.Seed,
+		LeaderID:     int64PtrToIntPtr(t.LeaderID),
+		StrategistID: int64PtrToIntPtr(t.StrategistID),
+		PlayerIDs:    int64SliceToIntSlice(t.Players),
+		IsReady:      t.IsReady(),
+		CreatedAt:    t.CreatedAt,
+		UpdatedAt:    t.UpdatedAt,
+	}
+}
+
+// mapMappool maps the mappool entity; entries are returned grouped by mod and
+// ordered by index (domain.SortedEntries) for stable display and round-trips.
+func mapMappool(m *domain.Mappool) *Mappool {
+	if m == nil {
+		return nil
+	}
+	sorted := m.SortedEntries()
+	entries := make([]*MappoolEntry, len(sorted))
+	for i := range sorted {
+		entries[i] = mapMappoolEntry(&sorted[i])
+	}
+	return &Mappool{
+		ID:          m.ID.Hex(),
+		Name:        m.Name,
+		Description: m.Description,
+		Entries:     entries,
+		CreatedAt:   m.CreatedAt,
+		UpdatedAt:   m.UpdatedAt,
+	}
+}
+
+func mapMappoolEntry(e *domain.MappoolEntry) *MappoolEntry {
+	if e == nil {
+		return nil
+	}
+	return &MappoolEntry{
+		Mod:        mapPieceMod(e.Mod),
+		Index:      e.Index,
+		BeatmapID:  int64PtrToIntPtr(e.BeatmapID),
+		SelectorID: int64PtrToIntPtr(e.SelectorID),
+		Skill:      e.Skill,
+	}
+}
+
+// teamInputToPatch converts a full-form TeamInput into a service patch. The
+// form always submits the complete state: name and playerIDs are applied
+// unconditionally, nullable fields only when provided (GraphQL omission and
+// explicit null are indistinguishable in Go — same "no null-clearing"
+// semantics as the REST PATCH).
+func teamInputToPatch(input *TeamInput) *service.TeamPatch {
+	if input == nil {
+		return nil
+	}
+	return &service.TeamPatch{
+		Name:         &input.Name,
+		Description:  input.Description,
+		Seed:         input.Seed,
+		LeaderID:     intPtrToInt64Ptr(input.LeaderID),
+		StrategistID: intPtrToInt64Ptr(input.StrategistID),
+		Players:      intSliceToInt64Slice(input.PlayerIDs),
+	}
+}
+
+// mappoolInputToDomain converts a MappoolInput into a domain entity plus the
+// flat entry slice for wholesale replacement.
+func mappoolInputToDomain(input *MappoolInput) *domain.Mappool {
+	if input == nil {
+		return nil
+	}
+	entries := make([]domain.MappoolEntry, len(input.Entries))
+	for i, entry := range input.Entries {
+		entries[i] = domain.MappoolEntry{
+			Mod:        unmapPieceMod(entry.Mod),
+			Index:      entry.Index,
+			BeatmapID:  intPtrToInt64Ptr(entry.BeatmapID),
+			SelectorID: intPtrToInt64Ptr(entry.SelectorID),
+			Skill:      entry.Skill,
+		}
+	}
+	return &domain.Mappool{
+		Name:        input.Name,
+		Description: input.Description,
+		Entries:     entries,
+	}
+}
+
+// unmapPieceMod converts the GraphQL enum back to the domain value.
+// domain uses mixed case ("Shiro"), so upper/lowercasing alone is not enough.
+func unmapPieceMod(m PieceMod) domain.PieceMod {
+	switch m {
+	case PieceModNm:
+		return domain.PieceModNM
+	case PieceModHd:
+		return domain.PieceModHD
+	case PieceModHr:
+		return domain.PieceModHR
+	case PieceModDt:
+		return domain.PieceModDT
+	case PieceModFm:
+		return domain.PieceModFM
+	case PieceModShiro:
+		return domain.PieceModShiro
+	case PieceModTb:
+		return domain.PieceModTB
+	default:
+		return domain.PieceMod(m)
+	}
+}
+
 // --- 分页映射 ---
 
 func mapRoomPage(result paginate.Result[domain.Room]) *RoomPage {
@@ -314,6 +433,34 @@ func mapAnnouncementPage(result paginate.Result[domain.Announcement]) *Announcem
 	}
 }
 
+func mapTeamPage(result paginate.Result[domain.Team]) *TeamPage {
+	items := make([]*Team, len(result.Data))
+	for i := range result.Data {
+		items[i] = mapTeam(&result.Data[i])
+	}
+	return &TeamPage{
+		Items:      items,
+		Page:       int(result.Page),
+		PerPage:    int(result.PerPage),
+		Total:      int(result.Total),
+		TotalPages: int(result.TotalPages),
+	}
+}
+
+func mapMappoolPage(result paginate.Result[domain.Mappool]) *MappoolPage {
+	items := make([]*Mappool, len(result.Data))
+	for i := range result.Data {
+		items[i] = mapMappool(&result.Data[i])
+	}
+	return &MappoolPage{
+		Items:      items,
+		Page:       int(result.Page),
+		PerPage:    int(result.PerPage),
+		Total:      int(result.Total),
+		TotalPages: int(result.TotalPages),
+	}
+}
+
 // --- 低级辅助 ---
 
 func int64PtrToStringPtr(p *int64) *string {
@@ -345,4 +492,38 @@ func nullableStr(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// --- int ↔ int64 转换（GraphQL Int → Go int；domain osu ID 用 int64）---
+
+func int64PtrToIntPtr(p *int64) *int {
+	if p == nil {
+		return nil
+	}
+	v := int(*p)
+	return &v
+}
+
+func intPtrToInt64Ptr(p *int) *int64 {
+	if p == nil {
+		return nil
+	}
+	v := int64(*p)
+	return &v
+}
+
+func int64SliceToIntSlice(s []int64) []int {
+	result := make([]int, len(s))
+	for i, v := range s {
+		result[i] = int(v)
+	}
+	return result
+}
+
+func intSliceToInt64Slice(s []int) []int64 {
+	result := make([]int64, len(s))
+	for i, v := range s {
+		result[i] = int64(v)
+	}
+	return result
 }

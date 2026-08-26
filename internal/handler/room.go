@@ -223,7 +223,7 @@ func (h *RoomHandler) SetMappool(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Mappool domain.Mappool `json:"mappool" binding:"required"`
+		Mappool domain.Pool `json:"mappool" binding:"required"`
 	}
 	if err := bindJSON(c, &req); err != nil {
 		_ = c.Error(err)

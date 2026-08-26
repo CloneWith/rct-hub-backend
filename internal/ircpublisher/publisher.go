@@ -146,7 +146,7 @@ func banchoUsername(user *domain.User, expectedID int64) (string, error) {
 	return username, nil
 }
 
-func mapJob(matchID bson.ObjectID, channel string, sequence uint64, eventID, kind string, pool domain.Mappool, slotID string) ([]irc.Job, error) {
+func mapJob(matchID bson.ObjectID, channel string, sequence uint64, eventID, kind string, pool domain.Pool, slotID string) ([]irc.Job, error) {
 	slot, ok := domain.ParsePoolSlot(slotID)
 	if !ok {
 		return nil, fmt.Errorf("invalid pool slot %q", slotID)

@@ -136,7 +136,7 @@ func TestTimerRemaining(t *testing.T) {
 }
 
 func TestMappoolFlexible(t *testing.T) {
-	pool := NewMappool()
+	pool := NewPool()
 	pool.Slots[PieceModNM] = []Piece{{}, {}, {}}
 	pool.Slots[PieceModHD] = []Piece{{}, {}}
 	pool.Slots[PieceModShiro] = []Piece{{}}

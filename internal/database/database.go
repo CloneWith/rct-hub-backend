@@ -127,6 +127,22 @@ func (db *DB) EnsureIndexes(ctx context.Context) error {
 		return fmt.Errorf("announcements indexes: %w", err)
 	}
 
+	teamColl := db.MongoDB.Collection("teams")
+	if _, err := teamColl.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "name", Value: 1}}},
+		{Keys: bson.D{{Key: "leader_id", Value: 1}}},
+		{Keys: bson.D{{Key: "strategist_id", Value: 1}}},
+	}); err != nil {
+		return fmt.Errorf("teams indexes: %w", err)
+	}
+
+	mappoolColl := db.MongoDB.Collection("mappools")
+	if _, err := mappoolColl.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "name", Value: 1}}},
+	}); err != nil {
+		return fmt.Errorf("mappools indexes: %w", err)
+	}
+
 	snapshotStore := persistence.NewSnapshotStore(db.MongoDB)
 	if err := snapshotStore.EnsureIndexes(ctx); err != nil {
 		return err

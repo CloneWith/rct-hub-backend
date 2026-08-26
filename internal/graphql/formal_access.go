@@ -81,6 +81,21 @@ func validatePrivateViewer(user *domain.User) error {
 	return nil
 }
 
+// adminViewer extends privateViewer with the admin role requirement. It gates
+// the admin-panel GraphQL queries and mutations (teams / mappools management,
+// userByOsuId). Like privateViewer it re-reads the user record on every
+// request so role revocations take effect immediately.
+func (r *Resolver) adminViewer(ctx context.Context) (*domain.User, error) {
+	user, err := r.privateViewer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !user.HasRole(domain.RoleAdmin) {
+		return nil, fmt.Errorf("GLOBAL_ROLE_REQUIRED: admin role is required")
+	}
+	return user, nil
+}
+
 func strategistViewerTeam(user *domain.User, room *domain.Room) (matchengine.TeamSide, error) {
 	if user == nil || room == nil || !user.HasRole(domain.RoleStrategist) {
 		return "", fmt.Errorf("ACTION_NOT_ALLOWED: current strategist role is required")

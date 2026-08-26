@@ -100,6 +100,12 @@ type PrivateUserReader interface {
 	GetByOsuID(context.Context, int64) (*domain.User, error)
 }
 
+// UserFetcher is the osu! read-through cache (Redis → MongoDB → osu! API).
+// GetUser upserts on cold fetch, which powers the admin "add user" flow (D4).
+type UserFetcher interface {
+	GetUser(context.Context, int64) (*domain.User, error)
+}
+
 type PrivateRoomReader interface {
 	GetRoom(context.Context, bson.ObjectID) (*domain.Room, error)
 }
@@ -130,6 +136,7 @@ type Resolver struct {
 	irc        IRCObservationReader
 	ircJobs    IRCJobReader
 	ircStatus  IRCStatusReader
+	fetcher    UserFetcher
 }
 
 func (r *Resolver) WithIRCReader(reader IRCObservationReader) *Resolver { r.irc = reader; return r }
@@ -178,6 +185,11 @@ func (r *Resolver) WithBeatmapMetadata(reader BeatmapMetadataReader) *Resolver {
 
 func (r *Resolver) WithFormalMatchReader(reader FormalMatchReader) *Resolver {
 	r.formal = reader
+	return r
+}
+
+func (r *Resolver) WithUserFetcher(fetcher UserFetcher) *Resolver {
+	r.fetcher = fetcher
 	return r
 }
 

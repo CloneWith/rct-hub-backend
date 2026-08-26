@@ -732,7 +732,7 @@ func TestMongoIntegrationRepositoriesAssignObjectIDs(t *testing.T) {
 	defer cancel()
 
 	roomRepo := repository.NewRoomRepository(db)
-	room := &domain.Room{Code: "IDTEST", Name: "ID Test", Type: domain.RoomTypePrivate, OwnerID: 1, Settings: domain.RoomSettings{Mappool: domain.NewMappool()}}
+	room := &domain.Room{Code: "IDTEST", Name: "ID Test", Type: domain.RoomTypePrivate, OwnerID: 1, Settings: domain.RoomSettings{Mappool: domain.NewPool()}}
 	if err := roomRepo.Create(ctx, room); err != nil {
 		t.Fatalf("create room: %v", err)
 	}
@@ -749,7 +749,7 @@ func TestMongoIntegrationRepositoriesAssignObjectIDs(t *testing.T) {
 	}
 
 	matchRepo := repository.NewMatchRepository(db)
-	match := &domain.Match{RoomID: room.ID, Code: "MATCH-IDTEST", Board: domain.NewBoard(), Mappool: domain.NewMappool()}
+	match := &domain.Match{RoomID: room.ID, Code: "MATCH-IDTEST", Board: domain.NewBoard(), Mappool: domain.NewPool()}
 	if err := matchRepo.Create(ctx, match); err != nil {
 		t.Fatalf("create match: %v", err)
 	}
@@ -1014,7 +1014,7 @@ func integrationFormalRoom() domain.Room {
 	refereeID := int64(999)
 	firstPick, firstBan := domain.TeamSideRed, domain.TeamSideBlue
 	mpLink := "https://osu.ppy.sh/community/matches/1"
-	pool := domain.NewMappool()
+	pool := domain.NewPool()
 	pool.Slots[domain.PieceModNM] = []domain.Piece{{}, {}, {}, {}, {}}
 	pool.Slots[domain.PieceModHD] = []domain.Piece{{}}
 	pool.Slots[domain.PieceModHR] = []domain.Piece{{}}

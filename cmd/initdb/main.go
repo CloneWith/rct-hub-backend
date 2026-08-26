@@ -328,7 +328,7 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		Type:    domain.RoomTypeCasual,
 		OwnerID: 1,
 		Settings: domain.RoomSettings{
-			Mappool:              domain.NewMappool(),
+			Mappool:              domain.NewPool(),
 			RedStrategistUserID:  new(int64(1)),
 			BlueStrategistUserID: new(int64(2)),
 			FirstPick:            new(domain.TeamSideRed),
@@ -355,7 +355,7 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		Code:     "SEED-001",
 		Name:     "Seed Match",
 		RoomType: domain.RoomTypeCasual,
-		TeamRed: domain.Team{
+		TeamRed: domain.TeamSnapshot{
 			ID:           bson.NewObjectID(),
 			Side:         domain.TeamSideRed,
 			Name:         "Red",
@@ -366,7 +366,7 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 			StrategistID: 1,
 			Players:      []int64{1, 2},
 		},
-		TeamBlue: domain.Team{
+		TeamBlue: domain.TeamSnapshot{
 			ID:           bson.NewObjectID(),
 			Side:         domain.TeamSideBlue,
 			Name:         "Blue",
@@ -377,7 +377,7 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 			StrategistID: 2,
 			Players:      []int64{3, 4},
 		},
-		Mappool:   domain.NewMappool(),
+		Mappool:   domain.NewPool(),
 		Board:     domain.NewBoard(),
 		BPOrder:   domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue},
 		TurnState: domain.NewTurnState(),

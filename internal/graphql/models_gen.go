@@ -226,7 +226,44 @@ type LegalPlacement struct {
 }
 
 type Mappool struct {
-	Slots []*PoolSlotGroup `json:"slots"`
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description *string         `json:"description,omitempty"`
+	Entries     []*MappoolEntry `json:"entries"`
+	CreatedAt   time.Time       `json:"createdAt"`
+	UpdatedAt   time.Time       `json:"updatedAt"`
+}
+
+type MappoolEntry struct {
+	Mod        PieceMod `json:"mod"`
+	Index      int      `json:"index"`
+	BeatmapID  *int     `json:"beatmapID,omitempty"`
+	Beatmap    *Beatmap `json:"beatmap,omitempty"`
+	SelectorID *int     `json:"selectorID,omitempty"`
+	Selector   *User    `json:"selector,omitempty"`
+	Skill      *string  `json:"skill,omitempty"`
+}
+
+type MappoolEntryInput struct {
+	Mod        PieceMod `json:"mod"`
+	Index      int      `json:"index"`
+	BeatmapID  *int     `json:"beatmapID,omitempty"`
+	SelectorID *int     `json:"selectorID,omitempty"`
+	Skill      *string  `json:"skill,omitempty"`
+}
+
+type MappoolInput struct {
+	Name        string               `json:"name"`
+	Description *string              `json:"description,omitempty"`
+	Entries     []*MappoolEntryInput `json:"entries"`
+}
+
+type MappoolPage struct {
+	Items      []*Mappool `json:"items"`
+	Page       int        `json:"page"`
+	PerPage    int        `json:"perPage"`
+	Total      int        `json:"total"`
+	TotalPages int        `json:"totalPages"`
 }
 
 type Match struct {
@@ -390,6 +427,10 @@ type PlacePieceInput struct {
 type PlaceShiroInput struct {
 	Meta     *CommandMeta   `json:"meta"`
 	Position *PositionInput `json:"position"`
+}
+
+type Pool struct {
+	Slots []*PoolSlotGroup `json:"slots"`
 }
 
 type PoolSlot struct {
@@ -558,7 +599,7 @@ type RoomSettings struct {
 	BlueStrategist       *User     `json:"blueStrategist,omitempty"`
 	StreamerUserID       *string   `json:"streamerUserID,omitempty"`
 	Streamer             *User     `json:"streamer,omitempty"`
-	Mappool              *Mappool  `json:"mappool"`
+	Mappool              *Pool     `json:"mappool"`
 	FirstPick            *TeamSide `json:"firstPick,omitempty"`
 	FirstBan             *TeamSide `json:"firstBan,omitempty"`
 	RedPlayers           []string  `json:"redPlayers"`
@@ -594,6 +635,22 @@ type TBEntry struct {
 	RequestedBy *TeamSide `json:"requestedBy,omitempty"`
 }
 
+type Team struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Description  *string   `json:"description,omitempty"`
+	Seed         *string   `json:"seed,omitempty"`
+	LeaderID     *int      `json:"leaderID,omitempty"`
+	Leader       *User     `json:"leader,omitempty"`
+	StrategistID *int      `json:"strategistID,omitempty"`
+	Strategist   *User     `json:"strategist,omitempty"`
+	PlayerIDs    []int     `json:"playerIDs"`
+	Players      []*User   `json:"players"`
+	IsReady      bool      `json:"isReady"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
 type TeamCounts struct {
 	Red  int `json:"red"`
 	Blue int `json:"blue"`
@@ -602,6 +659,23 @@ type TeamCounts struct {
 type TeamFlags struct {
 	Red  bool `json:"red"`
 	Blue bool `json:"blue"`
+}
+
+type TeamInput struct {
+	Name         string  `json:"name"`
+	Description  *string `json:"description,omitempty"`
+	Seed         *string `json:"seed,omitempty"`
+	LeaderID     *int    `json:"leaderID,omitempty"`
+	StrategistID *int    `json:"strategistID,omitempty"`
+	PlayerIDs    []int   `json:"playerIDs"`
+}
+
+type TeamPage struct {
+	Items      []*Team `json:"items"`
+	Page       int     `json:"page"`
+	PerPage    int     `json:"perPage"`
+	Total      int     `json:"total"`
+	TotalPages int     `json:"totalPages"`
 }
 
 type User struct {

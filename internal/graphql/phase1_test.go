@@ -253,7 +253,7 @@ func TestMapPosition(t *testing.T) {
 }
 
 func TestMapMappool(t *testing.T) {
-	pool := domain.NewMappool()
+	pool := domain.NewPool()
 	nmID := int64(12345)
 	pool.Slots[domain.PieceModNM] = []domain.Piece{
 		{BeatmapID: &nmID, State: domain.PieceStateNormal},
@@ -263,7 +263,7 @@ func TestMapMappool(t *testing.T) {
 		{BeatmapID: &nmID, State: domain.PieceStateBanned},
 	}
 
-	gqlPool := mapMappool(&pool)
+	gqlPool := mapPool(&pool)
 
 	if len(gqlPool.Slots) != 2 {
 		t.Fatalf("expected 2 groups, got %d", len(gqlPool.Slots))
@@ -295,7 +295,7 @@ func TestMapMappool(t *testing.T) {
 		t.Errorf("HD-1 State: expected BANNED, got %s", gqlPool.Slots[1].Pieces[0].State)
 	}
 
-	t.Logf("✓ mapMappool: 2 groups (NM, HD), correct slots/states")
+	t.Logf("✓ mapPool: 2 groups (NM, HD), correct slots/states")
 }
 
 // ============================================================================

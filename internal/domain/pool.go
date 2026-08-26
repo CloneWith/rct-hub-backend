@@ -16,19 +16,19 @@ func (s PoolSlot) String() string {
 	return string(s.Mod) + "-" + itoa(s.Index)
 }
 
-// Mappool holds all beatmap slots available for a match.
+// Pool holds all beatmap slots available for a match.
 // The number of pieces in each mod group is controlled by the frontend.
-type Mappool struct {
+type Pool struct {
 	Slots map[PieceMod][]Piece `json:"slots" bson:"slots"`
 }
 
-// NewMappool creates an empty mappool.
-func NewMappool() Mappool {
-	return Mappool{Slots: make(map[PieceMod][]Piece)}
+// NewPool creates an empty runtime pool.
+func NewPool() Pool {
+	return Pool{Slots: make(map[PieceMod][]Piece)}
 }
 
 // FindSlot returns the piece matching the slot, or nil if not found.
-func (m Mappool) FindSlot(slot PoolSlot) *Piece {
+func (m Pool) FindSlot(slot PoolSlot) *Piece {
 	group, ok := m.Slots[slot.Mod]
 	if !ok || slot.Index < 1 || slot.Index > len(group) {
 		return nil
@@ -39,7 +39,7 @@ func (m Mappool) FindSlot(slot PoolSlot) *Piece {
 // ActiveSlots returns all slots that have not been removed (beatmap_id != -1).
 // A slot with beatmap_id == nil (Shiro) or beatmap_id == 0 is still active
 // but has no beatmap metadata.
-func (m Mappool) ActiveSlots() []Piece {
+func (m Pool) ActiveSlots() []Piece {
 	var active []Piece
 	for _, group := range m.Slots {
 		for i := range group {
@@ -52,7 +52,7 @@ func (m Mappool) ActiveSlots() []Piece {
 }
 
 // ActiveSlotsByMod returns active slots for a specific mod group.
-func (m Mappool) ActiveSlotsByMod(mod PieceMod) []Piece {
+func (m Pool) ActiveSlotsByMod(mod PieceMod) []Piece {
 	var active []Piece
 	group, ok := m.Slots[mod]
 	if !ok {

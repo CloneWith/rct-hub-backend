@@ -52,7 +52,7 @@ func BuildFormalMatchSeed(room domain.Room, now time.Time) (FormalMatchSeed, err
 
 	// RoomSettings has no team presentation fields. These defaults only fill
 	// the temporary legacy read-model shell; they do not configure the engine.
-	redTeam := domain.Team{
+	redTeam := domain.TeamSnapshot{
 		ID:           bson.NewObjectID(),
 		Side:         domain.TeamSideRed,
 		Name:         "Red",
@@ -61,7 +61,7 @@ func BuildFormalMatchSeed(room domain.Room, now time.Time) (FormalMatchSeed, err
 		StrategistID: *room.Settings.RedStrategistUserID,
 		Players:      append([]int64(nil), room.Settings.RedPlayers...),
 	}
-	blueTeam := domain.Team{
+	blueTeam := domain.TeamSnapshot{
 		ID:           bson.NewObjectID(),
 		Side:         domain.TeamSideBlue,
 		Name:         "Blue",

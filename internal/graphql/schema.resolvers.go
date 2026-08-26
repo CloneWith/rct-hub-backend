@@ -14,6 +14,7 @@ import (
 	"rctHubBackend/internal/irc"
 	"rctHubBackend/internal/matchengine"
 	"rctHubBackend/internal/repository"
+	"rctHubBackend/internal/service"
 	"rctHubBackend/pkg/errs"
 	"slices"
 	"strconv"
@@ -99,6 +100,39 @@ func (r *beatmapResolver) Credits(ctx context.Context, obj *Beatmap) ([]*User, e
 		}
 	}
 	return users, nil
+}
+
+// Beatmap is the resolver for the beatmap field.
+func (r *mappoolEntryResolver) Beatmap(ctx context.Context, obj *MappoolEntry) (*Beatmap, error) {
+	if obj == nil || obj.BeatmapID == nil {
+		// SHIRO 槽不关联谱面
+		return nil, nil
+	}
+	loader := BeatmapLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("BeatmapLoader not found in context")
+	}
+	b, err := loader.Load(ctx, int64(*obj.BeatmapID))
+	if err != nil {
+		return nil, err
+	}
+	return mapBeatmap(b), nil
+}
+
+// Selector is the resolver for the selector field.
+func (r *mappoolEntryResolver) Selector(ctx context.Context, obj *MappoolEntry) (*User, error) {
+	if obj == nil || obj.SelectorID == nil {
+		return nil, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, int64(*obj.SelectorID))
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
 }
 
 // Room is the resolver for the room field.
@@ -502,6 +536,123 @@ func (r *mutationResolver) RecordSurrender(ctx context.Context, input RecordSurr
 	return r.executeCommand(ctx, input.Meta, matchengine.RecordSurrender{SurrenderingTeam: engineTeam(input.SurrenderingTeam), ConfirmingPlayerIDs: playerIDs, Reason: input.Reason}), nil
 }
 
+// CreateTeam is the resolver for the createTeam field.
+func (r *mutationResolver) CreateTeam(ctx context.Context, input TeamInput) (*Team, error) {
+	if _, err := r.adminViewer(ctx); err != nil {
+		return nil, err
+	}
+	if r.svc == nil || r.svc.Teams == nil {
+		return nil, fmt.Errorf("team service is unavailable")
+	}
+	t := &domain.Team{
+		Name:         input.Name,
+		Description:  input.Description,
+		Seed:         input.Seed,
+		LeaderID:     intPtrToInt64Ptr(input.LeaderID),
+		StrategistID: intPtrToInt64Ptr(input.StrategistID),
+		Players:      intSliceToInt64Slice(input.PlayerIDs),
+	}
+	if err := r.svc.Teams.Create(ctx, t); err != nil {
+		return nil, err
+	}
+	return mapTeam(t), nil
+}
+
+// UpdateTeam is the resolver for the updateTeam field.
+func (r *mutationResolver) UpdateTeam(ctx context.Context, id string, input TeamInput) (*Team, error) {
+	if _, err := r.adminViewer(ctx); err != nil {
+		return nil, err
+	}
+	if r.svc == nil || r.svc.Teams == nil {
+		return nil, fmt.Errorf("team service is unavailable")
+	}
+	teamID, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid team ID: %w", err)
+	}
+	t, err := r.svc.Teams.Patch(ctx, teamID, teamInputToPatch(&input))
+	if err != nil {
+		return nil, err
+	}
+	return mapTeam(t), nil
+}
+
+// DeleteTeam is the resolver for the deleteTeam field.
+func (r *mutationResolver) DeleteTeam(ctx context.Context, id string) (bool, error) {
+	if _, err := r.adminViewer(ctx); err != nil {
+		return false, err
+	}
+	if r.svc == nil || r.svc.Teams == nil {
+		return false, fmt.Errorf("team service is unavailable")
+	}
+	teamID, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return false, fmt.Errorf("invalid team ID: %w", err)
+	}
+	if err := r.svc.Teams.Delete(ctx, teamID); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// CreateMappool is the resolver for the createMappool field.
+func (r *mutationResolver) CreateMappool(ctx context.Context, input MappoolInput) (*Mappool, error) {
+	if _, err := r.adminViewer(ctx); err != nil {
+		return nil, err
+	}
+	if r.svc == nil || r.svc.Mappools == nil {
+		return nil, fmt.Errorf("mappool service is unavailable")
+	}
+	m := mappoolInputToDomain(&input)
+	if err := r.svc.Mappools.Create(ctx, m); err != nil {
+		return nil, err
+	}
+	return mapMappool(m), nil
+}
+
+// UpdateMappool is the resolver for the updateMappool field.
+func (r *mutationResolver) UpdateMappool(ctx context.Context, id string, input MappoolInput) (*Mappool, error) {
+	if _, err := r.adminViewer(ctx); err != nil {
+		return nil, err
+	}
+	if r.svc == nil || r.svc.Mappools == nil {
+		return nil, fmt.Errorf("mappool service is unavailable")
+	}
+	mappoolID, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid mappool ID: %w", err)
+	}
+	converted := mappoolInputToDomain(&input)
+	patch := &service.MappoolPatch{
+		Name:        &input.Name,
+		Description: input.Description,
+		Entries:     &converted.Entries,
+	}
+	m, err := r.svc.Mappools.Patch(ctx, mappoolID, patch)
+	if err != nil {
+		return nil, err
+	}
+	return mapMappool(m), nil
+}
+
+// DeleteMappool is the resolver for the deleteMappool field.
+func (r *mutationResolver) DeleteMappool(ctx context.Context, id string) (bool, error) {
+	if _, err := r.adminViewer(ctx); err != nil {
+		return false, err
+	}
+	if r.svc == nil || r.svc.Mappools == nil {
+		return false, fmt.Errorf("mappool service is unavailable")
+	}
+	mappoolID, err := bson.ObjectIDFromHex(id)
+	if err != nil {
+		return false, fmt.Errorf("invalid mappool ID: %w", err)
+	}
+	if err := r.svc.Mappools.Delete(ctx, mappoolID); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // Beatmap is the resolver for the beatmap field.
 func (r *poolSlotResolver) Beatmap(ctx context.Context, obj *PoolSlot) (*Beatmap, error) {
 	return r.beatmapByID(ctx, obj.BeatmapID)
@@ -765,6 +916,67 @@ func (r *queryResolver) Announcement(ctx context.Context, id string) (*Announcem
 	return mapAnnouncement(a), nil
 }
 
+// Teams is the resolver for the teams field.
+func (r *queryResolver) Teams(ctx context.Context, search *string, page *int, perPage *int) (*TeamPage, error) {
+	if _, err := r.adminViewer(ctx); err != nil {
+		return nil, err
+	}
+	if r.svc == nil || r.svc.Teams == nil {
+		return nil, fmt.Errorf("team service is unavailable")
+	}
+	params := buildPageParams(page, perPage)
+	term := ""
+	if search != nil {
+		term = *search
+	}
+	result, err := r.svc.Teams.List(ctx, params, term)
+	if err != nil {
+		return nil, err
+	}
+	return mapTeamPage(result), nil
+}
+
+// Mappools is the resolver for the mappools field.
+func (r *queryResolver) Mappools(ctx context.Context, search *string, page *int, perPage *int) (*MappoolPage, error) {
+	if _, err := r.adminViewer(ctx); err != nil {
+		return nil, err
+	}
+	if r.svc == nil || r.svc.Mappools == nil {
+		return nil, fmt.Errorf("mappool service is unavailable")
+	}
+	params := buildPageParams(page, perPage)
+	term := ""
+	if search != nil {
+		term = *search
+	}
+	result, err := r.svc.Mappools.List(ctx, params, term)
+	if err != nil {
+		return nil, err
+	}
+	return mapMappoolPage(result), nil
+}
+
+// UserByOsuID is the resolver for the userByOsuId field.
+// Read-through upsert: a cache miss on all tiers fetches from the osu! API
+// and creates the local user (default player + pending), matching the
+// beatmapByOsuId contract used by the admin "add user" flow (D4).
+func (r *queryResolver) UserByOsuID(ctx context.Context, osuID int) (*User, error) {
+	if _, err := r.adminViewer(ctx); err != nil {
+		return nil, err
+	}
+	if r == nil || r.fetcher == nil {
+		return nil, fmt.Errorf("user fetcher is unavailable")
+	}
+	if osuID <= 0 {
+		return nil, fmt.Errorf("INVALID_REQUEST: osuId must be positive")
+	}
+	user, err := r.fetcher.GetUser(ctx, int64(osuID))
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(user), nil
+}
+
 // IrcObservations is the resolver for the ircObservations field.
 func (r *queryResolver) IrcObservations(ctx context.Context, matchID string, channel string) ([]*IRCObservation, error) {
 	claims, ok := ClaimsFromCtx(ctx)
@@ -1007,11 +1219,68 @@ func (r *roomSettingsResolver) Streamer(ctx context.Context, obj *RoomSettings) 
 	return mapUser(u), nil
 }
 
+// Leader is the resolver for the leader field.
+func (r *teamResolver) Leader(ctx context.Context, obj *Team) (*User, error) {
+	if obj == nil || obj.LeaderID == nil {
+		return nil, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, int64(*obj.LeaderID))
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+// Strategist is the resolver for the strategist field.
+func (r *teamResolver) Strategist(ctx context.Context, obj *Team) (*User, error) {
+	if obj == nil || obj.StrategistID == nil {
+		return nil, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	u, err := loader.Load(ctx, int64(*obj.StrategistID))
+	if err != nil {
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
+// Players is the resolver for the players field.
+func (r *teamResolver) Players(ctx context.Context, obj *Team) ([]*User, error) {
+	if obj == nil {
+		return []*User{}, nil
+	}
+	loader := UserLoaderFromCtx(ctx)
+	if loader == nil {
+		return nil, fmt.Errorf("UserLoader not found in context")
+	}
+	users := make([]*User, 0, len(obj.PlayerIDs))
+	for _, id := range obj.PlayerIDs {
+		u, err := loader.Load(ctx, int64(id))
+		if err != nil {
+			return nil, err
+		}
+		if u != nil {
+			users = append(users, mapUser(u))
+		}
+	}
+	return users, nil
+}
+
 // Announcement returns AnnouncementResolver implementation.
 func (r *Resolver) Announcement() AnnouncementResolver { return &announcementResolver{r} }
 
 // Beatmap returns BeatmapResolver implementation.
 func (r *Resolver) Beatmap() BeatmapResolver { return &beatmapResolver{r} }
+
+// MappoolEntry returns MappoolEntryResolver implementation.
+func (r *Resolver) MappoolEntry() MappoolEntryResolver { return &mappoolEntryResolver{r} }
 
 // Match returns MatchResolver implementation.
 func (r *Resolver) Match() MatchResolver { return &matchResolver{r} }
@@ -1039,9 +1308,13 @@ func (r *Resolver) Room() RoomResolver { return &roomResolver{r} }
 // RoomSettings returns RoomSettingsResolver implementation.
 func (r *Resolver) RoomSettings() RoomSettingsResolver { return &roomSettingsResolver{r} }
 
+// Team returns TeamResolver implementation.
+func (r *Resolver) Team() TeamResolver { return &teamResolver{r} }
+
 type (
 	announcementResolver          struct{ *Resolver }
 	beatmapResolver               struct{ *Resolver }
+	mappoolEntryResolver          struct{ *Resolver }
 	matchResolver                 struct{ *Resolver }
 	matchPoolSlotMetadataResolver struct{ *Resolver }
 	mutationResolver              struct{ *Resolver }
@@ -1050,4 +1323,5 @@ type (
 	refereeViewResolver           struct{ *Resolver }
 	roomResolver                  struct{ *Resolver }
 	roomSettingsResolver          struct{ *Resolver }
+	teamResolver                  struct{ *Resolver }
 )
