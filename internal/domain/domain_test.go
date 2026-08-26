@@ -220,3 +220,50 @@ func TestLegacyMatchBSONRoundTripPreservesBoard(t *testing.T) {
 		t.Fatalf("board after BSON round trip = %#v; want %#v", got.Board, want.Board)
 	}
 }
+
+func TestMissingStartRequirements(t *testing.T) {
+	red, blue, link := TeamSideRed, TeamSideBlue, "https://osu.ppy.sh/community/matches/1"
+
+	// Match rooms report every missing setting.
+	got := RoomSettings{}.MissingStartRequirements(RoomTypeMatch)
+	if len(got) != 9 {
+		t.Fatalf("expected 9 missing fields for empty match room, got %v", got)
+	}
+
+	// Casual rooms require the shared subset only.
+	got = RoomSettings{}.MissingStartRequirements(RoomTypeCasual)
+	if len(got) != 4 {
+		t.Fatalf("expected 4 missing fields for empty casual room, got %v", got)
+	}
+
+	// Private rooms have no requirements.
+	got = (RoomSettings{}).MissingStartRequirements(RoomTypePrivate)
+	if len(got) != 0 {
+		t.Fatalf("expected no requirements for private room, got %v", got)
+	}
+
+	// Unknown types are reported as invalid.
+	got = (RoomSettings{}).MissingStartRequirements(RoomType("bogus"))
+	if len(got) != 1 || got[0] != "type" {
+		t.Fatalf("expected [type] for unknown room type, got %v", got)
+	}
+
+	// A fully configured match room reports nothing and CanStart is true.
+	complete := RoomSettings{
+		RedStrategistUserID:  &[]int64{1}[0],
+		BlueStrategistUserID: &[]int64{2}[0],
+		FirstPick:            &red,
+		FirstBan:             &blue,
+		RedLeader:            &[]int64{3}[0],
+		BlueLeader:           &[]int64{4}[0],
+		RedPlayers:           []int64{1, 2, 3, 4},
+		BluePlayers:          []int64{5, 6, 7, 8},
+		MPLink:               &link,
+	}
+	if got = complete.MissingStartRequirements(RoomTypeMatch); len(got) != 0 {
+		t.Fatalf("expected complete room to start, missing %v", got)
+	}
+	if !complete.CanStart(RoomTypeMatch) {
+		t.Fatal("CanStart must be true when no requirements are missing")
+	}
+}

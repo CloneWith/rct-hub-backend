@@ -31,6 +31,12 @@ func (e *AppError) Error() string {
 	return e.Err.Error()
 }
 
+// Unwrap exposes the wrapped error so errors.Is / errors.As chains resolve
+// through an AppError.
+func (e *AppError) Unwrap() error {
+	return e.Err
+}
+
 func New(err error, message string, code int) *AppError {
 	return &AppError{Err: err, Message: message, Code: code}
 }

@@ -31,6 +31,15 @@ func ErrorHandler(log *zap.Logger) gin.HandlerFunc {
 		reqPath := c.Request.URL.Path
 		reqMethod := c.Request.Method
 
+		// Field-level validation failures expose structured details so the
+		// frontend can highlight the offending inputs. Checked before
+		// AppError: a wrapped ValidationError should keep its details.
+		if valErr, ok := errs.AsValidationError(err); ok {
+			logError(log, http.StatusBadRequest, reqMethod, reqPath, valErr)
+			response.Error(c, http.StatusBadRequest, errs.ErrInvalidInput.Error(), valErr.Fields)
+			return
+		}
+
 		var appErr *errs.AppError
 		if errors.As(err, &appErr) {
 			if appErr.Code == 0 {

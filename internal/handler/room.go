@@ -40,8 +40,8 @@ func (h *RoomHandler) UpdateMetadata(c *gin.Context) {
 		RedPlayers     []int64    `json:"red_players"`
 		BluePlayers    []int64    `json:"blue_players"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 	callerID, ok := roomCallerID(c)
@@ -80,8 +80,8 @@ func (h *RoomHandler) UpdateMetadataPartial(c *gin.Context) {
 		RedPlayers     []int64    `json:"red_players"`
 		BluePlayers    []int64    `json:"blue_players"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 	callerID, ok := roomCallerID(c)
@@ -113,8 +113,8 @@ func (h *RoomHandler) Create(c *gin.Context) {
 		Name string `json:"name"`
 		Type string `json:"type" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -144,8 +144,8 @@ func (h *RoomHandler) SetStrategists(c *gin.Context) {
 		RedUID  *int64 `json:"red_strategist_user_id"`
 		BlueUID *int64 `json:"blue_strategist_user_id"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -172,8 +172,8 @@ func (h *RoomHandler) SetStreamer(c *gin.Context) {
 	var req struct {
 		UID *int64 `json:"streamer_user_id"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -199,8 +199,8 @@ func (h *RoomHandler) SetReferee(c *gin.Context) {
 	var req struct {
 		RefereeUserID *int64 `json:"referee_user_id"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 	callerID, ok := roomCallerID(c)
@@ -225,8 +225,8 @@ func (h *RoomHandler) SetMappool(c *gin.Context) {
 	var req struct {
 		Mappool domain.Mappool `json:"mappool" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 	callerID, ok := roomCallerID(c)
@@ -253,8 +253,8 @@ func (h *RoomHandler) SetBPOrder(c *gin.Context) {
 		FirstPick domain.TeamSide `json:"first_pick" binding:"required"`
 		FirstBan  domain.TeamSide `json:"first_ban" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -287,8 +287,8 @@ func (h *RoomHandler) SetPlayers(c *gin.Context) {
 		RedPlayers  []int64 `json:"red_players"`
 		BluePlayers []int64 `json:"blue_players"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -315,8 +315,8 @@ func (h *RoomHandler) SetMPLink(c *gin.Context) {
 	var req struct {
 		Link string `json:"mp_link" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -343,8 +343,8 @@ func (h *RoomHandler) SetStreamLink(c *gin.Context) {
 	var req struct {
 		Link string `json:"stream_link" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &req); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -417,6 +417,10 @@ func roomErrorStatus(err error) int {
 }
 
 func writeRoomError(c *gin.Context, err error) {
+	if valErr, ok := errs.AsValidationError(err); ok {
+		response.Error(c, http.StatusBadRequest, errs.ErrInvalidInput.Error(), valErr.Fields)
+		return
+	}
 	status := roomErrorStatus(err)
 	message := err.Error()
 	if status == http.StatusInternalServerError {

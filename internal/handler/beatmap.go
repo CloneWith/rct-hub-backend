@@ -26,8 +26,8 @@ func NewBeatmapHandler(svc *service.BeatmapService, log *zap.Logger) *BeatmapHan
 // Create creates a new beatmap entry.
 func (h *BeatmapHandler) Create(c *gin.Context) {
 	var beatmap domain.Beatmap
-	if err := c.ShouldBindJSON(&beatmap); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &beatmap); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -49,8 +49,8 @@ func (h *BeatmapHandler) Patch(c *gin.Context) {
 	}
 
 	var patch service.BeatmapPatch
-	if err := c.ShouldBindJSON(&patch); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &patch); err != nil {
+		_ = c.Error(err)
 		return
 	}
 

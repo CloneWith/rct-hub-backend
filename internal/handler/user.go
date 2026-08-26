@@ -33,9 +33,9 @@ func (h *UserHandler) Patch(c *gin.Context) {
 	}
 
 	var patch service.UserPatch
-	if err := c.ShouldBindJSON(&patch); err != nil {
+	if err := bindJSON(c, &patch); err != nil {
 		h.log.Debug("invalid request body", zap.String("path", c.Request.URL.Path), zap.Error(err))
-		response.BadRequest(c, "invalid request body")
+		_ = c.Error(err)
 		return
 	}
 
@@ -61,9 +61,9 @@ func (h *UserHandler) UpdateRoles(c *gin.Context) {
 	var req struct {
 		Roles []domain.UserRole `json:"roles" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindJSON(c, &req); err != nil {
 		h.log.Debug("invalid request body", zap.String("path", c.Request.URL.Path), zap.Error(err))
-		response.BadRequest(c, "invalid request body")
+		_ = c.Error(err)
 		return
 	}
 
@@ -90,9 +90,9 @@ func (h *UserHandler) SetBanned(c *gin.Context) {
 	var req struct {
 		Banned *bool `json:"banned" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindJSON(c, &req); err != nil {
 		h.log.Debug("invalid request body", zap.String("path", c.Request.URL.Path), zap.Error(err))
-		response.BadRequest(c, "invalid request body")
+		_ = c.Error(err)
 		return
 	}
 
@@ -118,9 +118,9 @@ func (h *UserHandler) SetVerifyStatus(c *gin.Context) {
 	var req struct {
 		Status domain.VerifyStatus `json:"status" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindJSON(c, &req); err != nil {
 		h.log.Debug("invalid request body", zap.String("path", c.Request.URL.Path), zap.Error(err))
-		response.BadRequest(c, "invalid request body")
+		_ = c.Error(err)
 		return
 	}
 

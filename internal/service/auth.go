@@ -128,7 +128,7 @@ func (s *authService) Callback(ctx context.Context, code, state string) (string,
 func (s *authService) Me(ctx context.Context, userID string) (*domain.User, error) {
 	id, err := bson.ObjectIDFromHex(userID)
 	if err != nil {
-		return nil, errs.ErrInvalidInput
+		return nil, fmt.Errorf("%w: user id must be a valid hex object id", errs.ErrInvalidInput)
 	}
 	return s.userRepo.ByID(ctx, id)
 }

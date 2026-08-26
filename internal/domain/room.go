@@ -90,31 +90,38 @@ type RoomSettings struct {
 //   - Casual/Match: strategists, BP order, players, and mplink must be set.
 //   - Private: no strict requirements.
 func (rs RoomSettings) CanStart(roomType RoomType) bool {
+	return len(rs.MissingStartRequirements(roomType)) == 0
+}
+
+// MissingStartRequirements returns the wire-format paths of the settings that
+// still block starting a match of the given type. An empty result means the
+// room can start. Callers use this to tell the client exactly what is missing.
+func (rs RoomSettings) MissingStartRequirements(roomType RoomType) []string {
+	var missing []string
+	require := func(field string, ok bool) {
+		if !ok {
+			missing = append(missing, field)
+		}
+	}
 	switch roomType {
 	case RoomTypeCasual, RoomTypeMatch:
-		if rs.RedStrategistUserID == nil || rs.BlueStrategistUserID == nil {
-			return false
-		}
-		if rs.FirstPick == nil || rs.FirstBan == nil {
-			return false
-		}
+		require("settings.red_strategist_user_id", rs.RedStrategistUserID != nil)
+		require("settings.blue_strategist_user_id", rs.BlueStrategistUserID != nil)
+		require("settings.first_pick", rs.FirstPick != nil)
+		require("settings.first_ban", rs.FirstBan != nil)
 		if roomType == RoomTypeMatch {
-			if rs.RedLeader == nil || rs.BlueLeader == nil {
-				return false
-			}
-			if len(rs.RedPlayers) < 4 || len(rs.BluePlayers) < 4 {
-				return false
-			}
-			if rs.MPLink == nil || *rs.MPLink == "" {
-				return false
-			}
+			require("settings.red_leader", rs.RedLeader != nil)
+			require("settings.blue_leader", rs.BlueLeader != nil)
+			require("settings.red_players", len(rs.RedPlayers) >= 4)
+			require("settings.blue_players", len(rs.BluePlayers) >= 4)
+			require("settings.mp_link", rs.MPLink != nil && *rs.MPLink != "")
 		}
-		return true
 	case RoomTypePrivate:
-		return true
+		// No requirements.
 	default:
-		return false
+		missing = append(missing, "type")
 	}
+	return missing
 }
 
 // Room represents a place where a match is configured and played.

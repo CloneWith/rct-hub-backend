@@ -74,7 +74,7 @@ func NewRoomService(rooms repository.RoomRepository, matches repository.MatchRep
 // CreateRoom creates a new room for the given owner.
 func (s *RoomService) CreateRoom(ctx context.Context, ownerID int64, roomType domain.RoomType, name string) (*domain.Room, error) {
 	if roomType != domain.RoomTypePrivate && roomType != domain.RoomTypeCasual && roomType != domain.RoomTypeMatch {
-		return nil, errs.ErrInvalidInput
+		return nil, fmt.Errorf("%w: type must be one of private, casual, match", errs.ErrInvalidInput)
 	}
 	user, err := s.currentEligibleUser(ctx, ownerID)
 	if err != nil {
@@ -260,7 +260,7 @@ func (s *RoomService) SetReferee(ctx context.Context, callerID int64, roomID bso
 		return nil, err
 	}
 	if room.Type != domain.RoomTypeMatch {
-		return nil, errs.ErrInvalidInput
+		return nil, fmt.Errorf("%w: referee_user_id can only be set on match rooms", errs.ErrInvalidInput)
 	}
 	if err := requireRoomSetupOpen(room); err != nil {
 		return nil, err
@@ -288,14 +288,14 @@ func (s *RoomService) UpdateRoomMetadata(ctx context.Context, callerID int64, ro
 		return nil, errs.ErrForbidden
 	}
 	if update.Name == "" {
-		return nil, errs.ErrInvalidInput
+		return nil, fmt.Errorf("%w: name is required", errs.ErrInvalidInput)
 	}
 	room, err := s.rooms.ByID(ctx, roomID)
 	if err != nil {
 		return nil, err
 	}
 	if update.RefereeUserID != nil && room.Type != domain.RoomTypeMatch {
-		return nil, errs.ErrInvalidInput
+		return nil, fmt.Errorf("%w: referee_user_id can only be set on match rooms", errs.ErrInvalidInput)
 	}
 	if update.RefereeUserID != nil {
 		referee, findErr := s.currentEligibleUser(ctx, *update.RefereeUserID)
@@ -338,7 +338,7 @@ func (s *RoomService) UpdateRoomMetadataPartial(ctx context.Context, callerID in
 	fields := bson.M{}
 	if patch.Name != nil {
 		if *patch.Name == "" {
-			return nil, errs.ErrInvalidInput
+			return nil, fmt.Errorf("%w: name cannot be empty", errs.ErrInvalidInput)
 		}
 		fields["name"] = *patch.Name
 	}
@@ -354,7 +354,7 @@ func (s *RoomService) UpdateRoomMetadataPartial(ctx context.Context, callerID in
 			return nil, findErr
 		}
 		if room.Type != domain.RoomTypeMatch {
-			return nil, errs.ErrInvalidInput
+			return nil, fmt.Errorf("%w: referee_user_id can only be set on match rooms", errs.ErrInvalidInput)
 		}
 		referee, findErr := s.currentEligibleUser(ctx, *patch.RefereeUserID)
 		if findErr != nil {
@@ -422,8 +422,16 @@ func (s *RoomService) StartMatch(ctx context.Context, callerID int64, roomID bso
 		}
 		return &seed.LegacyMatch, nil
 	}
-	if !room.Settings.CanStart(room.Type) {
-		return nil, fmt.Errorf("%w: room settings do not satisfy start requirements", errs.ErrInvalidInput)
+	if missing := room.Settings.MissingStartRequirements(room.Type); len(missing) > 0 {
+		fields := make([]errs.FieldError, 0, len(missing))
+		for _, m := range missing {
+			fields = append(fields, errs.FieldError{
+				Field:   m,
+				Rule:    "required",
+				Message: fmt.Sprintf("%s is required before starting the match", m),
+			})
+		}
+		return nil, errs.NewValidationError(fields...)
 	}
 
 	redTeam := domain.Team{

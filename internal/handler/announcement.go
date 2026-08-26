@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
@@ -24,8 +22,8 @@ func NewAnnouncementHandler(svc *service.AnnouncementService) *AnnouncementHandl
 // Create creates a new announcement (admin only).
 func (h *AnnouncementHandler) Create(c *gin.Context) {
 	var a domain.Announcement
-	if err := c.ShouldBindJSON(&a); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &a); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -37,7 +35,7 @@ func (h *AnnouncementHandler) Create(c *gin.Context) {
 	a.AuthorID = claims.OsuID
 
 	if err := h.svc.Create(c.Request.Context(), &a); err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		_ = c.Error(err)
 		return
 	}
 	response.Created(c, a)
@@ -53,14 +51,14 @@ func (h *AnnouncementHandler) Patch(c *gin.Context) {
 	}
 
 	var patch service.AnnouncementPatch
-	if err := c.ShouldBindJSON(&patch); err != nil {
-		response.BadRequest(c, "invalid request body")
+	if err := bindJSON(c, &patch); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
 	a, err := h.svc.Patch(c.Request.Context(), id, &patch)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		_ = c.Error(err)
 		return
 	}
 	response.JSON(c, a)
@@ -75,7 +73,7 @@ func (h *AnnouncementHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		_ = c.Error(err)
 		return
 	}
 	response.NoContent(c)
@@ -91,7 +89,7 @@ func (h *AnnouncementHandler) Publish(c *gin.Context) {
 
 	a, err := h.svc.Publish(c.Request.Context(), id)
 	if err != nil {
-		response.Error(c, http.StatusNotFound, err.Error())
+		_ = c.Error(err)
 		return
 	}
 	response.JSON(c, a)
