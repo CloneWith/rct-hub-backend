@@ -348,6 +348,13 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 		t.Fatalf("set bp order: %v", err)
 	}
 
+	// D3 hard requirements: scheduled time and an assigned referee.
+	scheduled := time.Date(2026, time.September, 1, 12, 0, 0, 0, time.UTC)
+	if stored, ok := rooms.rooms[room.ID]; ok {
+		stored.ScheduledAt = &scheduled
+		stored.RefereeUserID = &room.OwnerID
+	}
+
 	match, err := svc.StartMatch(ctx, 1, room.ID)
 	if err != nil {
 		t.Fatalf("start match: %v", err)

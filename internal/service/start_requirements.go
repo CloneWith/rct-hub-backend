@@ -13,6 +13,10 @@ import (
 // (nil when not linked); mappool is the linked Mappool entity. Team readiness
 // (leader + strategist) applies to every room type (R1). Match rooms add the
 // roster-size and MP-link requirements.
+//
+// D3 hard requirements: a scheduled time and an assigned referee block the
+// start for casual and match rooms. The streamer stays optional (soft,
+// surfaced by the frontend checklist only).
 func MissingStartRequirements(room domain.Room, redTeam, blueTeam *domain.Team, mappool *domain.Mappool) []string {
 	var missing []string
 	require := func(field string, ok bool) {
@@ -28,6 +32,8 @@ func MissingStartRequirements(room domain.Room, redTeam, blueTeam *domain.Team, 
 	}
 	switch room.Type {
 	case domain.RoomTypeCasual, domain.RoomTypeMatch:
+		require("scheduled_at", room.ScheduledAt != nil)
+		require("referee_user_id", room.RefereeUserID != nil)
 		require("settings.red_team_id", teamReady(redTeam))
 		require("settings.blue_team_id", teamReady(blueTeam))
 		require("settings.first_pick", room.Settings.FirstPick != nil)

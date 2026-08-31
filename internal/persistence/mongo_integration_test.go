@@ -1067,7 +1067,7 @@ func integrationFormalRoom() (domain.Room, domain.Team, domain.Team, domain.Mapp
 
 	now := time.Date(2026, time.August, 3, 11, 0, 0, 0, time.UTC)
 	room := domain.Room{
-		ID: bson.NewObjectID(), Code: "FORMAL-" + bson.NewObjectID().Hex(), Name: "Formal", Type: domain.RoomTypeMatch, OwnerID: 999, RefereeUserID: &refereeID,
+		ID: bson.NewObjectID(), Code: "FORMAL-" + bson.NewObjectID().Hex(), Name: "Formal", Type: domain.RoomTypeMatch, OwnerID: 999, RefereeUserID: &refereeID, ScheduledAt: &now,
 		Settings: domain.RoomSettings{
 			RedTeamID:  &redTeam.ID,
 			BlueTeamID: &blueTeam.ID,

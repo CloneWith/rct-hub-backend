@@ -190,6 +190,7 @@ func formalSeedFixture() (domain.Room, domain.Team, domain.Team, domain.Mappool)
 		Type:          domain.RoomTypeMatch,
 		OwnerID:       999,
 		RefereeUserID: func() *int64 { v := int64(999); return &v }(),
+		ScheduledAt:   func() *time.Time { v := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC); return &v }(),
 		Settings: domain.RoomSettings{
 			RedTeamID:  &redTeam.ID,
 			BlueTeamID: &blueTeam.ID,
