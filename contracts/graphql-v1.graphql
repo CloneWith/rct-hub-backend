@@ -97,20 +97,17 @@ type Room {
 }
 
 type RoomSettings {
-  redStrategistUserID: ID
-  redStrategist: User @goField(forceResolver: true)
-  blueStrategistUserID: ID
-  blueStrategist: User @goField(forceResolver: true)
   streamerUserID: ID
   streamer: User @goField(forceResolver: true)
-  # 运行时图池视图（实体化前的内嵌图池；P2 起切换为 Mappool 实体引用）
-  mappool: Pool!
+  # 实体引用（D1）：队伍与图池由管理后台维护，房间仅持有 ID
+  redTeamID: ObjectID
+  blueTeamID: ObjectID
+  mappoolID: ObjectID
+  redTeam: Team @goField(forceResolver: true)
+  blueTeam: Team @goField(forceResolver: true)
+  mappool: Mappool @goField(forceResolver: true)
   firstPick: TeamSide
   firstBan: TeamSide
-  redPlayers: [ID!]!
-  bluePlayers: [ID!]!
-  redLeader: ID
-  blueLeader: ID
   mpLink: String
   streamLink: String
 }
@@ -361,15 +358,6 @@ type Beatmap {
   approachRate: Float!
   overallDifficulty: Float!
   coverURL: String!
-  modString: String!
-  modIndex: Int!
-  selectorID: ID                # domain: SelectorID int64 (谱面选择者)
-  selector: User @goField(forceResolver: true)
-  creditUserIDs: [ID!]!         # domain: CreditUserIDs []int64 (贡献者)
-  credits: [User!]! @goField(forceResolver: true)
-  skill: String
-  comment: String
-  isOriginal: Boolean!
   createdAt: Time!
   updatedAt: Time!
 }

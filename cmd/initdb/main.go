@@ -309,23 +309,10 @@ func createAdminUser(ctx context.Context, db *mongo.Database, log *zap.Logger, o
 }
 
 func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
-	now := time.Now().UTC()
+	seed := BuildSeedData(time.Now().UTC())
 
 	users := db.Collection("users")
-	if _, err := users.InsertOne(ctx, domain.User{
-		ID:           bson.NewObjectID(),
-		OnlineID:     1,
-		Username:     "admin_seed",
-		AvatarURL:    "https://a.ppy.sh/1",
-		CountryCode:  "__",
-		Roles:        []domain.UserRole{domain.RoleAdmin},
-		VerifyStatus: domain.Verified,
-		IsBanned:     false,
-		GlobalRank:   1024,
-		PP:           114.51,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}); err != nil {
+	if _, err := users.InsertOne(ctx, seed.Admin); err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			log.Info("seed admin user already exists, skipping")
 		} else {
@@ -334,27 +321,7 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 	}
 
 	beatmaps := db.Collection("beatmaps")
-	if _, err := beatmaps.InsertOne(ctx, domain.Beatmap{
-		ID:                bson.NewObjectID(),
-		OnlineID:          1000000,
-		BeatmapsetID:      500000,
-		Title:             "Seed Beatmap",
-		Artist:            "Seed Artist",
-		DifficultyName:    "Normal",
-		AuthorID:          1000,
-		RulesetID:         0,
-		Status:            "ranked",
-		StarRating:        4.5,
-		BPM:               180,
-		TotalLength:       120,
-		DrainRate:         5,
-		CircleSize:        4,
-		ApproachRate:      9,
-		OverallDifficulty: 8,
-		CoverURL:          "https://assets.ppy.sh/beatmaps/500000/covers/cover.jpg",
-		CreatedAt:         now,
-		UpdatedAt:         now,
-	}); err != nil {
+	if _, err := beatmaps.InsertOne(ctx, seed.Beatmap); err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			log.Info("seed beatmap already exists, skipping")
 		} else {
@@ -363,36 +330,14 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 	}
 
 	teams := db.Collection("teams")
-	seedRedTeamID := bson.NewObjectID()
-	if _, err := teams.InsertOne(ctx, domain.Team{
-		ID:           seedRedTeamID,
-		Name:         "Seed Red",
-		Description:  new(string("Seeded red team")),
-		Seed:         new(string("1")),
-		LeaderID:     new(int64(1)),
-		StrategistID: new(int64(1)),
-		Players:      []int64{1, 2},
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}); err != nil {
+	if _, err := teams.InsertOne(ctx, seed.RedTeam); err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			log.Info("seed red team already exists, skipping")
 		} else {
 			return fmt.Errorf("seed red team: %w", err)
 		}
 	}
-	seedBlueTeamID := bson.NewObjectID()
-	if _, err := teams.InsertOne(ctx, domain.Team{
-		ID:           seedBlueTeamID,
-		Name:         "Seed Blue",
-		Description:  new(string("Seeded blue team")),
-		Seed:         new(string("2")),
-		LeaderID:     new(int64(3)),
-		StrategistID: new(int64(2)),
-		Players:      []int64{3, 4},
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}); err != nil {
+	if _, err := teams.InsertOne(ctx, seed.BlueTeam); err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			log.Info("seed blue team already exists, skipping")
 		} else {
@@ -400,21 +345,8 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 		}
 	}
 
-	seedBeatmapID := int64(1000000)
 	mappools := db.Collection("mappools")
-	seedMappoolID := bson.NewObjectID()
-	if _, err := mappools.InsertOne(ctx, domain.Mappool{
-		ID:          seedMappoolID,
-		Name:        "Seed Mappool",
-		Description: new(string("Seeded demo mappool")),
-		Entries: []domain.MappoolEntry{
-			{Mod: domain.PieceModNM, Index: 1, BeatmapID: &seedBeatmapID, SelectorID: new(int64(1))},
-			{Mod: domain.PieceModHD, Index: 1, BeatmapID: &seedBeatmapID, SelectorID: new(int64(1))},
-			{Mod: domain.PieceModShiro, Index: 1},
-		},
-		CreatedAt: now,
-		UpdatedAt: now,
-	}); err != nil {
+	if _, err := mappools.InsertOne(ctx, seed.Mappool); err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			log.Info("seed mappool already exists, skipping")
 		} else {
@@ -423,26 +355,7 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 	}
 
 	rooms := db.Collection("rooms")
-	seedRoomID := bson.NewObjectID()
-	seedReferee := int64(1)
-	if _, err := rooms.InsertOne(ctx, domain.Room{
-		ID:            seedRoomID,
-		Code:          "SEED-ROOM",
-		Name:          "Seed Room",
-		Type:          domain.RoomTypeCasual,
-		OwnerID:       1,
-		RefereeUserID: &seedReferee,
-		ScheduledAt:   &now,
-		Settings: domain.RoomSettings{
-			RedTeamID:  &seedRedTeamID,
-			BlueTeamID: &seedBlueTeamID,
-			MappoolID:  &seedMappoolID,
-			FirstPick:  new(domain.TeamSideRed),
-			FirstBan:   new(domain.TeamSideBlue),
-		},
-		CreatedAt: now,
-		UpdatedAt: now,
-	}); err != nil {
+	if _, err := rooms.InsertOne(ctx, seed.Room); err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			log.Info("seed room already exists, skipping")
 		} else {
@@ -451,43 +364,7 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 	}
 
 	matches := db.Collection("matches")
-	if _, err := matches.InsertOne(ctx, domain.Match{
-		ID:       bson.NewObjectID(),
-		RoomID:   seedRoomID,
-		Code:     "SEED-001",
-		Name:     "Seed Match",
-		RoomType: domain.RoomTypeCasual,
-		TeamRed: domain.TeamSnapshot{
-			ID:           seedRedTeamID,
-			Side:         domain.TeamSideRed,
-			Name:         "Seed Red",
-			Description:  "Seeded red team",
-			Seed:         "1",
-			Color:        "#ef4444",
-			LeaderID:     1,
-			StrategistID: 1,
-			Players:      []int64{1, 2},
-		},
-		TeamBlue: domain.TeamSnapshot{
-			ID:           seedBlueTeamID,
-			Side:         domain.TeamSideBlue,
-			Name:         "Seed Blue",
-			Description:  "Seeded blue team",
-			Seed:         "2",
-			Color:        "#3b82f6",
-			LeaderID:     3,
-			StrategistID: 2,
-			Players:      []int64{3, 4},
-		},
-		Mappool:   domain.NewPool(),
-		Board:     domain.NewBoard(),
-		BPOrder:   domain.BPOrder{FirstPick: domain.TeamSideRed, FirstBan: domain.TeamSideBlue},
-		TurnState: domain.NewTurnState(),
-		Timer:     domain.NewTimerState(0, 0),
-		Status:    domain.MatchStatusPending,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}); err != nil {
+	if _, err := matches.InsertOne(ctx, seed.Match); err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			log.Info("seed match already exists, skipping")
 		} else {
@@ -496,17 +373,7 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 	}
 
 	announcements := db.Collection("announcements")
-	if _, err := announcements.InsertOne(ctx, domain.Announcement{
-		ID:          bson.NewObjectID(),
-		Title:       "Welcome to RCT Hub",
-		Content:     "This is a sample announcement seeded during database initialization.",
-		AuthorID:    1,
-		Pinned:      true,
-		Visible:     true,
-		PublishedAt: &now,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}); err != nil {
+	if _, err := announcements.InsertOne(ctx, seed.Announcement); err != nil {
 		return fmt.Errorf("seed announcement: %w", err)
 	}
 

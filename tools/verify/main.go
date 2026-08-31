@@ -39,6 +39,7 @@ func main() {
 
 	checks := []check{
 		{name: "graphql-compat", cmd: "go", args: []string{"run", "./tools/graphqlcompat"}},
+		{name: "seed-consistency", cmd: "go", args: []string{"test", "./cmd/initdb/", "-run", "TestSeedConsistency", "-count=1"}},
 		{name: "vet", cmd: "go", args: []string{"vet", "./..."}},
 		{name: "test", cmd: "go", args: []string{"test", "./..."}},
 		{name: "build", cmd: "go", args: []string{"build", "./..."}},
