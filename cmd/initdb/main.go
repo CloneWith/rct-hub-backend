@@ -426,13 +426,13 @@ func seedData(ctx context.Context, db *mongo.Database, log *zap.Logger) error {
 	seedRoomID := bson.NewObjectID()
 	seedReferee := int64(1)
 	if _, err := rooms.InsertOne(ctx, domain.Room{
-		ID:           seedRoomID,
-		Code:         "SEED-ROOM",
-		Name:         "Seed Room",
-		Type:         domain.RoomTypeCasual,
-		OwnerID:      1,
+		ID:            seedRoomID,
+		Code:          "SEED-ROOM",
+		Name:          "Seed Room",
+		Type:          domain.RoomTypeCasual,
+		OwnerID:       1,
 		RefereeUserID: &seedReferee,
-		ScheduledAt:  &now,
+		ScheduledAt:   &now,
 		Settings: domain.RoomSettings{
 			RedTeamID:  &seedRedTeamID,
 			BlueTeamID: &seedBlueTeamID,

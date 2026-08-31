@@ -72,7 +72,7 @@ func TestMissingStartRequirements(t *testing.T) {
 	complete := domain.Room{
 		Type:          domain.RoomTypeMatch,
 		RefereeUserID: &referee,
-		ScheduledAt:  &scheduled,
+		ScheduledAt:   &scheduled,
 		Settings: domain.RoomSettings{
 			FirstPick: &firstPick,
 			FirstBan:  &firstBan,
