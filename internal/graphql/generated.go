@@ -457,7 +457,7 @@ type ComplexityRoot struct {
 		Announcements       func(childComplexity int, page *int, perPage *int) int
 		Beatmap             func(childComplexity int, id string) int
 		BeatmapByOsuID      func(childComplexity int, osuID int) int
-		Beatmaps            func(childComplexity int, page *int, perPage *int) int
+		Beatmaps            func(childComplexity int, search *string, page *int, perPage *int) int
 		IrcConnectionStatus func(childComplexity int, matchID string) int
 		IrcJobs             func(childComplexity int, matchID string) int
 		IrcObservations     func(childComplexity int, matchID string, channel string) int
@@ -473,7 +473,7 @@ type ComplexityRoot struct {
 		Teams               func(childComplexity int, search *string, page *int, perPage *int) int
 		User                func(childComplexity int, id string) int
 		UserByOsuID         func(childComplexity int, osuID int) int
-		Users               func(childComplexity int, page *int, perPage *int) int
+		Users               func(childComplexity int, search *string, page *int, perPage *int) int
 	}
 
 	RefereeView struct {
@@ -698,9 +698,9 @@ type QueryResolver interface {
 	Rooms(ctx context.Context, typeArg *RoomType, search *string, round *string, status *MatchLifecycle, relatedToMe *bool, page *int, perPage *int) (*RoomPage, error)
 	Beatmap(ctx context.Context, id string) (*Beatmap, error)
 	BeatmapByOsuID(ctx context.Context, osuID int) (*Beatmap, error)
-	Beatmaps(ctx context.Context, page *int, perPage *int) (*BeatmapPage, error)
+	Beatmaps(ctx context.Context, search *string, page *int, perPage *int) (*BeatmapPage, error)
 	User(ctx context.Context, id string) (*User, error)
-	Users(ctx context.Context, page *int, perPage *int) (*UserPage, error)
+	Users(ctx context.Context, search *string, page *int, perPage *int) (*UserPage, error)
 	Announcements(ctx context.Context, page *int, perPage *int) (*AnnouncementPage, error)
 	Announcement(ctx context.Context, id string) (*Announcement, error)
 	Teams(ctx context.Context, search *string, page *int, perPage *int) (*TeamPage, error)
@@ -2744,7 +2744,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.Beatmaps(childComplexity, args["page"].(*int), args["perPage"].(*int)), true
+		return e.ComplexityRoot.Query.Beatmaps(childComplexity, args["search"].(*string), args["page"].(*int), args["perPage"].(*int)), true
 
 	case "Query.ircConnectionStatus":
 		if e.ComplexityRoot.Query.IrcConnectionStatus == nil {
@@ -2911,7 +2911,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.Users(childComplexity, args["page"].(*int), args["perPage"].(*int)), true
+		return e.ComplexityRoot.Query.Users(childComplexity, args["search"].(*string), args["page"].(*int), args["perPage"].(*int)), true
 
 	case "RefereeView.abortReason":
 		if e.ComplexityRoot.RefereeView.AbortReason == nil {
@@ -4175,11 +4175,11 @@ type Query {
   # 谱面
   beatmap(id: ID!): Beatmap
   beatmapByOsuId(osuId: Int!): Beatmap
-  beatmaps(page: Int = 1, perPage: Int = 20): BeatmapPage!
+  beatmaps(search: String, page: Int = 1, perPage: Int = 20): BeatmapPage!
 
   # 用户
   user(id: ID!): User
-  users(page: Int = 1, perPage: Int = 20): UserPage!
+  users(search: String, page: Int = 1, perPage: Int = 20): UserPage!
 
   # 公告
   announcements(page: Int = 1, perPage: Int = 20): AnnouncementPage!
@@ -6142,22 +6142,30 @@ func (ec *executionContext) field_Query_beatmap_args(ctx context.Context, rawArg
 func (ec *executionContext) field_Query_beatmaps_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "page",
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "search",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["search"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "page",
 		func(ctx context.Context, v any) (*int, error) {
 			return ec.unmarshalOInt2ᚖint(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["page"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "perPage",
+	args["page"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "perPage",
 		func(ctx context.Context, v any) (*int, error) {
 			return ec.unmarshalOInt2ᚖint(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["perPage"] = arg1
+	args["perPage"] = arg2
 	return args, nil
 }
 
@@ -6442,22 +6450,30 @@ func (ec *executionContext) field_Query_user_args(ctx context.Context, rawArgs m
 func (ec *executionContext) field_Query_users_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "page",
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "search",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["search"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "page",
 		func(ctx context.Context, v any) (*int, error) {
 			return ec.unmarshalOInt2ᚖint(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["page"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "perPage",
+	args["page"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "perPage",
 		func(ctx context.Context, v any) (*int, error) {
 			return ec.unmarshalOInt2ᚖint(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["perPage"] = arg1
+	args["perPage"] = arg2
 	return args, nil
 }
 
@@ -14759,7 +14775,7 @@ func (ec *executionContext) _Query_beatmaps(ctx context.Context, field graphql.C
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().Beatmaps(ctx, fc.Args["page"].(*int), fc.Args["perPage"].(*int))
+			return ec.Resolvers.Query().Beatmaps(ctx, fc.Args["search"].(*string), fc.Args["page"].(*int), fc.Args["perPage"].(*int))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *BeatmapPage) graphql.Marshaler {
@@ -14847,7 +14863,7 @@ func (ec *executionContext) _Query_users(ctx context.Context, field graphql.Coll
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().Users(ctx, fc.Args["page"].(*int), fc.Args["perPage"].(*int))
+			return ec.Resolvers.Query().Users(ctx, fc.Args["search"].(*string), fc.Args["page"].(*int), fc.Args["perPage"].(*int))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *UserPage) graphql.Marshaler {

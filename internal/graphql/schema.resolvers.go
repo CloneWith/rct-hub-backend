@@ -800,9 +800,13 @@ func (r *queryResolver) BeatmapByOsuID(ctx context.Context, osuID int) (*Beatmap
 }
 
 // Beatmaps is the resolver for the beatmaps field.
-func (r *queryResolver) Beatmaps(ctx context.Context, page *int, perPage *int) (*BeatmapPage, error) {
+func (r *queryResolver) Beatmaps(ctx context.Context, search *string, page *int, perPage *int) (*BeatmapPage, error) {
 	params := buildPageParams(page, perPage)
-	result, err := r.svc.Beatmaps.List(ctx, params)
+	term := ""
+	if search != nil {
+		term = *search
+	}
+	result, err := r.svc.Beatmaps.List(ctx, params, term)
 	if err != nil {
 		return nil, err
 	}
@@ -827,9 +831,13 @@ func (r *queryResolver) User(ctx context.Context, id string) (*User, error) {
 }
 
 // Users is the resolver for the users field.
-func (r *queryResolver) Users(ctx context.Context, page *int, perPage *int) (*UserPage, error) {
+func (r *queryResolver) Users(ctx context.Context, search *string, page *int, perPage *int) (*UserPage, error) {
 	params := buildPageParams(page, perPage)
-	result, err := r.svc.Users.List(ctx, params)
+	term := ""
+	if search != nil {
+		term = *search
+	}
+	result, err := r.svc.Users.List(ctx, params, term)
 	if err != nil {
 		return nil, err
 	}

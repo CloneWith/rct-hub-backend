@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"regexp"
+	"strconv"
 	"time"
 
 	"rctHubBackend/internal/domain"
@@ -20,7 +22,7 @@ type BeatmapRepository interface {
 	UpsertOsuFields(ctx context.Context, osuID int64, fields bson.M) (*domain.Beatmap, error)
 	ByID(ctx context.Context, id bson.ObjectID) (*domain.Beatmap, error)
 	ByOsuID(ctx context.Context, osuID int64) (*domain.Beatmap, error)
-	List(ctx context.Context, params paginate.Params) (paginate.Result[domain.Beatmap], error)
+	List(ctx context.Context, params paginate.Params, search string) (paginate.Result[domain.Beatmap], error)
 	Delete(ctx context.Context, id bson.ObjectID) error
 }
 
@@ -109,9 +111,10 @@ func (r *beatmapRepo) ByOsuID(ctx context.Context, osuID int64) (*domain.Beatmap
 	return &b, nil
 }
 
-func (r *beatmapRepo) List(ctx context.Context, params paginate.Params) (paginate.Result[domain.Beatmap], error) {
+func (r *beatmapRepo) List(ctx context.Context, params paginate.Params, search string) (paginate.Result[domain.Beatmap], error) {
 	params.Normalize()
-	total, err := r.coll.CountDocuments(ctx, bson.M{})
+	filter := buildBeatmapSearchFilter(search)
+	total, err := r.coll.CountDocuments(ctx, filter)
 	if err != nil {
 		return paginate.Result[domain.Beatmap]{}, err
 	}
@@ -119,7 +122,7 @@ func (r *beatmapRepo) List(ctx context.Context, params paginate.Params) (paginat
 		SetSkip(params.Skip()).
 		SetLimit(params.PerPage).
 		SetSort(bson.D{{Key: "created_at", Value: -1}})
-	cur, err := r.coll.Find(ctx, bson.M{}, opts)
+	cur, err := r.coll.Find(ctx, filter, opts)
 	if err != nil {
 		return paginate.Result[domain.Beatmap]{}, err
 	}
@@ -129,6 +132,25 @@ func (r *beatmapRepo) List(ctx context.Context, params paginate.Params) (paginat
 		return paginate.Result[domain.Beatmap]{}, err
 	}
 	return paginate.NewResult(beatmaps, params, total), nil
+}
+
+// buildBeatmapSearchFilter matches beatmaps by title/artist/difficulty name
+// (case-insensitive substring) and, when the query is a plain number, by the
+// osu! beatmap id stored in the `id` field.
+func buildBeatmapSearchFilter(search string) bson.M {
+	if search == "" {
+		return bson.M{}
+	}
+	re := bson.M{"$regex": regexp.QuoteMeta(search), "$options": "i"}
+	or := bson.A{
+		bson.M{"title": re},
+		bson.M{"artist": re},
+		bson.M{"version": re},
+	}
+	if osuID, err := strconv.ParseInt(search, 10, 64); err == nil {
+		or = append(or, bson.M{"id": osuID})
+	}
+	return bson.M{"$or": or}
 }
 
 func (r *beatmapRepo) Delete(ctx context.Context, id bson.ObjectID) error {

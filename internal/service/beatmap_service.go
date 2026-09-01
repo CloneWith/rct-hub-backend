@@ -55,8 +55,8 @@ func (s *BeatmapService) GetByOsuID(ctx context.Context, osuID int64) (*domain.B
 }
 
 // List returns a paginated list of beatmaps.
-func (s *BeatmapService) List(ctx context.Context, params paginate.Params) (paginate.Result[domain.Beatmap], error) {
-	return s.beatmaps.List(ctx, params)
+func (s *BeatmapService) List(ctx context.Context, params paginate.Params, search string) (paginate.Result[domain.Beatmap], error) {
+	return s.beatmaps.List(ctx, params, search)
 }
 
 // Create creates a new beatmap entry.

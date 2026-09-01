@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"regexp"
+	"strconv"
 	"time"
 
 	"rctHubBackend/internal/domain"
@@ -21,7 +23,7 @@ type UserRepository interface {
 	UpsertOsuFields(ctx context.Context, osuID int64, fields bson.M) (*domain.User, error)
 	ByID(ctx context.Context, id bson.ObjectID) (*domain.User, error)
 	ByOsuID(ctx context.Context, osuID int64) (*domain.User, error)
-	List(ctx context.Context, params paginate.Params) (paginate.Result[domain.User], error)
+	List(ctx context.Context, params paginate.Params, search string) (paginate.Result[domain.User], error)
 }
 
 // userRepo is the MongoDB implementation of UserRepository.
@@ -118,9 +120,9 @@ func (r *userRepo) ByOsuID(ctx context.Context, osuID int64) (*domain.User, erro
 	return &user, nil
 }
 
-func (r *userRepo) List(ctx context.Context, params paginate.Params) (paginate.Result[domain.User], error) {
+func (r *userRepo) List(ctx context.Context, params paginate.Params, search string) (paginate.Result[domain.User], error) {
 	params.Normalize()
-	filter := bson.M{}
+	filter := buildUserSearchFilter(search)
 	total, err := r.coll.CountDocuments(ctx, filter)
 	if err != nil {
 		return paginate.Result[domain.User]{}, err
@@ -139,4 +141,20 @@ func (r *userRepo) List(ctx context.Context, params paginate.Params) (paginate.R
 		return paginate.Result[domain.User]{}, err
 	}
 	return paginate.NewResult(users, params, total), nil
+}
+
+// buildUserSearchFilter matches users by username (case-insensitive substring)
+// and, when the query is a plain number, by the osu! id stored in the `id`
+// field. The numeric branch lets admins look up an exact account by its id.
+func buildUserSearchFilter(search string) bson.M {
+	if search == "" {
+		return bson.M{}
+	}
+	or := bson.A{
+		bson.M{"username": bson.M{"$regex": regexp.QuoteMeta(search), "$options": "i"}},
+	}
+	if osuID, err := strconv.ParseInt(search, 10, 64); err == nil {
+		or = append(or, bson.M{"id": osuID})
+	}
+	return bson.M{"$or": or}
 }

@@ -53,8 +53,8 @@ func (s *UserService) GetByOsuID(ctx context.Context, osuID int64) (*domain.User
 }
 
 // List returns a paginated list of non-banned users.
-func (s *UserService) List(ctx context.Context, params paginate.Params) (paginate.Result[domain.User], error) {
-	return s.users.List(ctx, params)
+func (s *UserService) List(ctx context.Context, params paginate.Params, search string) (paginate.Result[domain.User], error) {
+	return s.users.List(ctx, params, search)
 }
 
 // UpdateRoles replaces the roles of a user.
