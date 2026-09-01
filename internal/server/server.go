@@ -310,6 +310,7 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 
 	users := handler.NewUserHandler(s.deps.UserSvc, auditLog)
 	beatmaps := handler.NewBeatmapHandler(s.deps.BeatmapSvc, auditLog)
+	bulk := handler.NewBulkHandler(s.deps.Fetcher, auditLog)
 	rooms := handler.NewRoomHandler(s.deps.Services.Rooms, auditLog)
 	announcements := handler.NewAnnouncementHandler(s.deps.AnnounceSvc)
 	teams := handler.NewTeamHandler(s.deps.TeamSvc)
@@ -342,9 +343,11 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 		admin.Use(middleware.RequireRole(domain.RoleAdmin))
 		{
 			admin.POST("/beatmaps", beatmaps.Create)
+			admin.POST("/beatmaps/bulk", bulk.BulkCreateBeatmaps)
 			admin.PATCH("/beatmaps/:id", beatmaps.Patch)
 			admin.DELETE("/beatmaps/:id", beatmaps.Delete)
 
+			admin.POST("/users/bulk", bulk.BulkCreateUsers)
 			admin.PATCH("/users/:id", users.Patch)
 			admin.PATCH("/users/:id/roles", users.UpdateRoles)
 			admin.PATCH("/users/:id/banned", users.SetBanned)
