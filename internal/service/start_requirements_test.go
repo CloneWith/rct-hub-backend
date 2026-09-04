@@ -37,11 +37,13 @@ func TestMissingStartRequirements(t *testing.T) {
 		t.Fatalf("expected 10 missing fields for empty match room, got %v", got)
 	}
 
-	// Casual rooms require the shared subset only.
+	// Casual rooms require the shared baseline only; the explicitly-assigned
+	// referee is a formal-match concept (see domain.Room.RefereeUserID) and
+	// does not block casual start.
 	room.Type = domain.RoomTypeCasual
 	got = MissingStartRequirements(room, nil, nil, nil)
-	if len(got) != 6 {
-		t.Fatalf("expected 6 missing fields for empty casual room, got %v", got)
+	if len(got) != 5 {
+		t.Fatalf("expected 5 missing fields for empty casual room, got %v", got)
 	}
 
 	// Private rooms have no requirements.
@@ -58,14 +60,14 @@ func TestMissingStartRequirements(t *testing.T) {
 		t.Fatalf("expected [type] for unknown room type, got %v", got)
 	}
 
-	// Scheduled time and referee are hard requirements (D3) even for casual
-	// rooms once the rest of the settings are complete.
+	// Casual rooms only require a scheduled time once the rest of the shared
+	// settings are complete; no referee requirement.
 	casual := domain.Room{
 		Type:     domain.RoomTypeCasual,
 		Settings: domain.RoomSettings{FirstPick: &firstPick, FirstBan: &firstBan},
 	}
-	if got = MissingStartRequirements(casual, &redTeam, &blueTeam, nil); len(got) != 2 {
-		t.Fatalf("expected [scheduled_at referee_user_id] for casual room missing D3 fields, got %v", got)
+	if got = MissingStartRequirements(casual, &redTeam, &blueTeam, nil); len(got) != 1 || got[0] != "scheduled_at" {
+		t.Fatalf("expected [scheduled_at] for casual room missing only its deadline, got %v", got)
 	}
 
 	// A fully configured match room reports nothing.
