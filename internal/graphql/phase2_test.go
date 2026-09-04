@@ -47,7 +47,7 @@ func TestViewsAreDerivedFromEngineState(t *testing.T) {
 	if overlay.Timer.StartedAt == nil || overlay.Phase != FormalMatchPhaseBan {
 		t.Fatalf("overlay view = %+v", overlay)
 	}
-	referee := computeRefereeView("507f1f77bcf86cd799439011", state, now.Add(time.Second))
+	referee := computeRefereeView("507f1f77bcf86cd799439011", MatchStatusReady, state, now.Add(time.Second))
 	if referee.Snapshot.Version != "1" || len(referee.Analysis.AllowedActions) == 0 {
 		t.Fatalf("referee view = %+v", referee)
 	}

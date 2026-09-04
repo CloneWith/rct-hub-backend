@@ -121,6 +121,14 @@ type Match {
   room: Room @goField(forceResolver: true)
   pool: [MatchPoolSlotMetadata!]!
 
+  # 比赛状态。两阶段开赛:
+  #   PENDING  → 等待双方策略师点击"准备"
+  #   READY    → 两边策略师已确认;正式比赛等待裁判确认开赛
+  #   ACTIVE   → 已开赛
+  #   FINISHED / CANCELED → 终局
+  status: MatchStatus! @goField(forceResolver: true)
+  strategistReadiness: StrategistReadiness! @goField(forceResolver: true)
+
   # 客户端专属视图 (Phase 2 — Read Model §9.10)
   # 视图字段需要 forceResolver，因为计算逻辑需要重新获取 domain.Match
   strategistView: StrategistView @goField(forceResolver: true)
@@ -134,6 +142,17 @@ type Match {
   # 正式比赛唯一权威赛况。
   snapshot: MatchSnapshot!
 }
+
+# 两阶段开赛中策略师"准备"状态的持久化结果。该值一旦置位即不可撤回，
+# 是策略师在 UI 上点击"准备"按钮的纸面痕迹。`redReady` / `blueReady`
+# 都为 true 时比赛进入 READY 状态，由后端决定是否触发系统自动开赛
+# (casual / private) 或等待裁判确认 (match)。
+type StrategistReadiness {
+  redReady: Boolean!
+  blueReady: Boolean!
+}
+
+enum MatchStatus { PENDING READY ACTIVE FINISHED CANCELED }
 
 type MatchPoolSlotMetadata {
   poolSlotID: ID!
@@ -753,6 +772,10 @@ type MatchCommandResult {
 }
 
 type Mutation {
+  # 第二阶段开赛流程：调用方必须是房间对应队伍的策略师。系统会原子地
+  # 翻转该侧的 readiness 位；当双方都按下后，非正式比赛房间会由系统
+  # 自动触发 START_MATCH，正式比赛则进入 READY 等待裁判确认。
+  markStrategistReady(roomId: ID!): Match!
   startMatch(input: CommandMeta!): MatchCommandResult!
   confirmIRCResult(input: ConfirmIRCResultInput!): MatchCommandResult!
   rejectIRCObservation(matchId: ID!, observationId: ID!, reason: String!): Boolean!

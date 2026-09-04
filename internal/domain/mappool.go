@@ -19,8 +19,18 @@ type Mappool struct {
 }
 
 // MappoolEntry is a single slot inside a mappool. Mod and Index are required
-// (index is 1-based within the mod group). SHIRO entries carry no beatmap
-// (BeatmapID == nil). Non-SHIRO entries must reference an osu! beatmap id.
+// (index is 1-based within the mod group).
+//
+// Beatmap binding rules by mod:
+//
+//   - PieceModShiro is a placeholder. Shiro carries no beatmap (BeatmapID ==
+//     nil) and is materialized automatically by the match factory; any
+//     Shiro entry declared in this collection is ignored at conversion time.
+//   - PieceModTB is mandatory — every mappool must declare at least one TB
+//     entry, and that entry must reference a real osu! beatmap id. The engine
+//     treats the TB slot as the winner-deciding track and requires exactly
+//     one such slot per configuration.
+//   - All other mods (NM, HD, HR, DT, FM) must reference an osu! beatmap id.
 type MappoolEntry struct {
 	BeatmapID  *int64   `json:"beatmap_id,omitempty" bson:"beatmap_id,omitempty"` // nil for SHIRO
 	Mod        PieceMod `json:"mod" bson:"mod"`                                   // required
@@ -47,11 +57,13 @@ func (m *Mappool) ToRuntime() Pool {
 
 // ValidateEntries checks the entry invariants: mod must be known, index must
 // be positive, (mod, index) pairs must be unique, non-SHIRO entries need a
-// beatmap id, and SHIRO entries must not carry one. It returns the wire-format
-// field paths of the violated entries.
+// beatmap id, SHIRO entries must not carry one, and at least one TB entry
+// must be declared. It returns the wire-format field paths of the violated
+// entries (or "entries" for pool-level invariants).
 func (m *Mappool) ValidateEntries() []string {
 	var problems []string
 	seen := make(map[PoolSlot]bool, len(m.Entries))
+	hasTB := false
 	for i, entry := range m.Entries {
 		if !isKnownPieceMod(entry.Mod) {
 			problems = append(problems, entryField(i, "mod"))
@@ -73,11 +85,33 @@ func (m *Mappool) ValidateEntries() []string {
 			}
 			continue
 		}
+		if entry.Mod == PieceModTB {
+			hasTB = true
+		}
 		if entry.BeatmapID == nil || *entry.BeatmapID <= 0 {
 			problems = append(problems, entryField(i, "beatmap_id"))
 		}
 	}
+	if !hasTB {
+		problems = append(problems, "entries[].mod=tb")
+	}
 	return problems
+}
+
+// HasTBEntry reports whether the pool contains at least one TB entry. It is
+// the runtime counterpart to the ValidateEntries "TB required" invariant;
+// the factory uses it to skip the mappool-derived TB scan when the pool has
+// no beatmap to seed.
+func (m *Mappool) HasTBEntry() bool {
+	if m == nil {
+		return false
+	}
+	for _, entry := range m.Entries {
+		if entry.Mod == PieceModTB {
+			return true
+		}
+	}
+	return false
 }
 
 // SortedEntries returns entries grouped by mod and ordered by index, ready

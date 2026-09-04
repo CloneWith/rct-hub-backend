@@ -79,7 +79,12 @@ func Execute(state State, actor Actor, command Command, now time.Time) (Transiti
 }
 
 func startMatch(state *State, actor Actor, now time.Time) ([]Event, error) {
-	if actor.Capability != CapabilityReferee {
+	// startMatch is the *one* referee-only gate that system actors may also
+	// drive: the casual/auto-start flow (see RoomService.MarkStrategistReady)
+	// submits this command when both strategists are ready and the room is
+	// not a formal match, which needs no human referee. Every other
+	// referee-only gate keeps the strict capability check below.
+	if actor.Capability != CapabilityReferee && !actor.AdminOverride {
 		return nil, ruleError(CodeActionNotAllowed, "only a referee can start a match")
 	}
 	if state.Lifecycle != LifecycleReady {

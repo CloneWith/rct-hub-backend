@@ -26,12 +26,25 @@ type RoomService struct {
 	teams         repository.TeamRepository
 	mappools      repository.MappoolRepository
 	formalMatches FormalMatchBootstrap
+	snapshots     SnapshotProbe
+	matchCommands MatchCommandDriver
 	now           func() time.Time
 	log           *zap.Logger
 }
 
 type FormalMatchBootstrap interface {
 	Create(context.Context, bson.ObjectID, domain.Match, matchengine.State, time.Time) error
+}
+
+// SnapshotProbe is the read-only snapshot boundary RoomService needs to
+// detect orphaned legacy matches — records that exist in the matches
+// collection without a corresponding authoritative snapshot. The check
+// returns true when the snapshot is present and false for both "snapshot
+// missing" and "only legacy row exists". Any other persistence error is
+// surfaced so callers can distinguish a missing snapshot from an
+// infrastructure failure.
+type SnapshotProbe interface {
+	HasSnapshot(context.Context, bson.ObjectID) (bool, error)
 }
 
 // RoomMetadataUpdate is the administrator-owned pre-game room configuration.
@@ -58,12 +71,20 @@ type RoomMetadataPatch struct {
 	StreamerUserID *int64
 }
 
-// NewRoomService creates a new RoomService.
-func NewRoomService(rooms repository.RoomRepository, matches repository.MatchRepository, users repository.UserRepository, teams repository.TeamRepository, mappools repository.MappoolRepository, formalMatches FormalMatchBootstrap, log *zap.Logger) *RoomService {
+// NewRoomService creates a new RoomService. snapshots is optional; when
+// non-nil, StartMatch uses it to detect orphaned legacy matches and recover
+// from prior partial bootstraps. matchCommands is optional; when non-nil,
+// the casual/auto-start path inside MarkStrategistReady can submit a
+// MatchEngine START_MATCH command on behalf of the system after both
+// strategists have signalled ready. Nil disables the auto-start fallback —
+// formal matches keep working (the referee still drives START_MATCH through
+// the GraphQL command path), but casual / private rooms will not advance
+// from Ready → Active on their own.
+func NewRoomService(rooms repository.RoomRepository, matches repository.MatchRepository, users repository.UserRepository, teams repository.TeamRepository, mappools repository.MappoolRepository, formalMatches FormalMatchBootstrap, snapshots SnapshotProbe, matchCommands MatchCommandDriver, log *zap.Logger) *RoomService {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &RoomService{rooms: rooms, matches: matches, users: users, teams: teams, mappools: mappools, formalMatches: formalMatches, now: func() time.Time { return time.Now().UTC() }, log: log}
+	return &RoomService{rooms: rooms, matches: matches, users: users, teams: teams, mappools: mappools, formalMatches: formalMatches, snapshots: snapshots, matchCommands: matchCommands, now: func() time.Time { return time.Now().UTC() }, log: log}
 }
 
 // CreateRoom creates a new room for the given owner.
@@ -411,103 +432,234 @@ func (s *RoomService) UpdateRoomMetadataPartial(ctx context.Context, callerID in
 	return s.rooms.ByID(ctx, roomID)
 }
 
-// StartMatch creates a match from the room's linked entities and transitions the room.
+// StartMatch creates a match from the room's linked entities and transitions
+// the room. All room types — match, casual, private — go through the same
+// orchestrator-friendly bootstrap so that the resulting match is paired with
+// an authoritative MatchEngine snapshot and resolvable by code from the read
+// service. Per-type requirements are still enforced up front by
+// MissingStartRequirements inside BuildFormalMatchSeed.
+//
+// If the room points at a legacy match that has no authoritative snapshot
+// (the "orphan" condition surfaced by SnapshotStore as
+// ErrLegacyMatchRequiresMigration), StartMatch transparently clears the
+// orphaned match reference and rebuilds the match from scratch. This
+// recovery keeps the API stable for callers that retried StartMatch after
+// a previously failed bootstrap or after a partial write was left behind by
+// older code paths.
 func (s *RoomService) StartMatch(ctx context.Context, callerID int64, roomID bson.ObjectID) (*domain.Match, error) {
 	room, err := s.authorizedRoom(ctx, callerID, roomID)
 	if err != nil {
 		return nil, err
 	}
-	if room.MatchID != nil {
-		if room.Type == domain.RoomTypeMatch {
-			return s.existingFormalMatch(ctx, room)
-		}
-		return nil, errs.ErrAlreadyExists
+	if s.formalMatches == nil {
+		return nil, fmt.Errorf("formal match bootstrap is not configured")
 	}
-	if room.Type == domain.RoomTypeMatch {
-		if s.formalMatches == nil {
-			return nil, fmt.Errorf("formal match bootstrap is not configured")
+	if room.MatchID != nil {
+		match, lookupErr := s.existingMatch(ctx, room)
+		if lookupErr == nil {
+			return match, nil
 		}
-		redTeam, blueTeam, mappool, loadErr := s.roomStartEntities(ctx, room)
-		if loadErr != nil {
-			return nil, loadErr
+		if !errors.Is(lookupErr, errs.ErrConflict) {
+			return nil, lookupErr
 		}
-		now := s.now().UTC()
-		seed, seedErr := BuildFormalMatchSeed(*room, redTeam, blueTeam, mappool, now)
-		if seedErr != nil {
-			return nil, seedErr
+		// Orphaned legacy match: the room points at a match row that has no
+		// corresponding authoritative snapshot. Surface the recovery as an
+		// audit event, clear the dangling reference, and fall through to the
+		// fresh-bootstrap path.
+		if recoverErr := s.recoverOrphanedMatch(ctx, room); recoverErr != nil {
+			return nil, recoverErr
 		}
-		if createErr := s.formalMatches.Create(ctx, room.ID, seed.LegacyMatch, seed.State, now); createErr != nil {
-			if !errors.Is(createErr, errs.ErrFormalMatchAlreadyStarted) {
-				return nil, createErr
-			}
-			room, reloadErr := s.rooms.ByID(ctx, room.ID)
-			if reloadErr != nil {
-				return nil, reloadErr
-			}
-			return s.existingFormalMatch(ctx, room)
+		if room, err = s.rooms.ByID(ctx, roomID); err != nil {
+			return nil, err
 		}
-		return &seed.LegacyMatch, nil
 	}
 	redTeam, blueTeam, mappool, loadErr := s.roomStartEntities(ctx, room)
 	if loadErr != nil {
 		return nil, loadErr
 	}
-	if missing := MissingStartRequirements(*room, redTeam, blueTeam, mappool); len(missing) > 0 {
-		fields := make([]errs.FieldError, 0, len(missing))
-		for _, m := range missing {
-			fields = append(fields, errs.FieldError{
-				Field:   m,
-				Rule:    "required",
-				Message: fmt.Sprintf("%s is required before starting the match", m),
-			})
+	now := s.now().UTC()
+	seed, seedErr := BuildFormalMatchSeed(*room, redTeam, blueTeam, mappool, now)
+	if seedErr != nil {
+		return nil, seedErr
+	}
+	if createErr := s.formalMatches.Create(ctx, room.ID, seed.LegacyMatch, seed.State, now); createErr != nil {
+		if !errors.Is(createErr, errs.ErrFormalMatchAlreadyStarted) {
+			return nil, createErr
 		}
-		return nil, errs.NewValidationError(fields...)
-	}
-
-	pool := domain.NewPool()
-	if mappool != nil {
-		pool = mappool.ToRuntime()
-	}
-	match := domain.NewMatch(*room, redTeam.Snapshot(domain.TeamSideRed), blueTeam.Snapshot(domain.TeamSideBlue), pool)
-	match.BPOrder = domain.BPOrder{
-		FirstPick: *room.Settings.FirstPick,
-		FirstBan:  *room.Settings.FirstBan,
-	}
-	match.Status = domain.MatchStatusActive
-	now := time.Now().UTC()
-	match.StartedAt = &now
-	match.TurnState.StartBan(match.BPOrder)
-	match.Timer = domain.NewTimerState(domain.BanTimeLimit, domain.BanBonusTime)
-
-	if err := s.matches.Create(ctx, &match); err != nil {
-		s.log.Error("failed to create match", zap.String("room_id", roomID.Hex()), zap.Error(err))
-		return nil, err
-	}
-	room.MatchID = &match.ID
-	if err := s.rooms.Update(ctx, room); err != nil {
-		s.log.Error("failed to link match to room", zap.String("room_id", roomID.Hex()), zap.String("match_id", match.ID.Hex()), zap.Error(err))
-		return nil, err
+		room, reloadErr := s.rooms.ByID(ctx, room.ID)
+		if reloadErr != nil {
+			return nil, reloadErr
+		}
+		return s.existingMatch(ctx, room)
 	}
 	s.log.Info("audit: match started",
-		zap.String("room_id", roomID.Hex()),
-		zap.String("match_id", match.ID.Hex()),
+		zap.String("room_id", room.ID.Hex()),
+		zap.String("match_id", seed.LegacyMatch.ID.Hex()),
+		zap.String("type", string(room.Type)),
 		zap.Int64("caller_id", callerID),
 	)
-	return &match, nil
+	return &seed.LegacyMatch, nil
 }
 
-func (s *RoomService) existingFormalMatch(ctx context.Context, room *domain.Room) (*domain.Match, error) {
-	if room == nil || room.Type != domain.RoomTypeMatch || room.MatchID == nil {
+// MarkStrategistReady is the second-phase pre-game acknowledgement: the
+// caller (the team's assigned strategist) presses the one-shot "ready"
+// button and we persist the bit atomically. Once both strategists have
+// pressed it, the room type drives the next step:
+//
+//   - Casual / private rooms: the system synthesizes a START_MATCH
+//     command so the match transitions straight to LifecycleActive. There is
+//     no human referee in the loop for these rooms.
+//
+//   - Formal match rooms: the match shell moves to MatchStatusReady and
+//     waits for the assigned referee to issue the engine START_MATCH
+//     command through the GraphQL mutation path. The ref flag returned to
+//     callers tells the UI whether to render the "waiting on referee"
+//     state.
+//
+// The strategist's first call wins: subsequent calls for the same side
+// are no-ops (idempotent re-render friendly) and never trigger an
+// auto-start on their own.
+func (s *RoomService) MarkStrategistReady(ctx context.Context, callerID int64, roomID bson.ObjectID) (*domain.Match, error) {
+	room, err := s.rooms.ByID(ctx, roomID)
+	if err != nil {
+		return nil, err
+	}
+	if room.MatchID == nil {
+		return nil, fmt.Errorf("%w: room has not started a match yet", errs.ErrConflict)
+	}
+	redTeam, blueTeam, _, teamErr := s.roomStartEntities(ctx, room)
+	if teamErr != nil {
+		return nil, teamErr
+	}
+	side, ok := domain.StrategistSide(redTeam, blueTeam, callerID)
+	if !ok {
+		return nil, fmt.Errorf("%w: caller is not an assigned strategist for this room", errs.ErrForbidden)
+	}
+	// Load the latest match shell so we can decide whether the user is
+	// toggling a fresh bit or a stale one. The atomic UpdateReadiness
+	// below still pins the status, so even if the match moved to Ready /
+	// Active in the meantime the write will surface a conflict rather
+	// than resurrect a stale readiness bit.
+	current, lookupErr := s.matches.ByID(ctx, *room.MatchID)
+	if lookupErr != nil {
+		return nil, lookupErr
+	}
+	if current.Status != domain.MatchStatusPending && current.Status != domain.MatchStatusReady {
+		return nil, fmt.Errorf("%w: readiness acknowledgement is only valid before the match is active", errs.ErrConflict)
+	}
+	updated, updateErr := s.matches.UpdateReadiness(ctx, *room.MatchID, side, domain.MatchStatusPending)
+	if updateErr != nil {
+		if errors.Is(updateErr, errs.ErrConflict) {
+			// The match already moved out of Pending (a referee fired
+			// START_MATCH while this strategist was thinking). Surface
+			// the latest state so the caller can refresh the UI.
+			latest, lookupErr := s.matches.ByID(ctx, *room.MatchID)
+			if lookupErr != nil {
+				return nil, lookupErr
+			}
+			return latest, nil
+		}
+		return nil, updateErr
+	}
+	s.log.Info("strategist ready acknowledged",
+		zap.String("room_id", room.ID.Hex()),
+		zap.String("match_id", updated.ID.Hex()),
+		zap.String("side", string(side)),
+		zap.Int64("caller_id", callerID),
+		zap.Bool("red_ready", updated.StrategistReadiness.RedReady),
+		zap.Bool("blue_ready", updated.StrategistReadiness.BlueReady),
+	)
+	if !updated.StrategistReadiness.RedReady || !updated.StrategistReadiness.BlueReady {
+		return updated, nil
+	}
+	// Both strategists have confirmed. Formal matches wait for the
+	// referee to issue START_MATCH through GraphQL; casual / private
+	// rooms have no human referee, so the system fires the command.
+	if room.Type == domain.RoomTypeMatch {
+		return updated, nil
+	}
+	if s.matchCommands == nil {
+		s.log.Warn("auto-start skipped: match command driver is not configured",
+			zap.String("match_id", updated.ID.Hex()),
+			zap.String("room_type", string(room.Type)),
+		)
+		return updated, nil
+	}
+	now := s.now().UTC()
+	if err := s.matchCommands.StartMatchSystem(ctx, updated.ID, 0, now); err != nil {
+		// The engine transition failed (likely a concurrent START_MATCH
+		// already fired or a transient infra error). Surface the latest
+		// match state so the caller can decide whether to retry — we do
+		// not bubble the error to the strategist because their
+		// acknowledgement itself succeeded.
+		s.log.Warn("auto-start command failed",
+			zap.String("match_id", updated.ID.Hex()),
+			zap.Error(err),
+		)
+		latest, lookupErr := s.matches.ByID(ctx, updated.ID)
+		if lookupErr != nil {
+			return updated, nil
+		}
+		return latest, nil
+	}
+	final, lookupErr := s.matches.ByID(ctx, updated.ID)
+	if lookupErr != nil {
+		return updated, nil
+	}
+	return final, nil
+}
+
+// existingMatch loads the persisted match currently linked to a room. Used
+// when StartMatch races against a concurrent bootstrap call; the first write
+// wins and subsequent attempts become a lookup of the authoritative match.
+//
+// If the room's match reference resolves to a legacy row without an
+// authoritative snapshot, existingMatch returns errs.ErrConflict so the
+// caller (StartMatch) can trigger the orphan-recovery flow.
+func (s *RoomService) existingMatch(ctx context.Context, room *domain.Room) (*domain.Match, error) {
+	if room == nil || room.MatchID == nil {
 		return nil, errs.ErrConflict
 	}
 	match, err := s.matches.ByID(ctx, *room.MatchID)
 	if err != nil {
 		return nil, err
 	}
-	if match == nil || match.RoomID != room.ID || match.RoomType != domain.RoomTypeMatch {
-		return nil, fmt.Errorf("%w: formal room points to a different match", errs.ErrConflict)
+	if match == nil || match.RoomID != room.ID {
+		return nil, fmt.Errorf("%w: room points to a different match", errs.ErrConflict)
+	}
+	if s.snapshots != nil {
+		ok, probeErr := s.snapshots.HasSnapshot(ctx, match.ID)
+		if probeErr != nil {
+			return nil, probeErr
+		}
+		if !ok {
+			return nil, errs.ErrConflict
+		}
 	}
 	return match, nil
+}
+
+// recoverOrphanedMatch drops a dangling room.match_id reference that points
+// at a legacy match row with no authoritative snapshot. It deliberately does
+// not touch the legacy matches collection: that row remains a forensic
+// record of the failed bootstrap, and BuildFormalMatchSeed below will mint
+// a fresh match ID so the new match can be inserted without collision. The
+// recovery is idempotent: re-running it after a successful bootstrap is a
+// no-op because room.MatchID is nil and the probe succeeds.
+func (s *RoomService) recoverOrphanedMatch(ctx context.Context, room *domain.Room) error {
+	if room == nil || room.MatchID == nil {
+		return nil
+	}
+	if err := s.rooms.UpdateFields(ctx, room.ID, bson.M{"match_id": nil}, true); err != nil {
+		return fmt.Errorf("clear orphaned match reference: %w", err)
+	}
+	s.log.Warn("audit: orphaned match reference cleared",
+		zap.String("room_id", room.ID.Hex()),
+		zap.String("orphan_match_id", room.MatchID.Hex()),
+		zap.Int64("caller_id", 0),
+	)
+	room.MatchID = nil
+	return nil
 }
 
 // roomStartEntities resolves the Team / Mappool entities referenced by the

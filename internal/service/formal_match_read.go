@@ -16,14 +16,16 @@ import (
 // FormalMatch combines stable index metadata with the sole authoritative
 // MatchEngine state. Legacy match state is deliberately not exposed here.
 type FormalMatch struct {
-	ID        bson.ObjectID
-	Code      string
-	Name      string
-	RoomID    bson.ObjectID
-	RoomType  domain.RoomType
-	CreatedAt time.Time
-	Pool      map[string]*int64
-	State     matchengine.State
+	ID                  bson.ObjectID
+	Code                string
+	Name                string
+	RoomID              bson.ObjectID
+	RoomType            domain.RoomType
+	Status              domain.MatchStatus
+	StrategistReadiness domain.StrategistReadiness
+	CreatedAt           time.Time
+	Pool                map[string]*int64
+	State               matchengine.State
 }
 
 // SnapshotReader is the persistence boundary used by formal match queries.
@@ -79,12 +81,14 @@ func (s *FormalMatchReadService) List(ctx context.Context, params paginate.Param
 	items := make([]FormalMatch, 0, len(page.Data))
 	for index := range page.Data {
 		shell := &page.Data[index]
-		if shell.RoomType != domain.RoomTypeMatch {
+		switch shell.RoomType {
+		case domain.RoomTypeMatch, domain.RoomTypeCasual, domain.RoomTypePrivate:
+		default:
 			continue
 		}
 		state, exists := states[shell.ID]
 		if !exists {
-			return paginate.Result[FormalMatch]{}, fmt.Errorf("%w: formal match %s has no authoritative snapshot", errs.ErrConflict, shell.ID.Hex())
+			return paginate.Result[FormalMatch]{}, fmt.Errorf("%w: match %s has no authoritative snapshot", errs.ErrConflict, shell.ID.Hex())
 		}
 		items = append(items, formalMatch(shell, state))
 	}
@@ -92,7 +96,9 @@ func (s *FormalMatchReadService) List(ctx context.Context, params paginate.Param
 }
 
 func (s *FormalMatchReadService) load(ctx context.Context, shell *domain.Match) (*FormalMatch, error) {
-	if shell.RoomType != domain.RoomTypeMatch {
+	switch shell.RoomType {
+	case domain.RoomTypeMatch, domain.RoomTypeCasual, domain.RoomTypePrivate:
+	default:
 		return nil, errs.ErrNotFound
 	}
 	state, err := s.snapshots.Load(ctx, shell.ID)
@@ -119,5 +125,10 @@ func formalMatch(shell *domain.Match, state matchengine.State) FormalMatch {
 		beatmapID := *piece.BeatmapID
 		pool[id] = &beatmapID
 	}
-	return FormalMatch{ID: shell.ID, Code: shell.Code, Name: shell.Name, RoomID: shell.RoomID, RoomType: shell.RoomType, CreatedAt: shell.CreatedAt, Pool: pool, State: state.Clone()}
+	return FormalMatch{
+		ID: shell.ID, Code: shell.Code, Name: shell.Name,
+		RoomID: shell.RoomID, RoomType: shell.RoomType,
+		Status: shell.Status, StrategistReadiness: shell.StrategistReadiness,
+		CreatedAt: shell.CreatedAt, Pool: pool, State: state.Clone(),
+	}
 }

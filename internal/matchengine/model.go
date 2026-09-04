@@ -455,9 +455,18 @@ const (
 )
 
 // Actor contains only authority already established by an outer layer.
+//
+// AdminOverride is true when the caller is acting through an administrative
+// or system path (typically triggered by background orchestration after a
+// pre-game gate has cleared) rather than a real human referee. Engine rules
+// treat an overridden actor as equivalent to its nominal capability for
+// "referee-only" gates (e.g. startMatch, suspendMatch) so the engine can be
+// driven by scheduled start, recovery paths, and the casual auto-start
+// flow without re-validating a human referee.
 type Actor struct {
-	Capability Capability `json:"capability"`
-	Team       *TeamSide  `json:"team,omitempty"`
+	Capability    Capability `json:"capability"`
+	Team          *TeamSide  `json:"team,omitempty"`
+	AdminOverride bool       `json:"adminOverride,omitempty"`
 }
 
 func StrategistActor(team TeamSide) Actor {
@@ -470,6 +479,14 @@ func CaptainActor(team TeamSide) Actor {
 
 func RefereeActor() Actor {
 	return Actor{Capability: CapabilityReferee}
+}
+
+// SystemRefereeActor returns a referee-shaped actor that does NOT represent
+// a real user. Callers must communicate the synthetic origin to the engine
+// via AdminOverride so the engine can attribute events to the system rather
+// than to a human referee.
+func SystemRefereeActor() Actor {
+	return Actor{Capability: CapabilityReferee, AdminOverride: true}
 }
 
 // Command is a closed set of pure domain intents for the implemented slice.

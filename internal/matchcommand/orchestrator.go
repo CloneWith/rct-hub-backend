@@ -61,8 +61,11 @@ func (o *Orchestrator) Execute(ctx context.Context, request Request) (Result, er
 	if o == nil || o.store == nil || o.users == nil || o.matches == nil || o.rooms == nil {
 		return Result{}, NewError(CodeInternalError, "command orchestrator is not configured", nil)
 	}
-	if request.MatchID == bson.NilObjectID || request.CallerOsuID <= 0 || request.Command == nil {
-		return Result{}, NewError(CodeInvalidRequest, "match, caller, and command are required", nil)
+	if request.MatchID == bson.NilObjectID || request.Command == nil {
+		return Result{}, NewError(CodeInvalidRequest, "match and command are required", nil)
+	}
+	if !request.System && (request.CallerOsuID <= 0) {
+		return Result{}, NewError(CodeInvalidRequest, "caller is required for non-system commands", nil)
 	}
 	parsedCommandID, err := uuid.Parse(request.CommandID)
 	if err != nil || parsedCommandID == uuid.Nil {
@@ -102,7 +105,7 @@ func (o *Orchestrator) Execute(ctx context.Context, request Request) (Result, er
 		ctx,
 		envelope,
 		func(txCtx context.Context) (AuthorizedActor, error) {
-			return o.authorize(txCtx, request.MatchID, request.CallerOsuID, request.Command)
+			return o.authorize(txCtx, request)
 		},
 		func(state matchengine.State, actor AuthorizedActor) (matchengine.Transition, error) {
 			transition, executeErr := matchengine.Execute(state, actor.EngineActor, request.Command, now)
@@ -165,31 +168,41 @@ func canonicalRequestHash(request Request, commandType string, payload []byte) (
 	return fmt.Sprintf("%x", sum[:]), nil
 }
 
-func (o *Orchestrator) authorize(ctx context.Context, matchID bson.ObjectID, osuID int64, command matchengine.Command) (AuthorizedActor, error) {
-	user, err := o.users.ByOsuID(ctx, osuID)
+func (o *Orchestrator) authorize(ctx context.Context, request Request) (AuthorizedActor, error) {
+	if request.System {
+		return o.authorizeSystem(ctx, request)
+	}
+	user, err := o.users.ByOsuID(ctx, request.CallerOsuID)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
-			o.log.Warn("match command auth: user not found", zap.Int64("osu_id", osuID))
+			o.log.Warn("match command auth: user not found", zap.Int64("osu_id", request.CallerOsuID))
 			return AuthorizedActor{}, NewError(CodeAuthRequired, "authenticated user no longer exists", err)
 		}
-		o.log.Error("match command auth: failed to load user", zap.Int64("osu_id", osuID), zap.Error(err))
+		o.log.Error("match command auth: failed to load user", zap.Int64("osu_id", request.CallerOsuID), zap.Error(err))
 		return AuthorizedActor{}, NewError(CodeInternalError, "load current user", err)
 	}
 	if user.IsBanned {
-		o.log.Warn("match command auth: user is banned", zap.Int64("osu_id", osuID), zap.String("username", user.Username))
+		o.log.Warn("match command auth: user is banned", zap.Int64("osu_id", request.CallerOsuID), zap.String("username", user.Username))
 		return AuthorizedActor{}, NewError(CodeUserBanned, "user is banned from formal match operations", nil)
 	}
 	if user.VerifyStatus != domain.Verified {
-		o.log.Warn("match command auth: user not verified", zap.Int64("osu_id", osuID), zap.String("verify_status", string(user.VerifyStatus)))
+		o.log.Warn("match command auth: user not verified", zap.Int64("osu_id", request.CallerOsuID), zap.String("verify_status", string(user.VerifyStatus)))
 		return AuthorizedActor{}, NewError(CodeUserNotVerified, "user is not verified for formal match operations", nil)
 	}
-	match, err := o.matches.ByID(ctx, matchID)
+	return o.authorizeUser(ctx, user, request)
+}
+
+// authorizeUser is the human-caller authorization path. It reloads the
+// match and room so the gate sees the latest persisted state and maps the
+// user's roles onto a matchengine.Actor via actorForCommand.
+func (o *Orchestrator) authorizeUser(ctx context.Context, user *domain.User, request Request) (AuthorizedActor, error) {
+	match, err := o.matches.ByID(ctx, request.MatchID)
 	if err != nil {
 		if errors.Is(err, errs.ErrNotFound) {
-			o.log.Warn("match command auth: match not found", zap.String("match_id", matchID.Hex()))
+			o.log.Warn("match command auth: match not found", zap.String("match_id", request.MatchID.Hex()))
 			return AuthorizedActor{}, NewError(CodeResourceNotFound, "formal match was not found", err)
 		}
-		o.log.Error("match command auth: failed to load match", zap.String("match_id", matchID.Hex()), zap.Error(err))
+		o.log.Error("match command auth: failed to load match", zap.String("match_id", request.MatchID.Hex()), zap.Error(err))
 		return AuthorizedActor{}, NewError(CodeInternalError, "load formal match", err)
 	}
 	room, err := o.rooms.ByID(ctx, match.RoomID)
@@ -202,9 +215,9 @@ func (o *Orchestrator) authorize(ctx context.Context, matchID bson.ObjectID, osu
 		return AuthorizedActor{}, NewError(CodeInternalError, "load formal match room", err)
 	}
 	if match.RoomType != domain.RoomTypeMatch || room.Type != domain.RoomTypeMatch || room.ID != match.RoomID ||
-		room.MatchID == nil || *room.MatchID != matchID {
+		room.MatchID == nil || *room.MatchID != request.MatchID {
 		o.log.Warn("match command auth: not an authoritative formal match",
-			zap.String("match_id", matchID.Hex()),
+			zap.String("match_id", request.MatchID.Hex()),
 			zap.String("match_room_type", string(match.RoomType)),
 			zap.String("room_type", string(room.Type)),
 		)
@@ -217,10 +230,33 @@ func (o *Orchestrator) authorize(ctx context.Context, matchID bson.ObjectID, osu
 			zap.String("room_id", room.ID.Hex()), zap.Error(teamErr))
 		return AuthorizedActor{}, NewError(CodeInternalError, "load room teams", teamErr)
 	}
-	actor, adminOverride, refereeOverride, err := actorForCommand(user, room, redTeam, blueTeam, command)
+
+	// Two-phase start gate (referee-triggered START_MATCH only): the human
+	// referee can only confirm the start once both strategists have pressed
+	// Ready (match.Status == Ready). The casual/private auto-start fires
+	// through `authorizeSystem` instead and does not enter this branch.
+	//
+	// This is an authoritative backend guard: even if a stale UI somehow
+	// surfaces START_MATCH before readiness completes, the orchestrator
+	// rejects the command with a structured error.
+	if _, isStart := request.Command.(matchengine.StartMatch); isStart {
+		if match.Status != domain.MatchStatusReady {
+			o.log.Warn("match command auth: start match blocked — strategists not yet ready",
+				zap.String("match_id", request.MatchID.Hex()),
+				zap.String("match_status", string(match.Status)),
+			)
+			return AuthorizedActor{}, NewError(
+				CodeActionNotAllowed,
+				"双方策略师尚未确认准备，无法开始比赛",
+				nil,
+			)
+		}
+	}
+
+	actor, adminOverride, refereeOverride, err := actorForCommand(user, room, redTeam, blueTeam, request.Command)
 	if err != nil {
 		o.log.Warn("match command auth: role authorization failed",
-			zap.Int64("osu_id", osuID),
+			zap.Int64("osu_id", request.CallerOsuID),
 			zap.String("username", user.Username),
 			zap.Error(err),
 		)
@@ -233,7 +269,47 @@ func (o *Orchestrator) authorize(ctx context.Context, matchID bson.ObjectID, osu
 	return AuthorizedActor{
 		UserID: user.ID, OsuID: user.OnlineID, GlobalRoles: roles,
 		EngineActor: actor, AdminOverride: adminOverride,
-		RefereeOverride: refereeOverride, Reason: commandReason(command),
+		RefereeOverride: refereeOverride, Reason: commandReason(request.Command),
+	}, nil
+}
+
+// authorizeSystem handles orchestrator-driven commands (currently the
+// casual auto-start path fired by RoomService.MarkStrategistReady). It only
+// verifies that the match-shell ↔ room association is intact — there is no
+// human caller to gate against — and synthesizes a SystemRefereeActor with
+// AdminOverride=true so the engine rules (startMatch) can admit it.
+func (o *Orchestrator) authorizeSystem(ctx context.Context, request Request) (AuthorizedActor, error) {
+	match, err := o.matches.ByID(ctx, request.MatchID)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			o.log.Warn("match command auth (system): match not found", zap.String("match_id", request.MatchID.Hex()))
+			return AuthorizedActor{}, NewError(CodeResourceNotFound, "formal match was not found", err)
+		}
+		o.log.Error("match command auth (system): failed to load match",
+			zap.String("match_id", request.MatchID.Hex()), zap.Error(err))
+		return AuthorizedActor{}, NewError(CodeInternalError, "load formal match", err)
+	}
+	room, err := o.rooms.ByID(ctx, match.RoomID)
+	if err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			o.log.Warn("match command auth (system): room not found", zap.String("room_id", match.RoomID.Hex()))
+			return AuthorizedActor{}, NewError(CodeResourceNotFound, "formal match room was not found", err)
+		}
+		o.log.Error("match command auth (system): failed to load room",
+			zap.String("room_id", match.RoomID.Hex()), zap.Error(err))
+		return AuthorizedActor{}, NewError(CodeInternalError, "load formal match room", err)
+	}
+	if room.ID != match.RoomID || room.MatchID == nil || *room.MatchID != request.MatchID {
+		o.log.Warn("match command auth (system): shell not paired",
+			zap.String("match_id", request.MatchID.Hex()),
+			zap.String("room_id", room.ID.Hex()),
+		)
+		return AuthorizedActor{}, NewError(CodeResourceNotFound, "match shell is not paired with the owning room", nil)
+	}
+	return AuthorizedActor{
+		EngineActor:   matchengine.SystemRefereeActor(),
+		AdminOverride: true,
+		Reason:        commandReason(request.Command),
 	}, nil
 }
 

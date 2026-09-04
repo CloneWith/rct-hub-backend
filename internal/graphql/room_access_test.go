@@ -109,7 +109,7 @@ func (r roomQueryUserReader) GetByOsuID(context.Context, int64) (*domain.User, e
 }
 
 func roomQueryResolver(user *domain.User, rooms []domain.Room, teams []domain.Team) *Resolver {
-	roomService := service.NewRoomService(&roomQueryRepo{rooms: rooms, teams: teams, lifecycles: make(map[bson.ObjectID]string)}, nil, nil, nil, nil, nil, nil)
+	roomService := service.NewRoomService(&roomQueryRepo{rooms: rooms, teams: teams, lifecycles: make(map[bson.ObjectID]string)}, nil, nil, nil, nil, nil, nil, nil, nil)
 	return NewResolver(&service.Services{Rooms: roomService}).WithPrivateReaders(roomQueryUserReader{user: user}, roomService)
 }
 
@@ -199,7 +199,7 @@ func TestRoomsApplySearchRoundStatusAndRelatedFiltersBeforePaging(t *testing.T) 
 		rooms[2].ID: string(MatchLifecycleRunning),
 	}
 	repo := &roomQueryRepo{rooms: rooms, lifecycles: lifecycles}
-	roomService := service.NewRoomService(repo, nil, nil, nil, nil, nil, nil)
+	roomService := service.NewRoomService(repo, nil, nil, nil, nil, nil, nil, nil, nil)
 	resolver := NewResolver(&service.Services{Rooms: roomService}).WithPrivateReaders(roomQueryUserReader{user: user}, roomService)
 	ctx := WithClaims(context.Background(), &jwtutil.Claims{OsuID: user.OnlineID})
 
@@ -238,7 +238,7 @@ func TestRoomsApplySearchRoundStatusAndRelatedFiltersBeforePaging(t *testing.T) 
 		{ID: playerTeamID, Name: "Players", LeaderID: ptrInt64Value(77), Players: []int64{42}},
 	}
 	relatedRepo := &roomQueryRepo{rooms: relatedRooms, teams: relatedTeams, lifecycles: make(map[bson.ObjectID]string)}
-	relatedService := service.NewRoomService(relatedRepo, nil, nil, nil, nil, nil, nil)
+	relatedService := service.NewRoomService(relatedRepo, nil, nil, nil, nil, nil, nil, nil, nil)
 	relatedResolver := NewResolver(&service.Services{Rooms: relatedService}).WithPrivateReaders(roomQueryUserReader{user: user}, relatedService)
 	related := true
 	relatedPage, err := relatedResolver.Query().Rooms(ctx, nil, nil, nil, nil, &related, nil, nil)

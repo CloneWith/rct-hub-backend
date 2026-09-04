@@ -57,7 +57,7 @@ func TestFormalMutationSchemaMatchesEngineCommands(t *testing.T) {
 	want := []string{
 		"abortMatch", "banPoolSlot", "calibrateTimer", "confirmBeatmapResult", "confirmIRCResult", "confirmTbResult",
 		"createMappool", "createTeam", "deleteMappool", "deleteTeam",
-		"grantAdditionalTime", "pauseTimer", "placePiece", "placeShiro", "recordSurrender",
+		"grantAdditionalTime", "markStrategistReady", "pauseTimer", "placePiece", "placeShiro", "recordSurrender",
 		"refereeBanPoolSlot", "refereePlacePiece", "refereePlaceShiro", "refereeRequestTb",
 		"refereeRespondTbRequest", "refereeRobPiece", "requestTb", "respondTbRequest", "resumeMatch",
 		"rejectIRCObservation", "resumeTimer", "retryBeatmapMetadata", "retryIRCJob", "retryMatchAutomation", "robPiece", "skipCurrentAction", "startMatch", "startTb", "suspendMatch",

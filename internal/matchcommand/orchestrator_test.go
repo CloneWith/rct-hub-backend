@@ -419,7 +419,10 @@ func newCommandFixture(t *testing.T) *commandFixture {
 			BlueTeamID: &blueTeam.ID,
 		},
 	}
-	match := &domain.Match{ID: matchID, RoomID: roomID, RoomType: domain.RoomTypeMatch}
+	// Two-phase start: tests that exercise referee-triggered START_MATCH work
+	// against a match whose strategists have already confirmed readiness.
+	// Tests for the readiness gate itself override this back to Pending.
+	match := &domain.Match{ID: matchID, RoomID: roomID, RoomType: domain.RoomTypeMatch, Status: domain.MatchStatusReady}
 	users := map[int64]*domain.User{
 		refereeOsuID:        {ID: bson.NewObjectID(), OnlineID: refereeOsuID, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleReferee}},
 		redStrategistOsuID:  {ID: bson.NewObjectID(), OnlineID: redStrategistOsuID, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleStrategist}},

@@ -242,20 +242,22 @@ type ComplexityRoot struct {
 	}
 
 	Match struct {
-		CaptainView    func(childComplexity int) int
-		Code           func(childComplexity int) int
-		CreatedAt      func(childComplexity int) int
-		ID             func(childComplexity int) int
-		Name           func(childComplexity int) int
-		OverlayView    func(childComplexity int) int
-		Pool           func(childComplexity int) int
-		RefereeView    func(childComplexity int) int
-		Room           func(childComplexity int) int
-		RoomID         func(childComplexity int) int
-		RoomType       func(childComplexity int) int
-		Snapshot       func(childComplexity int) int
-		SpectatorView  func(childComplexity int) int
-		StrategistView func(childComplexity int) int
+		CaptainView         func(childComplexity int) int
+		Code                func(childComplexity int) int
+		CreatedAt           func(childComplexity int) int
+		ID                  func(childComplexity int) int
+		Name                func(childComplexity int) int
+		OverlayView         func(childComplexity int) int
+		Pool                func(childComplexity int) int
+		RefereeView         func(childComplexity int) int
+		Room                func(childComplexity int) int
+		RoomID              func(childComplexity int) int
+		RoomType            func(childComplexity int) int
+		Snapshot            func(childComplexity int) int
+		SpectatorView       func(childComplexity int) int
+		Status              func(childComplexity int) int
+		StrategistReadiness func(childComplexity int) int
+		StrategistView      func(childComplexity int) int
 	}
 
 	MatchActorAnalysis struct {
@@ -385,6 +387,7 @@ type ComplexityRoot struct {
 		DeleteMappool           func(childComplexity int, id string) int
 		DeleteTeam              func(childComplexity int, id string) int
 		GrantAdditionalTime     func(childComplexity int, input ReasonCommandInput) int
+		MarkStrategistReady     func(childComplexity int, roomID string) int
 		PauseTimer              func(childComplexity int, input ReasonCommandInput) int
 		PlacePiece              func(childComplexity int, input PlacePieceInput) int
 		PlaceShiro              func(childComplexity int, input PlaceShiroInput) int
@@ -545,6 +548,11 @@ type ComplexityRoot struct {
 		WonCounts func(childComplexity int) int
 	}
 
+	StrategistReadiness struct {
+		BlueReady func(childComplexity int) int
+		RedReady  func(childComplexity int) int
+	}
+
 	StrategistView struct {
 		Analysis func(childComplexity int) int
 		IsMyTurn func(childComplexity int) int
@@ -633,6 +641,8 @@ type MappoolEntryResolver interface {
 type MatchResolver interface {
 	Room(ctx context.Context, obj *Match) (*Room, error)
 
+	Status(ctx context.Context, obj *Match) (MatchStatus, error)
+	StrategistReadiness(ctx context.Context, obj *Match) (*StrategistReadiness, error)
 	StrategistView(ctx context.Context, obj *Match) (*StrategistView, error)
 	CaptainView(ctx context.Context, obj *Match) (*CaptainView, error)
 	SpectatorView(ctx context.Context, obj *Match) (*SpectatorView, error)
@@ -647,6 +657,7 @@ type MatchPoolSlotMetadataResolver interface {
 	MetadataLastError(ctx context.Context, obj *MatchPoolSlotMetadata) (*string, error)
 }
 type MutationResolver interface {
+	MarkStrategistReady(ctx context.Context, roomID string) (*Match, error)
 	StartMatch(ctx context.Context, input CommandMeta) (*MatchCommandResult, error)
 	ConfirmIRCResult(ctx context.Context, input ConfirmIRCResultInput) (*MatchCommandResult, error)
 	RejectIRCObservation(ctx context.Context, matchID string, observationID string, reason string) (bool, error)
@@ -1628,6 +1639,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Match.SpectatorView(childComplexity), true
+	case "Match.status":
+		if e.ComplexityRoot.Match.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Match.Status(childComplexity), true
+	case "Match.strategistReadiness":
+		if e.ComplexityRoot.Match.StrategistReadiness == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Match.StrategistReadiness(childComplexity), true
 	case "Match.strategistView":
 		if e.ComplexityRoot.Match.StrategistView == nil {
 			break
@@ -2276,6 +2299,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.GrantAdditionalTime(childComplexity, args["input"].(ReasonCommandInput)), true
+	case "Mutation.markStrategistReady":
+		if e.ComplexityRoot.Mutation.MarkStrategistReady == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_markStrategistReady_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.MarkStrategistReady(childComplexity, args["roomId"].(string)), true
 	case "Mutation.pauseTimer":
 		if e.ComplexityRoot.Mutation.PauseTimer == nil {
 			break
@@ -3218,6 +3252,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.StalemateEvidence.WonCounts(childComplexity), true
 
+	case "StrategistReadiness.blueReady":
+		if e.ComplexityRoot.StrategistReadiness.BlueReady == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StrategistReadiness.BlueReady(childComplexity), true
+	case "StrategistReadiness.redReady":
+		if e.ComplexityRoot.StrategistReadiness.RedReady == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StrategistReadiness.RedReady(childComplexity), true
+
 	case "StrategistView.analysis":
 		if e.ComplexityRoot.StrategistView.Analysis == nil {
 			break
@@ -3728,6 +3775,14 @@ type Match {
   room: Room @goField(forceResolver: true)
   pool: [MatchPoolSlotMetadata!]!
 
+  # 比赛状态。两阶段开赛:
+  #   PENDING  → 等待双方策略师点击"准备"
+  #   READY    → 两边策略师已确认;正式比赛等待裁判确认开赛
+  #   ACTIVE   → 已开赛
+  #   FINISHED / CANCELED → 终局
+  status: MatchStatus! @goField(forceResolver: true)
+  strategistReadiness: StrategistReadiness! @goField(forceResolver: true)
+
   # 客户端专属视图 (Phase 2 — Read Model §9.10)
   # 视图字段需要 forceResolver，因为计算逻辑需要重新获取 domain.Match
   strategistView: StrategistView @goField(forceResolver: true)
@@ -3741,6 +3796,17 @@ type Match {
   # 正式比赛唯一权威赛况。
   snapshot: MatchSnapshot!
 }
+
+# 两阶段开赛中策略师"准备"状态的持久化结果。该值一旦置位即不可撤回，
+# 是策略师在 UI 上点击"准备"按钮的纸面痕迹。` + "`" + `redReady` + "`" + ` / ` + "`" + `blueReady` + "`" + `
+# 都为 true 时比赛进入 READY 状态，由后端决定是否触发系统自动开赛
+# (casual / private) 或等待裁判确认 (match)。
+type StrategistReadiness {
+  redReady: Boolean!
+  blueReady: Boolean!
+}
+
+enum MatchStatus { PENDING READY ACTIVE FINISHED CANCELED }
 
 type MatchPoolSlotMetadata {
   poolSlotID: ID!
@@ -4360,6 +4426,10 @@ type MatchCommandResult {
 }
 
 type Mutation {
+  # 第二阶段开赛流程：调用方必须是房间对应队伍的策略师。系统会原子地
+  # 翻转该侧的 readiness 位；当双方都按下后，非正式比赛房间会由系统
+  # 自动触发 START_MATCH，正式比赛则进入 READY 等待裁判确认。
+  markStrategistReady(roomId: ID!): Match!
   startMatch(input: CommandMeta!): MatchCommandResult!
   confirmIRCResult(input: ConfirmIRCResultInput!): MatchCommandResult!
   rejectIRCObservation(matchId: ID!, observationId: ID!, reason: String!): Boolean!
@@ -4813,6 +4883,10 @@ func (ec *executionContext) childFields_Match(ctx context.Context, field graphql
 		return ec.fieldContext_Match_room(ctx, field)
 	case "pool":
 		return ec.fieldContext_Match_pool(ctx, field)
+	case "status":
+		return ec.fieldContext_Match_status(ctx, field)
+	case "strategistReadiness":
+		return ec.fieldContext_Match_strategistReadiness(ctx, field)
 	case "strategistView":
 		return ec.fieldContext_Match_strategistView(ctx, field)
 	case "captainView":
@@ -5271,6 +5345,16 @@ func (ec *executionContext) childFields_StalemateEvidence(ctx context.Context, f
 	return nil, fmt.Errorf("no field named %q was found under type StalemateEvidence", field.Name)
 }
 
+func (ec *executionContext) childFields_StrategistReadiness(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "redReady":
+		return ec.fieldContext_StrategistReadiness_redReady(ctx, field)
+	case "blueReady":
+		return ec.fieldContext_StrategistReadiness_blueReady(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type StrategistReadiness", field.Name)
+}
+
 func (ec *executionContext) childFields_StrategistView(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "isMyTurn":
@@ -5676,6 +5760,20 @@ func (ec *executionContext) field_Mutation_grantAdditionalTime_args(ctx context.
 		return nil, err
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_markStrategistReady_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "roomId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["roomId"] = arg0
 	return args, nil
 }
 
@@ -9855,6 +9953,61 @@ func (ec *executionContext) fieldContext_Match_pool(_ context.Context, field gra
 	return fc, nil
 }
 
+func (ec *executionContext) _Match_status(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Match_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Match().Status(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v MatchStatus) graphql.Marshaler {
+			return ec.marshalNMatchStatus2rctHubBackendᚋinternalᚋgraphqlᚐMatchStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Match_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Match", field, true, true, errors.New("field of type MatchStatus does not have child fields"))
+}
+
+func (ec *executionContext) _Match_strategistReadiness(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Match_strategistReadiness(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Match().StrategistReadiness(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *StrategistReadiness) graphql.Marshaler {
+			return ec.marshalNStrategistReadiness2ᚖrctHubBackendᚋinternalᚋgraphqlᚐStrategistReadiness(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Match_strategistReadiness(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Match",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_StrategistReadiness(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Match_strategistView(ctx context.Context, field graphql.CollectedField, obj *Match) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -12201,6 +12354,50 @@ func (ec *executionContext) fieldContext_MatchSnapshot_stalemate(_ context.Conte
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_StalemateEvidence(ctx, field)
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_markStrategistReady(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_markStrategistReady(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().MarkStrategistReady(ctx, fc.Args["roomId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Match) graphql.Marshaler {
+			return ec.marshalNMatch2ᚖrctHubBackendᚋinternalᚋgraphqlᚐMatch(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_markStrategistReady(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Match(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_markStrategistReady_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -16595,6 +16792,52 @@ func (ec *executionContext) fieldContext_StalemateEvidence_wonCounts(_ context.C
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _StrategistReadiness_redReady(ctx context.Context, field graphql.CollectedField, obj *StrategistReadiness) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StrategistReadiness_redReady(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RedReady, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StrategistReadiness_redReady(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StrategistReadiness", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _StrategistReadiness_blueReady(ctx context.Context, field graphql.CollectedField, obj *StrategistReadiness) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StrategistReadiness_blueReady(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BlueReady, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StrategistReadiness_blueReady(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StrategistReadiness", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _StrategistView_isMyTurn(ctx context.Context, field graphql.CollectedField, obj *StrategistView) (ret graphql.Marshaler) {
@@ -21543,6 +21786,82 @@ func (ec *executionContext) _Match(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "status":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Match_status(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "strategistReadiness":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Match_strategistReadiness(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "strategistView":
 			field := field
 
@@ -22704,6 +23023,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
+		case "markStrategistReady":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_markStrategistReady(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "startMatch":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_startMatch(ctx, field)
@@ -24603,6 +24929,49 @@ func (ec *executionContext) _StalemateEvidence(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var strategistReadinessImplementors = []string{"StrategistReadiness"}
+
+func (ec *executionContext) _StrategistReadiness(ctx context.Context, sel ast.SelectionSet, obj *StrategistReadiness) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, strategistReadinessImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("StrategistReadiness")
+		case "redReady":
+			out.Values[i] = ec._StrategistReadiness_redReady(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "blueReady":
+			out.Values[i] = ec._StrategistReadiness_blueReady(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var strategistViewImplementors = []string{"StrategistView"}
 
 func (ec *executionContext) _StrategistView(ctx context.Context, sel ast.SelectionSet, obj *StrategistView) graphql.Marshaler {
@@ -26213,6 +26582,10 @@ func (ec *executionContext) marshalNMappoolPage2ᚖrctHubBackendᚋinternalᚋgr
 	return ec._MappoolPage(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNMatch2rctHubBackendᚋinternalᚋgraphqlᚐMatch(ctx context.Context, sel ast.SelectionSet, v Match) graphql.Marshaler {
+	return ec._Match(ctx, sel, &v)
+}
+
 func (ec *executionContext) marshalNMatch2ᚕᚖrctHubBackendᚋinternalᚋgraphqlᚐMatchᚄ(ctx context.Context, sel ast.SelectionSet, v []*Match) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
@@ -26473,6 +26846,16 @@ func (ec *executionContext) marshalNMatchSnapshot2ᚖrctHubBackendᚋinternalᚋ
 		return graphql.Null
 	}
 	return ec._MatchSnapshot(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNMatchStatus2rctHubBackendᚋinternalᚋgraphqlᚐMatchStatus(ctx context.Context, v any) (MatchStatus, error) {
+	var res MatchStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMatchStatus2rctHubBackendᚋinternalᚋgraphqlᚐMatchStatus(ctx context.Context, sel ast.SelectionSet, v MatchStatus) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNObjectID2string(ctx context.Context, v any) (string, error) {
@@ -26770,6 +27153,20 @@ func (ec *executionContext) marshalNSpectatorView2ᚖrctHubBackendᚋinternalᚋ
 		return graphql.Null
 	}
 	return ec._SpectatorView(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNStrategistReadiness2rctHubBackendᚋinternalᚋgraphqlᚐStrategistReadiness(ctx context.Context, sel ast.SelectionSet, v StrategistReadiness) graphql.Marshaler {
+	return ec._StrategistReadiness(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNStrategistReadiness2ᚖrctHubBackendᚋinternalᚋgraphqlᚐStrategistReadiness(ctx context.Context, sel ast.SelectionSet, v *StrategistReadiness) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._StrategistReadiness(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {

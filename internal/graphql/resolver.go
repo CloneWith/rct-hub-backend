@@ -111,6 +111,7 @@ type UserFetcher interface {
 
 type PrivateRoomReader interface {
 	GetRoom(context.Context, bson.ObjectID) (*domain.Room, error)
+	MarkStrategistReady(context.Context, int64, bson.ObjectID) (*domain.Match, error)
 }
 
 // TeamReader loads team entities by ID. It backs the room-settings team

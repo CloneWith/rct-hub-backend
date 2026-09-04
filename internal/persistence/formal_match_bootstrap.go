@@ -47,7 +47,7 @@ func (s *FormalMatchBootstrapStore) Create(
 	now time.Time,
 ) error {
 	if roomID == bson.NilObjectID || legacyMatch.ID == bson.NilObjectID || legacyMatch.RoomID != roomID ||
-		legacyMatch.RoomType != domain.RoomTypeMatch || legacyMatch.Code == "" || now.IsZero() {
+		(legacyMatch.RoomType != domain.RoomTypeMatch && legacyMatch.RoomType != domain.RoomTypeCasual && legacyMatch.RoomType != domain.RoomTypePrivate) || legacyMatch.Code == "" || now.IsZero() {
 		return fmt.Errorf("%w: valid room, match, and timestamp are required", ErrFormalMatchBootstrapInvalid)
 	}
 	if legacyMatch.Status != domain.MatchStatusPending || state.Lifecycle != matchengine.LifecycleReady || state.Version != 0 {
@@ -69,7 +69,7 @@ func (s *FormalMatchBootstrapStore) Create(
 	_, err = session.WithTransaction(ctx, func(txCtx context.Context) (any, error) {
 		result, updateErr := s.rooms.UpdateOne(
 			txCtx,
-			bson.M{"_id": roomID, "type": domain.RoomTypeMatch, "match_id": nil},
+			bson.M{"_id": roomID, "match_id": nil},
 			bson.M{"$set": bson.M{"match_id": legacyMatch.ID, "updated_at": now.UTC()}},
 		)
 		if updateErr != nil {
@@ -92,7 +92,7 @@ func (s *FormalMatchBootstrapStore) Create(
 			if findErr != nil {
 				return nil, findErr
 			}
-			if room.Type != domain.RoomTypeMatch {
+			if room.Type != domain.RoomTypeMatch && room.Type != domain.RoomTypeCasual && room.Type != domain.RoomTypePrivate {
 				return nil, ErrFormalMatchBootstrapInvalid
 			}
 			return nil, ErrFormalMatchAlreadyStarted

@@ -22,6 +22,13 @@ type Request struct {
 	CommandID       string
 	CallerOsuID     int64
 	Command         matchengine.Command
+
+	// System marks this command as driven by background orchestration
+	// (e.g. the casual/auto-start path: both strategists have signalled
+	// ready, no human referee is required). System callers bypass the user
+	// lookup and the role gate but still produce a synthesized actor with
+	// AdminOverride=true so the engine attributes the event to the system.
+	System bool
 }
 
 type AuthorizedActor struct {

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"rctHubBackend/internal/domain"
@@ -17,6 +18,14 @@ import (
 type MatchRepository interface {
 	Create(ctx context.Context, match *domain.Match) error
 	Update(ctx context.Context, match *domain.Match) error
+	// UpdateReadiness atomically flips the named team's readiness bit on
+	// the StrategistReadiness subdocument. The caller can attach a
+	// requiredStatus filter so the update only applies when the match is
+	// still in the expected lifecycle (e.g. pending). When the underlying
+	// document is missing entirely the call returns ErrNotFound; when the
+	// document exists but does not match the lifecycle filter, it returns
+	// ErrConflict.
+	UpdateReadiness(ctx context.Context, matchID bson.ObjectID, side domain.TeamSide, requireStatus domain.MatchStatus) (*domain.Match, error)
 	ByID(ctx context.Context, id bson.ObjectID) (*domain.Match, error)
 	ByCode(ctx context.Context, code string) (*domain.Match, error)
 	List(ctx context.Context, params paginate.Params, status *domain.MatchStatus) (paginate.Result[domain.Match], error)
@@ -58,6 +67,50 @@ func (r *matchRepo) Update(ctx context.Context, match *domain.Match) error {
 		return errs.ErrNotFound
 	}
 	return nil
+}
+
+// UpdateReadiness atomically sets the named side's readiness bit on the
+// strategist_readiness sub-document. The filter pins the expected status so
+// a concurrent state transition (e.g. a referee firing START_MATCH) cannot
+// silently resurrect a stale readiness write. The returned Match reflects
+// the post-update state so callers can immediately read the partner side's
+// bit and decide whether to trigger the auto-start path.
+func (r *matchRepo) UpdateReadiness(ctx context.Context, matchID bson.ObjectID, side domain.TeamSide, requireStatus domain.MatchStatus) (*domain.Match, error) {
+	field := ""
+	switch side {
+	case domain.TeamSideRed:
+		field = "strategist_readiness.red_ready"
+	case domain.TeamSideBlue:
+		field = "strategist_readiness.blue_ready"
+	default:
+		return nil, fmt.Errorf("%w: readiness side must be red or blue", errs.ErrInvalidInput)
+	}
+	filter := bson.M{"_id": matchID}
+	if requireStatus != "" {
+		filter["status"] = requireStatus
+	}
+	update := bson.M{
+		"$set": bson.M{
+			field:        true,
+			"updated_at": time.Now().UTC(),
+		},
+	}
+	after := options.After
+	res := r.coll.FindOneAndUpdate(ctx, filter, update, options.FindOneAndUpdate().SetReturnDocument(after).SetUpsert(false))
+	var m domain.Match
+	if err := res.Decode(&m); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			// Distinguish "match is gone" from "match is in the wrong
+			// status" so callers can surface the right error to the
+			// strategist UI.
+			if _, lookupErr := r.ByID(ctx, matchID); lookupErr != nil {
+				return nil, lookupErr
+			}
+			return nil, errs.ErrConflict
+		}
+		return nil, err
+	}
+	return &m, nil
 }
 
 func (r *matchRepo) ByID(ctx context.Context, id bson.ObjectID) (*domain.Match, error) {

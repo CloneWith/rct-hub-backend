@@ -109,6 +109,26 @@ func (r *matchResolver) Room(ctx context.Context, obj *Match) (*Room, error) {
 	return mapRoom(room), nil
 }
 
+// Status returns the lifecycle of the match as a GraphQL enum. The mapping
+// happens in mapFormalMatch so this resolver only re-projects the value
+// (the schema marks it forceResolver to keep the projection explicit).
+func (r *matchResolver) Status(ctx context.Context, obj *Match) (MatchStatus, error) {
+	if obj == nil {
+		return "", fmt.Errorf("match is required")
+	}
+	return obj.Status, nil
+}
+
+// StrategistReadiness projects the persisted sub-document. The mapFormalMatch
+// mapper already populated obj.StrategistReadiness; the resolver keeps the
+// forceResolver projection explicit so the field contract is clear.
+func (r *matchResolver) StrategistReadiness(ctx context.Context, obj *Match) (*StrategistReadiness, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("match is required")
+	}
+	return obj.StrategistReadiness, nil
+}
+
 // StrategistView is the resolver for the strategistView field.
 func (r *matchResolver) StrategistView(ctx context.Context, obj *Match) (*StrategistView, error) {
 	room, user, err := r.privateMatchContext(ctx, obj.ID, obj.RoomID)
@@ -162,7 +182,7 @@ func (r *matchResolver) RefereeView(ctx context.Context, obj *Match) (*RefereeVi
 	if err := authorizeRefereeViewer(user, room); err != nil {
 		return nil, err
 	}
-	return computeRefereeView(obj.ID, obj.State, time.Now().UTC()), nil
+	return computeRefereeView(obj.ID, obj.Status, obj.State, time.Now().UTC()), nil
 }
 
 // Beatmap is the resolver for the beatmap field.
@@ -222,6 +242,48 @@ func (r *matchPoolSlotMetadataResolver) MetadataLastError(ctx context.Context, o
 	}
 	value := record.LastError
 	return &value, nil
+}
+
+// MarkStrategistReady is the resolver for the markStrategistReady field.
+// It loads the caller's role from the JWT claims, hands the room ID off to
+// RoomService.MarkStrategistReady (which performs the strategist / side
+// resolution and fires the auto-start command when appropriate), and
+// re-hydrates the resulting match through the formal read service so the
+// GraphQL response carries the up-to-date snapshot.
+func (r *mutationResolver) MarkStrategistReady(ctx context.Context, roomID string) (*Match, error) {
+	claims, ok := ClaimsFromCtx(ctx)
+	if !ok || claims == nil {
+		return nil, errs.ErrUnauthorized
+	}
+	roomObjectID, err := bson.ObjectIDFromHex(roomID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid room ID: %w", err)
+	}
+	if r.rooms == nil {
+		return nil, fmt.Errorf("room service is unavailable")
+	}
+	if _, err := r.rooms.MarkStrategistReady(ctx, claims.OsuID, roomObjectID); err != nil {
+		return nil, err
+	}
+	if r.formal == nil {
+		return nil, fmt.Errorf("formal match read service is unavailable")
+	}
+	// Re-read via the room so we can pick up the match ID even after the
+	// casual auto-start has flipped the shell to LifecycleActive (the
+	// direct match query would also work but reading via the room keeps
+	// the resolver symmetric with the existing roomResolver.Match hook).
+	room, roomErr := r.rooms.GetRoom(ctx, roomObjectID)
+	if roomErr != nil {
+		return nil, roomErr
+	}
+	if room == nil || room.MatchID == nil {
+		return nil, fmt.Errorf("room has no match attached")
+	}
+	match, err := r.formal.ByID(ctx, *room.MatchID)
+	if err != nil {
+		return nil, err
+	}
+	return mapFormalMatch(match), nil
 }
 
 // StartMatch is the resolver for the startMatch field.

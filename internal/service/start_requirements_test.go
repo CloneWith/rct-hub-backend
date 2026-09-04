@@ -26,7 +26,13 @@ func TestMissingStartRequirements(t *testing.T) {
 		StrategistID: &blueStrategist,
 		Players:      []int64{11, 12, 13, 14, 15, 16, 17, 18},
 	}
-	pool := domain.Mappool{Name: "Pool"}
+	pool := domain.Mappool{
+		Name: "Pool",
+		Entries: []domain.MappoolEntry{
+			{Mod: domain.PieceModNM, Index: 1, BeatmapID: func() *int64 { v := int64(123); return &v }()},
+			{Mod: domain.PieceModTB, Index: 1, BeatmapID: func() *int64 { v := int64(456); return &v }()},
+		},
+	}
 
 	// Match rooms report every missing setting. Red/blue team readiness and
 	// roster size are separate requirements, so an unlinked side is reported
@@ -39,7 +45,8 @@ func TestMissingStartRequirements(t *testing.T) {
 
 	// Casual rooms require the shared baseline only; the explicitly-assigned
 	// referee is a formal-match concept (see domain.Room.RefereeUserID) and
-	// does not block casual start.
+	// does not block casual start. Casual rooms do not require a mappool,
+	// so the TB-only check is not triggered here.
 	room.Type = domain.RoomTypeCasual
 	got = MissingStartRequirements(room, nil, nil, nil)
 	if len(got) != 5 {

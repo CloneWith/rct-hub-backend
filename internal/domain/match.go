@@ -7,14 +7,31 @@ import (
 )
 
 // MatchStatus represents the lifecycle of a match.
+//
+// Pending → Ready is the two-phase pre-game confirmation: once both
+// strategists have toggled their readiness the match transitions to Ready
+// and waits either for the referee (formal rooms) or for an auto-start hook
+// (casual / private rooms). Ready → Active happens through the MatchEngine
+// START_MATCH command path; Active → Finished is the end-of-game transition.
 type MatchStatus string
 
 const (
 	MatchStatusPending  MatchStatus = "pending"
+	MatchStatusReady    MatchStatus = "ready"
 	MatchStatusActive   MatchStatus = "active"
 	MatchStatusFinished MatchStatus = "finished"
 	MatchStatusCanceled MatchStatus = "canceled"
 )
+
+// StrategistReadiness captures the one-shot ready acknowledgement from each
+// team's strategist. The flip is irreversible — once true, the strategist
+// has committed to the match being playable and cannot revoke it. The
+// MatchService is the single writer so the rules around who may flip the bit
+// (and what side-effects the flip triggers) live in one place.
+type StrategistReadiness struct {
+	RedReady  bool `json:"red_ready" bson:"red_ready"`
+	BlueReady bool `json:"blue_ready" bson:"blue_ready"`
+}
 
 // Match represents a single RCT game session.
 type Match struct {
@@ -40,6 +57,12 @@ type Match struct {
 	FinishedAt *time.Time  `json:"finished_at,omitempty" bson:"finished_at,omitempty"`
 	CreatedAt  time.Time   `json:"created_at" bson:"created_at"`
 	UpdatedAt  time.Time   `json:"updated_at" bson:"updated_at"`
+
+	// StrategistReadiness is the one-shot "I am ready" acknowledgement per
+	// team, persisted on the match shell. It survives match re-bootstrap and
+	// is intentional paper trail that the strategist actually pressed the
+	// ready button (rather than being inferred from a side-effect).
+	StrategistReadiness StrategistReadiness `json:"strategist_readiness" bson:"strategist_readiness"`
 }
 
 // TeamSnapshot is the immutable per-side roster snapshot embedded in a match.
@@ -57,11 +80,14 @@ type TeamSnapshot struct {
 }
 
 // NewMatch creates a new match from a room, both team snapshots, and the
-// runtime pool snapshot derived from the linked mappool entity.
+// runtime pool snapshot derived from the linked mappool entity. The match
+// inherits its code from the room (room and match share an invite code) so
+// post-bootstrap lookups by code resolve to either side consistently.
 func NewMatch(room Room, redTeam, blueTeam TeamSnapshot, pool Pool) Match {
 	now := time.Now()
 	return Match{
 		RoomID:    room.ID,
+		Code:      room.Code,
 		RoomType:  room.Type,
 		Name:      room.Name,
 		TeamRed:   redTeam,

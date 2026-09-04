@@ -44,7 +44,7 @@ func TestBuildFormalMatchSeedCreatesReadyAuthoritativeState(t *testing.T) {
 	if seed.State.FirstBan != matchengine.TeamBlue || seed.State.FirstPick != matchengine.TeamRed {
 		t.Fatalf("BP mapping = first ban %q first pick %q", seed.State.FirstBan, seed.State.FirstPick)
 	}
-	if _, ok := seed.State.PoolSlots["Shiro-1"]; !ok {
+	if _, ok := seed.State.PoolSlots["SHIRO"]; !ok {
 		t.Fatalf("Shiro slot missing from mapped pool: %+v", seed.State.PoolSlots)
 	}
 	if _, ok := seed.State.PoolSlots["TB-1"]; !ok {
@@ -60,33 +60,44 @@ func TestBuildFormalMatchSeedRejectsAmbiguousOrInvalidConfiguration(t *testing.T
 
 	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
-		name   string
-		mutate func(room *domain.Room, red, blue *domain.Team, pool *domain.Mappool)
+		name      string
+		mutate    func(room *domain.Room, red, blue *domain.Team, pool *domain.Mappool)
+		wantError bool
 	}{
-		{name: "casual room", mutate: func(room *domain.Room, _, _ *domain.Team, _ *domain.Mappool) {
-			room.Type = domain.RoomTypeCasual
-		}},
 		{name: "seven players", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
 			red.Players = red.Players[:7]
-		}},
+		}, wantError: true},
 		{name: "unready red team", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
 			red.LeaderID = nil
-		}},
-		{name: "missing Shiro", mutate: func(room *domain.Room, _, _ *domain.Team, pool *domain.Mappool) {
+		}, wantError: true},
+		// Shiro is materialized by the factory from a fixed slot id
+		// regardless of whether the mappool happens to declare a Shiro
+		// entry, so deleting the entry no longer breaks the seed.
+		{name: "missing Shiro entry in pool", mutate: func(room *domain.Room, _, _ *domain.Team, pool *domain.Mappool) {
 			pool.Entries = slices.DeleteFunc(pool.Entries, func(e domain.MappoolEntry) bool {
 				return e.Mod == domain.PieceModShiro
 			})
-		}},
+		}, wantError: false},
 		{name: "duplicate player", mutate: func(room *domain.Room, red, blue *domain.Team, _ *domain.Mappool) {
 			blue.Players[7] = red.Players[0]
-		}},
+		}, wantError: true},
+		{name: "casual room type", mutate: func(room *domain.Room, _, _ *domain.Team, _ *domain.Mappool) {
+			room.Type = domain.RoomTypeCasual
+		}, wantError: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			room, redTeam, blueTeam, mappool := formalSeedFixture()
 			tt.mutate(&room, &redTeam, &blueTeam, &mappool)
-			if _, err := BuildFormalMatchSeed(room, &redTeam, &blueTeam, &mappool, now); !errors.Is(err, errs.ErrInvalidInput) {
-				t.Fatalf("error = %v, want invalid input", err)
+			_, err := BuildFormalMatchSeed(room, &redTeam, &blueTeam, &mappool, now)
+			if tt.wantError {
+				if !errors.Is(err, errs.ErrInvalidInput) {
+					t.Fatalf("error = %v, want invalid input", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("error = %v, want nil", err)
 			}
 		})
 	}

@@ -3,6 +3,7 @@ package graphql
 import (
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"rctHubBackend/internal/matchengine"
@@ -23,7 +24,9 @@ func mapFormalMatch(value *service.FormalMatch) *Match {
 		ID: value.ID.Hex(), Code: value.Code, Name: value.Name,
 		RoomType: mapRoomType(value.RoomType), RoomID: value.RoomID.Hex(),
 		CreatedAt: value.CreatedAt, Pool: pool,
-		Snapshot: mapMatchSnapshot(state), State: state,
+		Status:              MatchStatus(strings.ToUpper(string(value.Status))),
+		StrategistReadiness: &StrategistReadiness{RedReady: value.StrategistReadiness.RedReady, BlueReady: value.StrategistReadiness.BlueReady},
+		Snapshot:            mapMatchSnapshot(state), State: state,
 	}
 }
 

@@ -88,7 +88,7 @@ func (r *fakeUserRepo) ByOsuID(ctx context.Context, osuID int64) (*domain.User, 
 	return user, nil
 }
 
-func (r *fakeUserRepo) List(ctx context.Context, params paginate.Params) (paginate.Result[domain.User], error) {
+func (r *fakeUserRepo) List(ctx context.Context, params paginate.Params, search string) (paginate.Result[domain.User], error) {
 	return paginate.Result[domain.User]{}, nil
 }
 

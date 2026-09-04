@@ -258,20 +258,22 @@ type MappoolPage struct {
 }
 
 type Match struct {
-	ID             string                   `json:"id"`
-	Code           string                   `json:"code"`
-	Name           string                   `json:"name"`
-	RoomType       RoomType                 `json:"roomType"`
-	RoomID         string                   `json:"roomID"`
-	Room           *Room                    `json:"room,omitempty"`
-	Pool           []*MatchPoolSlotMetadata `json:"pool"`
-	StrategistView *StrategistView          `json:"strategistView,omitempty"`
-	CaptainView    *CaptainView             `json:"captainView,omitempty"`
-	SpectatorView  *SpectatorView           `json:"spectatorView"`
-	OverlayView    *OverlayView             `json:"overlayView"`
-	RefereeView    *RefereeView             `json:"refereeView,omitempty"`
-	CreatedAt      time.Time                `json:"createdAt"`
-	Snapshot       *MatchSnapshot           `json:"snapshot"`
+	ID                  string                   `json:"id"`
+	Code                string                   `json:"code"`
+	Name                string                   `json:"name"`
+	RoomType            RoomType                 `json:"roomType"`
+	RoomID              string                   `json:"roomID"`
+	Room                *Room                    `json:"room,omitempty"`
+	Pool                []*MatchPoolSlotMetadata `json:"pool"`
+	Status              MatchStatus              `json:"status"`
+	StrategistReadiness *StrategistReadiness     `json:"strategistReadiness"`
+	StrategistView      *StrategistView          `json:"strategistView,omitempty"`
+	CaptainView         *CaptainView             `json:"captainView,omitempty"`
+	SpectatorView       *SpectatorView           `json:"spectatorView"`
+	OverlayView         *OverlayView             `json:"overlayView"`
+	RefereeView         *RefereeView             `json:"refereeView,omitempty"`
+	CreatedAt           time.Time                `json:"createdAt"`
+	Snapshot            *MatchSnapshot           `json:"snapshot"`
 	// Authoritative state captured with this GraphQL object; never exposed directly.
 	State matchengine.State `json:"-"`
 }
@@ -609,6 +611,11 @@ type SpectatorView struct {
 
 type StalemateEvidence struct {
 	WonCounts *TeamCounts `json:"wonCounts"`
+}
+
+type StrategistReadiness struct {
+	RedReady  bool `json:"redReady"`
+	BlueReady bool `json:"blueReady"`
 }
 
 type StrategistView struct {
@@ -1650,6 +1657,67 @@ func (e *MatchResultReason) UnmarshalJSON(b []byte) error {
 }
 
 func (e MatchResultReason) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MatchStatus string
+
+const (
+	MatchStatusPending  MatchStatus = "PENDING"
+	MatchStatusReady    MatchStatus = "READY"
+	MatchStatusActive   MatchStatus = "ACTIVE"
+	MatchStatusFinished MatchStatus = "FINISHED"
+	MatchStatusCanceled MatchStatus = "CANCELED"
+)
+
+var AllMatchStatus = []MatchStatus{
+	MatchStatusPending,
+	MatchStatusReady,
+	MatchStatusActive,
+	MatchStatusFinished,
+	MatchStatusCanceled,
+}
+
+func (e MatchStatus) IsValid() bool {
+	switch e {
+	case MatchStatusPending, MatchStatusReady, MatchStatusActive, MatchStatusFinished, MatchStatusCanceled:
+		return true
+	}
+	return false
+}
+
+func (e MatchStatus) String() string {
+	return string(e)
+}
+
+func (e *MatchStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MatchStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MatchStatus", str)
+	}
+	return nil
+}
+
+func (e MatchStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MatchStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MatchStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

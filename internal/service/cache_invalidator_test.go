@@ -261,7 +261,7 @@ func (r *fakeBeatmapRepo) ByOsuID(_ context.Context, osuID int64) (*domain.Beatm
 	return bm, nil
 }
 
-func (r *fakeBeatmapRepo) List(_ context.Context, params paginate.Params) (paginate.Result[domain.Beatmap], error) {
+func (r *fakeBeatmapRepo) List(_ context.Context, params paginate.Params, search string) (paginate.Result[domain.Beatmap], error) {
 	return paginate.Result[domain.Beatmap]{}, nil
 }
 

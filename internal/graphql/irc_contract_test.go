@@ -14,6 +14,7 @@ import (
 	"rctHubBackend/internal/matchengine"
 	"rctHubBackend/internal/persistence"
 	"rctHubBackend/internal/service"
+	"rctHubBackend/pkg/errs"
 	"rctHubBackend/pkg/jwtutil"
 	"rctHubBackend/pkg/paginate"
 )
@@ -38,6 +39,10 @@ type ircRoomReader struct{ room *domain.Room }
 
 func (r ircRoomReader) GetRoom(context.Context, bson.ObjectID) (*domain.Room, error) {
 	return r.room, nil
+}
+
+func (r ircRoomReader) MarkStrategistReady(context.Context, int64, bson.ObjectID) (*domain.Match, error) {
+	return nil, errs.ErrNotFound
 }
 
 type ircJobReader struct {

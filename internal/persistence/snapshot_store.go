@@ -190,6 +190,24 @@ func (s *SnapshotStore) Create(ctx context.Context, matchID bson.ObjectID, state
 	return nil
 }
 
+// HasSnapshot reports whether an authoritative snapshot exists for the given
+// match ID. It returns false (no error) for the "missing snapshot, legacy
+// row may still exist" case so that recovery paths can probe without having
+// to decode the legacy row separately.
+func (s *SnapshotStore) HasSnapshot(ctx context.Context, matchID bson.ObjectID) (bool, error) {
+	if matchID == bson.NilObjectID {
+		return false, fmt.Errorf("%w: match ID is required", ErrInvalidSnapshotIdentifier)
+	}
+	err := s.snapshots.FindOne(ctx, bson.M{"_id": matchID}, options.FindOne().SetProjection(bson.M{"_id": 1})).Err()
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return false, nil
+	}
+	return false, fmt.Errorf("probe authoritative snapshot: %w", err)
+}
+
 func (s *SnapshotStore) Load(ctx context.Context, matchID bson.ObjectID) (matchengine.State, error) {
 	if matchID == bson.NilObjectID {
 		return matchengine.State{}, fmt.Errorf("%w: match ID is required", ErrInvalidSnapshotIdentifier)

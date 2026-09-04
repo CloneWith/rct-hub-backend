@@ -33,7 +33,7 @@ func NewServices(repos *repository.Repositories, invalidator CacheInvalidator, l
 	}
 
 	return &Services{
-		Rooms:         NewRoomService(repos.Rooms, repos.Matches, repos.Users, repos.Teams, repos.Mappools, repos.FormalMatches, auditLog),
+		Rooms:         NewRoomService(repos.Rooms, repos.Matches, repos.Users, repos.Teams, repos.Mappools, repos.FormalMatches, repos.MatchSnapshots, nil, auditLog),
 		Matchs:        NewMatchService(repos.Matches, repos.Rooms, repos.Teams, repos.Moves, repos.Results),
 		Moves:         NewMoveService(repos.Moves),
 		Users:         NewUserService(repos.Users, invalidator, sessionRevokers...).WithLogger(auditLog),
@@ -43,4 +43,16 @@ func NewServices(repos *repository.Repositories, invalidator CacheInvalidator, l
 		Mappools:      NewMappoolService(repos.Mappools),
 		FormalMatches: NewFormalMatchReadService(repos.Matches, repos.MatchSnapshots),
 	}
+}
+
+// WithMatchCommandDriver wires a MatchCommandDriver into the already-built
+// RoomService. The orchestrator is created later in server lifecycle (it
+// needs the matchcommand store), so this setter closes the wiring loop
+// without forcing NewServices to take a circular dependency. Returns the
+// same *Services for fluent use.
+func (s *Services) WithMatchCommandDriver(driver MatchCommandDriver) *Services {
+	if s != nil && s.Rooms != nil && driver != nil {
+		s.Rooms.matchCommands = driver
+	}
+	return s
 }

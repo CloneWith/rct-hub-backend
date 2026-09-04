@@ -267,6 +267,24 @@ func (r *RoomReader) GetRoom(_ context.Context, id bson.ObjectID) (*domain.Room,
 	return &room, nil
 }
 
+// MarkStrategistReady is a no-op in the fixture-backed harness: the
+// matchmock tool runs offline and does not exercise the two-phase
+// readiness transition. Returning ErrConflict mirrors the production
+// behaviour for a room with no match attached and is enough to keep the
+// interface satisfied.
+func (r *RoomReader) MarkStrategistReady(_ context.Context, _ int64, id bson.ObjectID) (*domain.Match, error) {
+	r.reader.mu.RLock()
+	defer r.reader.mu.RUnlock()
+	room, exists := r.reader.rooms[id]
+	if !exists {
+		return nil, errs.ErrNotFound
+	}
+	if room.MatchID == nil {
+		return nil, errs.ErrConflict
+	}
+	return nil, errs.ErrNotFound
+}
+
 func (r *TeamReader) ByID(_ context.Context, id bson.ObjectID) (*domain.Team, error) {
 	r.reader.mu.RLock()
 	defer r.reader.mu.RUnlock()

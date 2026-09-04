@@ -101,7 +101,7 @@ func BuildSeedData(now time.Time) SeedData {
 		Entries: []domain.MappoolEntry{
 			{Mod: domain.PieceModNM, Index: 1, BeatmapID: &seedBeatmapID, SelectorID: new(int64(1))},
 			{Mod: domain.PieceModHD, Index: 1, BeatmapID: &seedBeatmapID, SelectorID: new(int64(1))},
-			{Mod: domain.PieceModShiro, Index: 1},
+			{Mod: domain.PieceModTB, Index: 1, BeatmapID: &seedBeatmapID, SelectorID: new(int64(1))},
 		},
 		CreatedAt: now,
 		UpdatedAt: now,

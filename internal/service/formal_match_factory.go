@@ -19,12 +19,35 @@ type FormalMatchSeed struct {
 }
 
 // BuildFormalMatchSeed maps organizer-confirmed room configuration into the
-// pure MatchEngine model. Team rosters and the pool come from the Team /
-// Mappool entities linked by the room settings. It does not start play;
-// StartMatch remains a formal command handled by the M4 orchestrator.
+// pure MatchEngine model. All three room types (match, casual, private) flow
+// through this single bootstrap boundary so that every room produces a
+// code-resolvable match backed by an authoritative MatchEngine snapshot.
+//
+// The engine requires exactly one Shiro slot and one TB slot in every
+// configuration (matchengine/model.go: NewReadyState). The factory
+// materialises those two slots directly:
+//
+//   - Shiro is always supplied by the factory as a placeholder slot
+//     (ID="SHIRO"). Any SHIRO entries the mappool happens to declare are
+//     ignored — Shiro carries no beatmap by design.
+//   - The TB slot is sourced from the mappool's first TB entry when one is
+//     linked. For casual and private rooms without a linked mappool, the
+//     factory substitutes a synthetic TB slot (ID="TB") so the engine can
+//     still start. Match rooms must link a mappool that has at least one
+//     TB entry; that constraint is enforced by MissingStartRequirements
+//     below.
+//
+// Per-room-type requirements are still enforced up front by
+// MissingStartRequirements; StartMatch remains the formal command that
+// authorizes this seed.
 func BuildFormalMatchSeed(room domain.Room, redTeam, blueTeam *domain.Team, mappool *domain.Mappool, now time.Time) (FormalMatchSeed, error) {
-	if room.ID == bson.NilObjectID || room.Type != domain.RoomTypeMatch {
-		return FormalMatchSeed{}, fmt.Errorf("%w: a persisted tournament room is required", errs.ErrInvalidInput)
+	if room.ID == bson.NilObjectID {
+		return FormalMatchSeed{}, fmt.Errorf("%w: a persisted room is required", errs.ErrInvalidInput)
+	}
+	switch room.Type {
+	case domain.RoomTypeMatch, domain.RoomTypeCasual, domain.RoomTypePrivate:
+	default:
+		return FormalMatchSeed{}, fmt.Errorf("%w: unsupported room type %q", errs.ErrInvalidInput, room.Type)
 	}
 	if now.IsZero() {
 		return FormalMatchSeed{}, fmt.Errorf("%w: creation timestamp is required", errs.ErrInvalidInput)
@@ -40,7 +63,7 @@ func BuildFormalMatchSeed(room domain.Room, redTeam, blueTeam *domain.Team, mapp
 		}
 		return FormalMatchSeed{}, errs.NewValidationError(fields...)
 	}
-	if mappool == nil {
+	if room.Type == domain.RoomTypeMatch && mappool == nil {
 		return FormalMatchSeed{}, errs.NewValidationError(
 			errs.FieldError{Field: "settings.mappool_id", Rule: "required", Message: "a mappool must be linked before starting the match"},
 		)
@@ -55,9 +78,12 @@ func BuildFormalMatchSeed(room domain.Room, redTeam, blueTeam *domain.Team, mapp
 		return FormalMatchSeed{}, fmt.Errorf("%w: invalid MatchEngine configuration: %v", errs.ErrInvalidInput, err)
 	}
 
-	legacy := domain.NewMatch(room, redTeam.Snapshot(domain.TeamSideRed), blueTeam.Snapshot(domain.TeamSideBlue), mappool.ToRuntime())
+	pool := domain.NewPool()
+	if mappool != nil {
+		pool = mappool.ToRuntime()
+	}
+	legacy := domain.NewMatch(room, redTeam.Snapshot(domain.TeamSideRed), blueTeam.Snapshot(domain.TeamSideBlue), pool)
 	legacy.ID = bson.NewObjectID()
-	legacy.Code = room.Code
 	legacy.BPOrder = domain.BPOrder{FirstPick: *room.Settings.FirstPick, FirstBan: *room.Settings.FirstBan}
 	legacy.Status = domain.MatchStatusPending
 	legacy.CreatedAt = now.UTC()
@@ -66,33 +92,64 @@ func BuildFormalMatchSeed(room domain.Room, redTeam, blueTeam *domain.Team, mapp
 	return FormalMatchSeed{LegacyMatch: legacy, State: state}, nil
 }
 
+// engineConfigurationFromEntities builds the engine-side Configuration from
+// the optional mappool and the two team entities. The returned PoolSlots
+// always contain exactly one Shiro and exactly one TB slot:
+//
+//   - Shiro is added unconditionally as ID="SHIRO"; any Shiro entries the
+//     mappool declares are dropped (Shiro is a placeholder and must not
+//     bind to a beatmap).
+//   - TB comes from the first TB entry in the linked mappool, or — for
+//     casual/private rooms without a mappool — a synthetic ID="TB" slot
+//     with no beatmap. Match rooms that link a mappool without a TB entry
+//     fail MissingStartRequirements upstream and never reach this branch.
 func engineConfigurationFromEntities(mappool *domain.Mappool, redTeam, blueTeam *domain.Team, firstPick, firstBan *domain.TeamSide) (matchengine.Configuration, error) {
-	runtimePool := mappool.ToRuntime()
-	poolSlots := make([]matchengine.PoolSlot, 0, len(mappool.Entries))
-	// Canonical mod order: NM, HD, HR, DT, FM, Shiro, TB. Within a group the
-	// runtime pieces are ordered by entry index, so the slot ID matches the
-	// entity's per-mod numbering. Entity-derived pools are always fresh
-	// (pieces start NORMAL), unlike the legacy inline pool.
 	modOrder := []domain.PieceMod{
 		domain.PieceModNM, domain.PieceModHD, domain.PieceModHR, domain.PieceModDT,
-		domain.PieceModFM, domain.PieceModShiro, domain.PieceModTB,
+		domain.PieceModFM,
 	}
-	for _, mod := range modOrder {
-		pieces := runtimePool.Slots[mod]
-		if len(pieces) == 0 {
-			continue
-		}
-		engineMod, ok := engineModFromDomain(mod)
-		if !ok {
-			return matchengine.Configuration{}, fmt.Errorf("%w: unsupported pool mod %q", errs.ErrInvalidInput, mod)
-		}
-		for index := range pieces {
-			poolSlots = append(poolSlots, matchengine.PoolSlot{
-				ID:  domain.PoolSlot{Mod: mod, Index: index + 1}.String(),
-				Mod: engineMod,
-			})
+	poolSlots := make([]matchengine.PoolSlot, 0)
+	if mappool != nil {
+		runtimePool := mappool.ToRuntime()
+		// Walk the canonical mod order so slot IDs are deterministic. SHIRO
+		// entries are intentionally skipped: the factory always installs a
+		// synthetic SHIRO slot below.
+		for _, mod := range modOrder {
+			pieces := runtimePool.Slots[mod]
+			if len(pieces) == 0 {
+				continue
+			}
+			engineMod, ok := engineModFromDomain(mod)
+			if !ok {
+				return matchengine.Configuration{}, fmt.Errorf("%w: unsupported pool mod %q", errs.ErrInvalidInput, mod)
+			}
+			for index := range pieces {
+				poolSlots = append(poolSlots, matchengine.PoolSlot{
+					ID:  domain.PoolSlot{Mod: mod, Index: index + 1}.String(),
+					Mod: engineMod,
+				})
+			}
 		}
 	}
+
+	// Synthetic Shiro: a placeholder mod the engine uses for the white
+	// neutral piece. It carries no beatmap reference; it is intentionally
+	// not derived from any mappool entry.
+	poolSlots = append(poolSlots, matchengine.PoolSlot{ID: "SHIRO", Mod: matchengine.ModShiro})
+
+	// TB: prefer the first TB entry from the linked mappool. If no mappool
+	// is linked (casual/private rooms without a beatmap), substitute a
+	// synthetic TB slot so the engine can still start.
+	tbSlot := matchengine.PoolSlot{ID: "TB", Mod: matchengine.ModTB}
+	if mappool != nil {
+		for _, entry := range mappool.SortedEntries() {
+			if entry.Mod == domain.PieceModTB {
+				tbSlot.ID = domain.PoolSlot{Mod: domain.PieceModTB, Index: entry.Index}.String()
+				break
+			}
+		}
+	}
+	poolSlots = append(poolSlots, tbSlot)
 
 	return matchengine.Configuration{
 		FirstBan:  engineTeamFromDomain(*firstBan),
@@ -110,6 +167,8 @@ func engineConfigurationFromEntities(mappool *domain.Mappool, redTeam, blueTeam 
 		},
 		// Formal rooms currently expose no timer-preset setting, so the
 		// organizer-confirmed RCTS1 preset is frozen into the new aggregate.
+		// Casual and private rooms (no mappool) reuse the same standard timer
+		// configuration; the engine is happy to start with zero pool slots.
 		Timers: matchengine.StandardTimerConfiguration(),
 	}, nil
 }

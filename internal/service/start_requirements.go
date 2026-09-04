@@ -14,6 +14,12 @@ import (
 // (leader + strategist) applies to every room type (R1). Match rooms add the
 // roster-size, MP-link, and assigned-referee requirements.
 //
+// TB beatmap hard requirement: the engine requires exactly one TB slot per
+// configuration, and match rooms must source that slot from a mappool
+// entity. Casual and private rooms may run without a mappool; in that case
+// the factory substitutes a synthetic TB slot, so MissingStartRequirements
+// only enforces the TB entry when a mappool is actually linked.
+//
 // Casual rooms require only the shared baseline (scheduled time + ready
 // teams + first-pick/first-ban). The explicitly-assigned referee is a
 // formal-match concept — domain.Room.RefereeUserID notes that it is reserved
@@ -47,6 +53,13 @@ func MissingStartRequirements(room domain.Room, redTeam, blueTeam *domain.Team, 
 			require("settings.blue_team_id", playersAtLeast(blueTeam, 4))
 			require("settings.mappool_id", mappool != nil)
 			require("settings.mp_link", room.Settings.MPLink != nil && *room.Settings.MPLink != "")
+		}
+		// When a mappool is linked the engine still needs at least one TB
+		// entry. ValidateEntries already enforces this for new pools; the
+		// runtime check guards against legacy / hand-edited mappools that
+		// might have slipped past validation.
+		if mappool != nil && !mappool.HasTBEntry() {
+			require("settings.mappool_id.entries[].mod=tb", false)
 		}
 	case domain.RoomTypePrivate:
 		// No requirements.

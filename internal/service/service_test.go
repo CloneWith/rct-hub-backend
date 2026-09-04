@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -75,8 +76,14 @@ func formalRoomFixture() domain.Room {
 func readyTestTeam(strategist int64) domain.Team {
 	leader := strategist + 1000
 	return domain.Team{
-		ID: bson.NewObjectID(), LeaderID: &leader, StrategistID: &strategist,
-		Players: []int64{leader, strategist, strategist + 1, strategist + 2},
+		ID:           bson.NewObjectID(),
+		LeaderID:     &leader,
+		StrategistID: &strategist,
+		Players: []int64{
+			leader, strategist,
+			strategist + 1, strategist + 2, strategist + 3,
+			strategist + 4, strategist + 5, strategist + 6,
+		},
 	}
 }
 
@@ -116,6 +123,9 @@ func newFakeRoomRepo() *fakeRoomRepo {
 func (r *fakeRoomRepo) Create(ctx context.Context, room *domain.Room) error {
 	if _, ok := r.rooms[room.ID]; ok {
 		return errs.ErrAlreadyExists
+	}
+	if room.ID == bson.NilObjectID {
+		room.ID = bson.NewObjectID()
 	}
 	r.rooms[room.ID] = room
 	r.codes[room.Code] = room
@@ -225,6 +235,30 @@ func (r *fakeMatchRepo) Update(ctx context.Context, match *domain.Match) error {
 	return nil
 }
 
+// UpdateReadiness flips the named side's readiness bit on the stored
+// match. The fake reuses the repository contract: it returns ErrConflict
+// when the match exists but is not in the required status. Used by the
+// MarkStrategistReady service tests.
+func (r *fakeMatchRepo) UpdateReadiness(_ context.Context, matchID bson.ObjectID, side domain.TeamSide, requireStatus domain.MatchStatus) (*domain.Match, error) {
+	match, ok := r.matches[matchID]
+	if !ok {
+		return nil, errs.ErrNotFound
+	}
+	if requireStatus != "" && match.Status != requireStatus {
+		return nil, errs.ErrConflict
+	}
+	switch side {
+	case domain.TeamSideRed:
+		match.StrategistReadiness.RedReady = true
+	case domain.TeamSideBlue:
+		match.StrategistReadiness.BlueReady = true
+	default:
+		return nil, fmt.Errorf("%w: readiness side must be red or blue", errs.ErrInvalidInput)
+	}
+	match.UpdatedAt = time.Now().UTC()
+	return match, nil
+}
+
 func (r *fakeMatchRepo) ByID(ctx context.Context, id bson.ObjectID) (*domain.Match, error) {
 	match, ok := r.matches[id]
 	if !ok {
@@ -325,7 +359,7 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	matches := newFakeMatchRepo()
 	users := newFakeUserRepo()
 	_ = users.Create(ctx, &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RolePlayer}})
-	svc := NewRoomService(rooms, matches, users, nil, nil, nil, nil)
+	svc := NewRoomService(rooms, matches, users, nil, nil, nil, nil, nil, nil)
 
 	room, err := svc.CreateRoom(ctx, 1, domain.RoomTypeCasual, "Test Room")
 	if err != nil {
@@ -340,7 +374,8 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	teams := newFakeTeamRepo()
 	_ = teams.Create(ctx, &redTeam)
 	_ = teams.Create(ctx, &blueTeam)
-	svc = NewRoomService(rooms, matches, users, teams, newFakeMappoolRepo(), nil, nil)
+	bootstrap := &fakeFormalBootstrap{room: rooms.rooms[room.ID]}
+	svc = NewRoomService(rooms, matches, users, teams, newFakeMappoolRepo(), bootstrap, nil, nil, nil)
 	if _, err := svc.SetTeams(ctx, 1, room.ID, &redTeam.ID, &blueTeam.ID); err != nil {
 		t.Fatalf("set teams: %v", err)
 	}
@@ -359,14 +394,23 @@ func TestRoomServiceCreateAndStartMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start match: %v", err)
 	}
-	if match.Status != domain.MatchStatusActive {
-		t.Errorf("expected match active, got %s", match.Status)
+	// StartMatch today only opens the match shell: a MatchSnapshot
+	// (Lifecycle==LifecycleReady) is paired with the room and the match
+	// sits in MatchStatusPending waiting for both strategists to mark
+	// ready (and the referee, for formal rooms, to fire START_MATCH).
+	if match.Status != domain.MatchStatusPending {
+		t.Errorf("expected match pending after StartMatch, got %s", match.Status)
 	}
-	if match.TurnState.Phase != domain.MatchPhaseBan {
-		t.Errorf("expected ban phase, got %s", match.TurnState.Phase)
+	if match.RoomID != room.ID {
+		t.Errorf("expected match shell to point at the room, got %s", match.RoomID.Hex())
 	}
-	if *match.TurnState.ActiveTeam != domain.TeamSideBlue {
-		t.Errorf("expected first ban team blue, got %s", *match.TurnState.ActiveTeam)
+	// The shell must inherit the room's invite code so board pages and the
+	// GraphQL matchByCode query see a single canonical code.
+	if match.Code != room.Code {
+		t.Errorf("expected match code %q, got %q", room.Code, match.Code)
+	}
+	if match.RoomType != room.Type {
+		t.Errorf("expected match room type %q, got %q", room.Type, match.RoomType)
 	}
 }
 
@@ -378,7 +422,7 @@ func TestFormalRoomCreationAssignsItsInitialReferee(t *testing.T) {
 	if err := users.Create(ctx, referee); err != nil {
 		t.Fatal(err)
 	}
-	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil)
+	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil, nil, nil)
 	room, err := svc.CreateRoom(ctx, referee.OnlineID, domain.RoomTypeMatch, "Formal")
 	if err != nil {
 		t.Fatalf("create formal room: %v", err)
@@ -405,7 +449,7 @@ func TestOnlyAdminCanAssignFormalRoomReferee(t *testing.T) {
 	if err := rooms.Create(ctx, room); err != nil {
 		t.Fatal(err)
 	}
-	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil)
+	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil, nil, nil)
 	if _, err := svc.SetReferee(ctx, referee.OnlineID, room.ID, &otherReferee.OnlineID); !errors.Is(err, errs.ErrForbidden) {
 		t.Fatalf("referee reassignment error = %v, want forbidden", err)
 	}
@@ -432,7 +476,7 @@ func TestAdminCanUpdateRoomMetadataAndClearOptionalFields(t *testing.T) {
 	if err := rooms.Create(ctx, room); err != nil {
 		t.Fatal(err)
 	}
-	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil)
+	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil, nil, nil)
 	scheduled := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
 	streamer := int64(30)
 	updated, err := svc.UpdateRoomMetadata(ctx, admin.OnlineID, room.ID, RoomMetadataUpdate{
@@ -469,7 +513,7 @@ func TestOnlyAdminCanUpdateRoomMetadataAndSetupIsLocked(t *testing.T) {
 	if err := rooms.Create(ctx, room); err != nil {
 		t.Fatal(err)
 	}
-	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil)
+	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil, nil, nil)
 	if _, err := svc.UpdateRoomMetadata(ctx, referee.OnlineID, room.ID, RoomMetadataUpdate{Name: "nope"}); !errors.Is(err, errs.ErrForbidden) {
 		t.Fatalf("non-admin update error = %v, want forbidden", err)
 	}
@@ -502,7 +546,7 @@ func TestAdminCanPartiallyUpdateRoomMetadata(t *testing.T) {
 	if err := rooms.Create(ctx, room); err != nil {
 		t.Fatal(err)
 	}
-	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil)
+	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil, nil, nil)
 
 	name := "renamed"
 	round := "quarterfinal"
@@ -542,7 +586,7 @@ func TestAdminCannotAssignRefereeToNonFormalRoom(t *testing.T) {
 	_ = users.Create(ctx, referee)
 	room := &domain.Room{ID: bson.NewObjectID(), Type: domain.RoomTypeCasual, OwnerID: admin.OnlineID, Name: "casual"}
 	_ = rooms.Create(ctx, room)
-	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil)
+	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil, nil, nil)
 	if _, err := svc.UpdateRoomMetadata(ctx, admin.OnlineID, room.ID, RoomMetadataUpdate{Name: "casual", RefereeUserID: &referee.OnlineID}); !errors.Is(err, errs.ErrInvalidInput) {
 		t.Fatalf("casual referee assignment error = %v, want invalid input", err)
 	}
@@ -566,7 +610,7 @@ func TestFormalRoomUsesAuthoritativeBootstrap(t *testing.T) {
 	_ = teams.Create(ctx, &blueTeam)
 	pools := newFakeMappoolRepo()
 	_ = pools.Create(ctx, &pool)
-	svc := NewRoomService(rooms, matches, users, teams, pools, bootstrap, nil)
+	svc := NewRoomService(rooms, matches, users, teams, pools, bootstrap, nil, nil, nil)
 	match, err := svc.StartMatch(ctx, room.OwnerID, room.ID)
 	if err != nil {
 		t.Fatalf("formal StartMatch: %v", err)
@@ -597,7 +641,7 @@ func TestFormalStartIsIdempotentAfterBootstrap(t *testing.T) {
 	_ = teams.Create(ctx, &blueTeam)
 	pools := newFakeMappoolRepo()
 	_ = pools.Create(ctx, &pool)
-	svc := NewRoomService(rooms, matches, users, teams, pools, bootstrap, nil)
+	svc := NewRoomService(rooms, matches, users, teams, pools, bootstrap, nil, nil, nil)
 	first, err := svc.StartMatch(ctx, room.OwnerID, room.ID)
 	if err != nil {
 		t.Fatalf("first formal StartMatch: %v", err)
@@ -640,7 +684,7 @@ func TestFormalStartRecoversWhenBootstrapResponseIsLost(t *testing.T) {
 	_ = teams.Create(ctx, &blueTeam)
 	pools := newFakeMappoolRepo()
 	_ = pools.Create(ctx, &pool)
-	svc := NewRoomService(rooms, matches, users, teams, pools, bootstrap, nil)
+	svc := NewRoomService(rooms, matches, users, teams, pools, bootstrap, nil, nil, nil)
 	recovered, err := svc.StartMatch(ctx, room.OwnerID, room.ID)
 	if err != nil {
 		t.Fatalf("formal StartMatch recovery: %v", err)
@@ -666,7 +710,7 @@ func TestRoomConfigurationUsesCurrentAccountAndOwnership(t *testing.T) {
 	formal := &domain.Room{ID: bson.NewObjectID(), Code: "FORMAL-AUTH", Type: domain.RoomTypeMatch, OwnerID: owner.OnlineID, RefereeUserID: &formalReferee, Settings: domain.RoomSettings{}}
 	_ = rooms.Create(ctx, casual)
 	_ = rooms.Create(ctx, formal)
-	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil, nil, nil, nil)
+	svc := NewRoomService(rooms, newFakeMatchRepo(), users, nil, nil, nil, nil, nil, nil)
 
 	if _, err := svc.SetMPLink(ctx, other.OnlineID, casual.ID, "https://example.test/mp"); !errors.Is(err, errs.ErrForbidden) {
 		t.Fatalf("non-owner error = %v", err)
@@ -713,7 +757,7 @@ func TestFormalRefereeCanOnlyUpdateMPLinkAmongRoomSetupEndpoints(t *testing.T) {
 	_ = teams.Create(ctx, &blueTeam)
 	pools := newFakeMappoolRepo()
 	_ = pools.Create(ctx, &pool)
-	svc := NewRoomService(rooms, newFakeMatchRepo(), users, teams, pools, nil, nil)
+	svc := NewRoomService(rooms, newFakeMatchRepo(), users, teams, pools, nil, nil, nil, nil)
 	if _, err := svc.SetTeams(ctx, referee.OnlineID, room.ID, &redTeam.ID, &blueTeam.ID); !errors.Is(err, errs.ErrForbidden) {
 		t.Fatalf("referee teams error = %v, want forbidden", err)
 	}
@@ -751,7 +795,7 @@ func TestRoomSetupWriteCannotRaceFormalBootstrap(t *testing.T) {
 	teams := newFakeTeamRepo()
 	_ = teams.Create(ctx, &redTeam)
 	_ = teams.Create(ctx, &blueTeam)
-	svc := NewRoomService(rooms, newFakeMatchRepo(), users, teams, nil, nil, nil)
+	svc := NewRoomService(rooms, newFakeMatchRepo(), users, teams, nil, nil, nil, nil, nil)
 	if _, err := svc.SetTeams(ctx, admin.OnlineID, room.ID, &redTeam.ID, &blueTeam.ID); !errors.Is(err, errs.ErrConflict) {
 		t.Fatalf("racing setup write error = %v, want conflict", err)
 	}
@@ -877,4 +921,222 @@ func makeTestMatch() *domain.Match {
 	match.Mappool.Slots[domain.PieceModHD] = []domain.Piece{{}, {}, {}}
 	match.TurnState.StartBan(match.BPOrder)
 	return match
+}
+
+// readyMatchCmdDriver captures StartMatchSystem invocations so the auto-start
+// path can be asserted in tests without spinning up an orchestrator.
+type readyMatchCmdDriver struct {
+	calls    int
+	lastArgs struct {
+		matchID         bson.ObjectID
+		expectedVersion uint64
+	}
+	err error
+}
+
+func (d *readyMatchCmdDriver) StartMatchSystem(_ context.Context, matchID bson.ObjectID, expectedVersion uint64, _ time.Time) error {
+	d.calls++
+	d.lastArgs.matchID = matchID
+	d.lastArgs.expectedVersion = expectedVersion
+	return d.err
+}
+
+// bootstrapAndSeedForReady creates a casual room and persists a started match
+// shell, ready for the MarkStrategistReady tests below.
+func bootstrapAndSeedForReady(t *testing.T, ctx context.Context, rooms *fakeRoomRepo, matches *fakeMatchRepo, teams *fakeTeamRepo) (*domain.Room, *domain.Match, *domain.Team, *domain.Team) {
+	t.Helper()
+	redTeam, blueTeam := readyTestTeam(10), readyTestTeam(20)
+	if err := teams.Create(ctx, &redTeam); err != nil {
+		t.Fatal(err)
+	}
+	if err := teams.Create(ctx, &blueTeam); err != nil {
+		t.Fatal(err)
+	}
+	room := &domain.Room{
+		ID:       bson.NewObjectID(),
+		Code:     "READY" + string(redTeam.ID.Hex()[0:3]),
+		Type:     domain.RoomTypeCasual,
+		OwnerID:  1,
+		Settings: domain.RoomSettings{RedTeamID: &redTeam.ID, BlueTeamID: &blueTeam.ID, FirstPick: ptrSide(domain.TeamSideRed), FirstBan: ptrSide(domain.TeamSideBlue)},
+	}
+	if err := rooms.Create(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	matchID := bson.NewObjectID()
+	room.MatchID = &matchID
+	if err := rooms.Update(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	match := &domain.Match{
+		ID: matchID, RoomID: room.ID, RoomType: room.Type, Code: room.Code,
+		Status:              domain.MatchStatusPending,
+		StrategistReadiness: domain.StrategistReadiness{},
+	}
+	if err := matches.Create(ctx, match); err != nil {
+		t.Fatal(err)
+	}
+	return room, match, &redTeam, &blueTeam
+}
+
+func ptrSide(side domain.TeamSide) *domain.TeamSide { return &side }
+
+func TestMarkStrategistReadyRecordsOneSidedBit(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	matches := newFakeMatchRepo()
+	users := newFakeUserRepo()
+	teams := newFakeTeamRepo()
+	redTeam, blueTeam := readyTestTeam(10), readyTestTeam(20)
+	_ = teams.Create(ctx, &redTeam)
+	_ = teams.Create(ctx, &blueTeam)
+	owner := &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified}
+	_ = users.Create(ctx, owner)
+	svc := NewRoomService(rooms, matches, users, teams, nil, nil, nil, nil, nil)
+	room, _, _, _ := bootstrapAndSeedForReady(t, ctx, rooms, matches, teams)
+	red, err := svc.MarkStrategistReady(ctx, *redTeam.StrategistID, room.ID)
+	if err != nil {
+		t.Fatalf("first strategist ready: %v", err)
+	}
+	if !red.StrategistReadiness.RedReady || red.StrategistReadiness.BlueReady {
+		t.Fatalf("expected only red side ready, got %+v", red.StrategistReadiness)
+	}
+	if red.Status != domain.MatchStatusPending {
+		t.Fatalf("expected match still pending after first ready, got %s", red.Status)
+	}
+	// Repeating the same call is a no-op (idempotent re-render).
+	red2, err := svc.MarkStrategistReady(ctx, *redTeam.StrategistID, room.ID)
+	if err != nil {
+		t.Fatalf("idempotent ready: %v", err)
+	}
+	if !red2.StrategistReadiness.RedReady {
+		t.Fatalf("idempotent call should preserve the bit, got %+v", red2.StrategistReadiness)
+	}
+}
+
+func TestMarkStrategistReadyAutoStartsCasualMatch(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	matches := newFakeMatchRepo()
+	users := newFakeUserRepo()
+	teams := newFakeTeamRepo()
+	driver := &readyMatchCmdDriver{}
+	svc := NewRoomService(rooms, matches, users, teams, nil, nil, nil, driver, nil)
+	room, match, redTeam, blueTeam := bootstrapAndSeedForReady(t, ctx, rooms, matches, teams)
+	if _, err := svc.MarkStrategistReady(ctx, *redTeam.StrategistID, room.ID); err != nil {
+		t.Fatalf("red ready: %v", err)
+	}
+	// Auto-start has not fired yet — only one side is ready.
+	if driver.calls != 0 {
+		t.Fatalf("auto-start fired too early: calls=%d", driver.calls)
+	}
+	final, err := svc.MarkStrategistReady(ctx, *blueTeam.StrategistID, room.ID)
+	if err != nil {
+		t.Fatalf("blue ready: %v", err)
+	}
+	if driver.calls != 1 {
+		t.Fatalf("auto-start expected exactly once, got %d", driver.calls)
+	}
+	if driver.lastArgs.matchID != match.ID {
+		t.Fatalf("auto-start fired for the wrong match: got %s want %s", driver.lastArgs.matchID.Hex(), match.ID.Hex())
+	}
+	if !final.StrategistReadiness.RedReady || !final.StrategistReadiness.BlueReady {
+		t.Fatalf("both sides should be ready, got %+v", final.StrategistReadiness)
+	}
+}
+
+func TestMarkStrategistReadyWaitsForRefereeOnFormalMatch(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	matches := newFakeMatchRepo()
+	users := newFakeUserRepo()
+	teams := newFakeTeamRepo()
+	driver := &readyMatchCmdDriver{}
+	svc := NewRoomService(rooms, matches, users, teams, nil, nil, nil, driver, nil)
+	redTeam, blueTeam := readyTestTeam(10), readyTestTeam(20)
+	_ = teams.Create(ctx, &redTeam)
+	_ = teams.Create(ctx, &blueTeam)
+	referee := int64(999)
+	room := &domain.Room{
+		ID:       bson.NewObjectID(),
+		Code:     "FORMAL1",
+		Type:     domain.RoomTypeMatch,
+		OwnerID:  1,
+		Settings: domain.RoomSettings{RedTeamID: &redTeam.ID, BlueTeamID: &blueTeam.ID, FirstPick: ptrSide(domain.TeamSideRed), FirstBan: ptrSide(domain.TeamSideBlue)},
+	}
+	room.RefereeUserID = &referee
+	if err := rooms.Create(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	matchID := bson.NewObjectID()
+	room.MatchID = &matchID
+	if err := rooms.Update(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	if err := matches.Create(ctx, &domain.Match{
+		ID: matchID, RoomID: room.ID, RoomType: room.Type, Code: room.Code,
+		Status: domain.MatchStatusPending,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.MarkStrategistReady(ctx, *redTeam.StrategistID, room.ID); err != nil {
+		t.Fatalf("red ready: %v", err)
+	}
+	final, err := svc.MarkStrategistReady(ctx, *blueTeam.StrategistID, room.ID)
+	if err != nil {
+		t.Fatalf("blue ready: %v", err)
+	}
+	// Auto-start MUST NOT fire for a formal room; the referee still owns
+	// the engine START_MATCH call.
+	if driver.calls != 0 {
+		t.Fatalf("auto-start must not fire on formal rooms, got %d", driver.calls)
+	}
+	if final.Status != domain.MatchStatusPending {
+		t.Fatalf("formal room should stay in pending until referee acts, got %s", final.Status)
+	}
+	if !final.StrategistReadiness.RedReady || !final.StrategistReadiness.BlueReady {
+		t.Fatalf("both strategists should be marked ready, got %+v", final.StrategistReadiness)
+	}
+}
+
+func TestMarkStrategistReadyRejectsNonStrategist(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	matches := newFakeMatchRepo()
+	users := newFakeUserRepo()
+	teams := newFakeTeamRepo()
+	svc := NewRoomService(rooms, matches, users, teams, nil, nil, nil, nil, nil)
+	room, _, _, _ := bootstrapAndSeedForReady(t, ctx, rooms, matches, teams)
+	if _, err := svc.MarkStrategistReady(ctx, 1, room.ID); !errors.Is(err, errs.ErrForbidden) {
+		t.Fatalf("expected forbidden for non-strategist caller, got %v", err)
+	}
+}
+
+func TestMarkStrategistReadyRequiresStartedMatch(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	matches := newFakeMatchRepo()
+	users := newFakeUserRepo()
+	teams := newFakeTeamRepo()
+	svc := NewRoomService(rooms, matches, users, teams, nil, nil, nil, nil, nil)
+	redTeam, blueTeam := readyTestTeam(10), readyTestTeam(20)
+	_ = teams.Create(ctx, &redTeam)
+	_ = teams.Create(ctx, &blueTeam)
+	room := &domain.Room{
+		ID:       bson.NewObjectID(),
+		Code:     "NOSTART",
+		Type:     domain.RoomTypeCasual,
+		OwnerID:  1,
+		Settings: domain.RoomSettings{RedTeamID: &redTeam.ID, BlueTeamID: &blueTeam.ID},
+	}
+	if err := rooms.Create(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.MarkStrategistReady(ctx, *redTeam.StrategistID, room.ID); !errors.Is(err, errs.ErrConflict) {
+		t.Fatalf("expected conflict for room without a match, got %v", err)
+	}
 }
