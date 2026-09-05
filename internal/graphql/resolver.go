@@ -8,6 +8,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.uber.org/zap"
 
 	"rctHubBackend/internal/beatmapmetadata"
 	"rctHubBackend/internal/domain"
@@ -156,6 +157,7 @@ type Resolver struct {
 	ircJobs    IRCJobReader
 	ircStatus  IRCStatusReader
 	fetcher    UserFetcher
+	logger     *zap.Logger
 }
 
 func (r *Resolver) WithIRCReader(reader IRCObservationReader) *Resolver { r.irc = reader; return r }
@@ -172,8 +174,29 @@ func (r *Resolver) WithAutomationIssues(reader AutomationIssueReader) *Resolver 
 	return r
 }
 
+// WithLogger attaches a zap logger used by the GraphQL error presenter to
+// surface resolver failures in the application logs alongside the JSON body
+// sent to the client. Pass zap.NewNop() to silence — used by tests that
+// don't care about log output. The default resolver (via NewResolver) is
+// already a no-op logger, so wiring this is opt-in.
+func (r *Resolver) WithLogger(log *zap.Logger) *Resolver {
+	if log != nil {
+		r.logger = log
+	}
+	return r
+}
+
+// Logger returns the logger attached to this resolver. Returns a no-op
+// logger if none was attached — callers can chain zap fields safely.
+func (r *Resolver) Logger() *zap.Logger {
+	if r == nil || r.logger == nil {
+		return zap.NewNop()
+	}
+	return r.logger
+}
+
 func NewResolver(svc *service.Services, commands ...CommandExecutor) *Resolver {
-	resolver := &Resolver{svc: svc}
+	resolver := &Resolver{svc: svc, logger: zap.NewNop()}
 	if svc != nil {
 		resolver.formal = svc.FormalMatches
 		resolver.beatmaps = svc.Beatmaps

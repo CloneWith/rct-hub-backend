@@ -285,7 +285,7 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 	// The driver lets MarkStrategistReady push a system-flagged START_MATCH
 	// once both strategists have signalled ready on a non-formal room.
 	s.deps.Services.WithMatchCommandDriver(matchcommand.NewDriver(commands, matchEngineLog))
-	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands).WithAutomationIssues(s.deps.Repos.MatchCommands).WithBeatmapMetadata(s.metadata).WithIRCReader(persistence.NewIRCObservationStore(s.deps.DB.MongoDB)).WithIRCJobs(s.ircJobs).WithIRCStatus(s.ircClient).WithUserFetcher(s.deps.Fetcher)
+	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands).WithAutomationIssues(s.deps.Repos.MatchCommands).WithBeatmapMetadata(s.metadata).WithIRCReader(persistence.NewIRCObservationStore(s.deps.DB.MongoDB)).WithIRCJobs(s.ircJobs).WithIRCStatus(s.ircClient).WithUserFetcher(s.deps.Fetcher).WithLogger(s.logger)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))
 	s.router.POST("/graphql", graphql.GinGraphQL(gqlHandler, s.deps.JWTSigner, s.deps.AuthSessions, s.deps.Services, sessionCookie))
