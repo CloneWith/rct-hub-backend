@@ -30,11 +30,11 @@ func (h *RoomHandler) UpdateMetadata(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Name           string     `json:"name" binding:"required"`
-		Round          string     `json:"round"`
-		ScheduledAt    *time.Time `json:"scheduled_at"`
-		RefereeUserID  *int64     `json:"referee_user_id"`
-		StreamerUserID *int64     `json:"streamer_user_id"`
+		Name           string       `json:"name" binding:"required"`
+		Round          domain.Round `json:"round"`
+		ScheduledAt    *time.Time   `json:"scheduled_at"`
+		RefereeUserID  *int64       `json:"referee_user_id"`
+		StreamerUserID *int64       `json:"streamer_user_id"`
 	}
 	if err := bindJSON(c, &req); err != nil {
 		_ = c.Error(err)
@@ -65,11 +65,11 @@ func (h *RoomHandler) UpdateMetadataPartial(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Name           *string    `json:"name"`
-		Round          *string    `json:"round"`
-		ScheduledAt    *time.Time `json:"scheduled_at"`
-		RefereeUserID  *int64     `json:"referee_user_id"`
-		StreamerUserID *int64     `json:"streamer_user_id"`
+		Name           *string       `json:"name"`
+		Round          *domain.Round `json:"round"`
+		ScheduledAt    *time.Time    `json:"scheduled_at"`
+		RefereeUserID  *int64        `json:"referee_user_id"`
+		StreamerUserID *int64        `json:"streamer_user_id"`
 	}
 	if err := bindJSON(c, &req); err != nil {
 		_ = c.Error(err)

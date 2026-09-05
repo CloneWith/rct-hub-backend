@@ -53,7 +53,7 @@ type SnapshotProbe interface {
 // dedicated team / mappool reference endpoints.
 type RoomMetadataUpdate struct {
 	Name           string
-	Round          string
+	Round          domain.Round
 	ScheduledAt    *time.Time
 	RefereeUserID  *int64
 	StreamerUserID *int64
@@ -65,10 +65,21 @@ type RoomMetadataUpdate struct {
 // replace or the dedicated per-field endpoints instead.
 type RoomMetadataPatch struct {
 	Name           *string
-	Round          *string
+	Round          *domain.Round
 	ScheduledAt    *time.Time
 	RefereeUserID  *int64
 	StreamerUserID *int64
+}
+
+// validateRound rejects any round value that is not a canonical Round
+// constant. The zero value (empty string) is handled separately by callers
+// because its meaning depends on whether the field is part of a full
+// replace or a partial patch.
+func validateRound(r domain.Round) error {
+	if !r.IsValid() {
+		return fmt.Errorf("%w: round %q is not a known Round", errs.ErrInvalidInput, r)
+	}
+	return nil
 }
 
 // NewRoomService creates a new RoomService. snapshots is optional; when
@@ -365,12 +376,23 @@ func (s *RoomService) UpdateRoomMetadata(ctx context.Context, callerID int64, ro
 			return nil, errs.ErrForbidden
 		}
 	}
+	// Round uses the zero value to mean "leave the existing round alone":
+	// passing the empty string must not erase the stored stage to a sentinel.
+	// A non-empty value must be a canonical Round — anything else is a
+	// caller bug and we reject it before writing.
+	if update.Round != "" {
+		if err := validateRound(update.Round); err != nil {
+			return nil, err
+		}
+	}
 	fields := bson.M{
 		"name":                      update.Name,
-		"round":                     update.Round,
 		"scheduled_at":              update.ScheduledAt,
 		"referee_user_id":           update.RefereeUserID,
 		"settings.streamer_user_id": update.StreamerUserID,
+	}
+	if update.Round != "" {
+		fields["round"] = update.Round
 	}
 	if err := s.rooms.UpdateFields(ctx, room.ID, fields, true); err != nil {
 		return nil, err
@@ -398,6 +420,9 @@ func (s *RoomService) UpdateRoomMetadataPartial(ctx context.Context, callerID in
 		fields["name"] = *patch.Name
 	}
 	if patch.Round != nil {
+		if err := validateRound(*patch.Round); err != nil {
+			return nil, err
+		}
 		fields["round"] = *patch.Round
 	}
 	if patch.ScheduledAt != nil {

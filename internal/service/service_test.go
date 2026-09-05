@@ -158,7 +158,7 @@ func (r *fakeRoomRepo) UpdateFields(_ context.Context, id bson.ObjectID, fields 
 		case "name":
 			room.Name = value.(string)
 		case "round":
-			room.Round = domain.FromLegacyString(value.(string))
+			room.Round = value.(domain.Round)
 		case "scheduled_at":
 			room.ScheduledAt, _ = value.(*time.Time)
 		case "settings.streamer_user_id":
@@ -550,14 +550,11 @@ func TestAdminCanPartiallyUpdateRoomMetadata(t *testing.T) {
 	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil, nil, nil)
 
 	name := "renamed"
-	round := "quarterfinal"
+	round := domain.RoundFinals
 	updated, err := svc.UpdateRoomMetadataPartial(ctx, admin.OnlineID, room.ID, RoomMetadataPatch{Name: &name, Round: &round})
 	if err != nil {
 		t.Fatalf("partial update: %v", err)
 	}
-	// "quarterfinal" is a legacy string value; the new Round enum maps it
-	// to RoundFinals via domain.FromLegacyString so persisted BSON reads
-	// always see canonical values.
 	if updated.Name != "renamed" || updated.Round != domain.RoundFinals {
 		t.Fatalf("patched fields = %+v", updated)
 	}
@@ -593,6 +590,59 @@ func TestAdminCannotAssignRefereeToNonFormalRoom(t *testing.T) {
 	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil, nil, nil)
 	if _, err := svc.UpdateRoomMetadata(ctx, admin.OnlineID, room.ID, RoomMetadataUpdate{Name: "casual", RefereeUserID: &referee.OnlineID}); !errors.Is(err, errs.ErrInvalidInput) {
 		t.Fatalf("casual referee assignment error = %v, want invalid input", err)
+	}
+}
+
+func TestRoomMetadataRejectsInvalidRound(t *testing.T) {
+	ctx := context.Background()
+	rooms := newFakeRoomRepo()
+	users := newFakeUserRepo()
+	admin := &domain.User{ID: bson.NewObjectID(), OnlineID: 1, VerifyStatus: domain.Verified, Roles: []domain.UserRole{domain.RoleAdmin}}
+	if err := users.Create(ctx, admin); err != nil {
+		t.Fatal(err)
+	}
+	room := &domain.Room{ID: bson.NewObjectID(), Type: domain.RoomTypeMatch, OwnerID: admin.OnlineID, Name: "room"}
+	if err := rooms.Create(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewRoomService(rooms, nil, users, nil, nil, nil, nil, nil, nil)
+
+	// Full replace: a non-canonical Round must be rejected before it reaches
+	// the repository. Pre-Phase A the same input was stored verbatim, so
+	// this test guards the contract the new validator introduces.
+	bogus := domain.Round("not_a_round")
+	if _, err := svc.UpdateRoomMetadata(ctx, admin.OnlineID, room.ID, RoomMetadataUpdate{Name: "ok", Round: bogus}); !errors.Is(err, errs.ErrInvalidInput) {
+		t.Fatalf("invalid Round accepted: %v", err)
+	}
+	if persisted, _ := rooms.ByID(ctx, room.ID); persisted.Round != "" {
+		t.Fatalf("rejected write leaked into repo: %q", persisted.Round)
+	}
+
+	// Partial patch: same rejection, same no-leak guarantee.
+	bogusRound := bogus
+	if _, err := svc.UpdateRoomMetadataPartial(ctx, admin.OnlineID, room.ID, RoomMetadataPatch{Round: &bogusRound}); !errors.Is(err, errs.ErrInvalidInput) {
+		t.Fatalf("invalid partial Round accepted: %v", err)
+	}
+	if persisted, _ := rooms.ByID(ctx, room.ID); persisted.Round != "" {
+		t.Fatalf("rejected patch leaked into repo: %q", persisted.Round)
+	}
+
+	// Empty update.Round must NOT clobber the stored round; that field is
+	// only present if the caller wants to overwrite it explicitly.
+	if _, err := svc.UpdateRoomMetadata(ctx, admin.OnlineID, room.ID, RoomMetadataUpdate{Name: "no-round"}); err != nil {
+		t.Fatalf("empty-Round update failed: %v", err)
+	}
+	if persisted, _ := rooms.ByID(ctx, room.ID); persisted.Round != "" {
+		t.Fatalf("empty Round overwrote stored value: %q", persisted.Round)
+	}
+
+	// Sanity: a canonical Round goes through end-to-end.
+	finals := domain.RoundFinals
+	if _, err := svc.UpdateRoomMetadataPartial(ctx, admin.OnlineID, room.ID, RoomMetadataPatch{Round: &finals}); err != nil {
+		t.Fatalf("valid Round rejected: %v", err)
+	}
+	if persisted, _ := rooms.ByID(ctx, room.ID); persisted.Round != domain.RoundFinals {
+		t.Fatalf("valid Round not persisted: %q", persisted.Round)
 	}
 }
 
