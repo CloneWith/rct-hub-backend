@@ -220,10 +220,3 @@ func TestLegacyMatchBSONRoundTripPreservesBoard(t *testing.T) {
 		t.Fatalf("board after BSON round trip = %#v; want %#v", got.Board, want.Board)
 	}
 }
-
-func TestMissingStartRequirements(t *testing.T) {
-	// The start-requirements logic now lives in the service package
-	// (service.MissingStartRequirements) and consumes the linked Team /
-	// Mappool entities; see internal/service/start_requirements_test.go.
-	t.Skip("moved to service.MissingStartRequirements")
-}

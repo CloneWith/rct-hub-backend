@@ -103,7 +103,7 @@ func (r *fakeUserRepo) ByOsuID(_ context.Context, osuID int64) (*domain.User, er
 	return u, nil
 }
 
-func (r *fakeUserRepo) List(_ context.Context, _ paginate.Params) (paginate.Result[domain.User], error) {
+func (r *fakeUserRepo) List(_ context.Context, _ paginate.Params, _ string) (paginate.Result[domain.User], error) {
 	return paginate.Result[domain.User]{}, nil
 }
 
@@ -213,7 +213,7 @@ func (r *fakeBeatmapRepo) ByOsuID(_ context.Context, osuID int64) (*domain.Beatm
 	return b, nil
 }
 
-func (r *fakeBeatmapRepo) List(_ context.Context, _ paginate.Params) (paginate.Result[domain.Beatmap], error) {
+func (r *fakeBeatmapRepo) List(_ context.Context, _ paginate.Params, _ string) (paginate.Result[domain.Beatmap], error) {
 	return paginate.Result[domain.Beatmap]{}, nil
 }
 
