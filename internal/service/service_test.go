@@ -158,7 +158,7 @@ func (r *fakeRoomRepo) UpdateFields(_ context.Context, id bson.ObjectID, fields 
 		case "name":
 			room.Name = value.(string)
 		case "round":
-			room.Round = value.(string)
+			room.Round = domain.FromLegacyString(value.(string))
 		case "scheduled_at":
 			room.ScheduledAt, _ = value.(*time.Time)
 		case "settings.streamer_user_id":
@@ -555,7 +555,10 @@ func TestAdminCanPartiallyUpdateRoomMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("partial update: %v", err)
 	}
-	if updated.Name != "renamed" || updated.Round != "quarterfinal" {
+	// "quarterfinal" is a legacy string value; the new Round enum maps it
+	// to RoundFinals via domain.FromLegacyString so persisted BSON reads
+	// always see canonical values.
+	if updated.Name != "renamed" || updated.Round != domain.RoundFinals {
 		t.Fatalf("patched fields = %+v", updated)
 	}
 	if updated.ScheduledAt == nil || updated.RefereeUserID == nil || *updated.RefereeUserID != referee.OnlineID ||

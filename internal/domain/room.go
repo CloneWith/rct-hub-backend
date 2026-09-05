@@ -92,11 +92,48 @@ type Room struct {
 	OwnerID int64         `json:"owner_id" bson:"owner_id"` // creator / referee / private room owner
 	// RefereeUserID is the explicitly assigned referee for formal match rooms.
 	// It is separate from OwnerID, which remains the room creator.
-	RefereeUserID *int64         `json:"referee_user_id,omitempty" bson:"referee_user_id,omitempty"`
-	Round         string         `json:"round,omitempty" bson:"round,omitempty"`
-	ScheduledAt   *time.Time     `json:"scheduled_at,omitempty" bson:"scheduled_at,omitempty"`
-	Settings      RoomSettings   `json:"settings" bson:"settings"`
-	MatchID       *bson.ObjectID `json:"match_id,omitempty" bson:"match_id,omitempty"`
-	CreatedAt     time.Time      `json:"created_at" bson:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at" bson:"updated_at"`
+	RefereeUserID *int64 `json:"referee_user_id,omitempty" bson:"referee_user_id,omitempty"`
+	// Round identifies the season stage this room belongs to. The empty
+	// Round is permitted on non-match rooms (private / casual do not run
+	// inside a season). For match rooms Round is required by the start
+	// requirements validator; see internal/service/start_requirements.go.
+	//
+	// The BSON wire name stays "round" so legacy documents continue to
+	// load without a data migration; legacy string values such as
+	// "quarterfinal" are normalized to the closest current Round via
+	// domain.Round.UnmarshalBSONValue.
+	Round       Round          `json:"round" bson:"round"`
+	ScheduledAt *time.Time     `json:"scheduled_at,omitempty" bson:"scheduled_at,omitempty"`
+	Settings    RoomSettings   `json:"settings" bson:"settings"`
+	MatchID     *bson.ObjectID `json:"match_id,omitempty" bson:"match_id,omitempty"`
+
+	// SeasonID optionally ties the room to a domain.Season document so that
+	// standings queries can scope by season. Match rooms SHOULD set this;
+	// the start requirements validator enforces it for type=match.
+	SeasonID *bson.ObjectID `json:"season_id,omitempty" bson:"season_id,omitempty"`
+
+	// FixtureID optionally binds the room to a domain.Fixture document
+	// recording the week's slot (e.g. "WM1") and the two competing team
+	// IDs. The fixture binding is advisory for now (admin may create a
+	// fixture and then forget to bind it) but it powers the standings
+	// page's "who played who this week" query.
+	FixtureID *bson.ObjectID `json:"fixture_id,omitempty" bson:"fixture_id,omitempty"`
+
+	// WeekIndex is the 1-based week number within the season
+	// (1=Warmup, 2=Assault, 3=Protracted, 4=Finals, 0=Qualifiers).
+	// Zero is the default for rooms outside a season (private / casual)
+	// and the canonical value for RoundQualifiers.
+	WeekIndex int `json:"week_index,omitempty" bson:"week_index,omitempty"`
+
+	CreatedAt time.Time `json:"created_at" bson:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
+}
+
+// Normalize applies domain invariants that need to hold after the Room is
+// loaded from MongoDB (i.e. after Round.UnmarshalBSONValue has already
+// rewritten legacy strings). Currently a no-op; kept as an extension point
+// for future cross-field invariants such as "FixtureID requires Round".
+func (r *Room) Normalize() {
+	// intentionally empty; placeholder for invariants that span multiple
+	// fields after deserialization (see comment above).
 }

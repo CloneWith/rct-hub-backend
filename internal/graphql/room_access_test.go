@@ -53,7 +53,7 @@ func (r *roomQueryRepo) List(_ context.Context, params paginate.Params, filter r
 		if filter.Search != "" && !strings.Contains(strings.ToLower(room.Name), strings.ToLower(filter.Search)) && !strings.Contains(strings.ToLower(room.Code), strings.ToLower(filter.Search)) {
 			continue
 		}
-		if filter.Round != "" && room.Round != filter.Round {
+		if filter.Round != "" && string(room.Round) != filter.Round {
 			continue
 		}
 		if filter.Lifecycle != "" && r.lifecycles[room.ID] != filter.Lifecycle {

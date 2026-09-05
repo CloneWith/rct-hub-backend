@@ -120,7 +120,7 @@ func mapRoom(r *domain.Room) *Room {
 		Type:          mapRoomType(r.Type),
 		OwnerID:       strconv.FormatInt(r.OwnerID, 10),
 		RefereeUserID: int64PtrToStringPtr(r.RefereeUserID),
-		Round:         r.Round,
+		Round:         string(r.Round),
 		ScheduledAt:   r.ScheduledAt,
 		Settings:      mapRoomSettings(&r.Settings),
 		MatchID:       matchID,
