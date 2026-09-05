@@ -284,7 +284,7 @@ func (s *Server) registerRoutes(auditLog, authLog, matchEngineLog *zap.Logger) {
 	// services.NewServices) and the room service's casual/auto-start path.
 	// The driver lets MarkStrategistReady push a system-flagged START_MATCH
 	// once both strategists have signalled ready on a non-formal room.
-	s.deps.Services.WithMatchCommandDriver(service.NewMatchCommandDriver(commands, matchEngineLog))
+	s.deps.Services.WithMatchCommandDriver(matchcommand.NewDriver(commands, matchEngineLog))
 	gqlResolver := graphql.NewResolver(s.deps.Services, commands).WithAuditReader(s.deps.Repos.MatchCommands).WithAutomationIssues(s.deps.Repos.MatchCommands).WithBeatmapMetadata(s.metadata).WithIRCReader(persistence.NewIRCObservationStore(s.deps.DB.MongoDB)).WithIRCJobs(s.ircJobs).WithIRCStatus(s.ircClient).WithUserFetcher(s.deps.Fetcher)
 	gqlHandler := graphql.NewHandler(gqlResolver)
 	s.router.GET("/graphql", graphql.GinPlayground("/graphql"))

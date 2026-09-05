@@ -50,6 +50,11 @@ func NewServices(repos *repository.Repositories, invalidator CacheInvalidator, l
 // needs the matchcommand store), so this setter closes the wiring loop
 // without forcing NewServices to take a circular dependency. Returns the
 // same *Services for fluent use.
+//
+// Implementations of MatchCommandDriver live next to the orchestrator they
+// wrap (internal/matchcommand/driver.go); the interface itself stays in this
+// package so room_service can depend on it without dragging matchcommand
+// into the service import graph.
 func (s *Services) WithMatchCommandDriver(driver MatchCommandDriver) *Services {
 	if s != nil && s.Rooms != nil && driver != nil {
 		s.Rooms.matchCommands = driver
