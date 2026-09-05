@@ -64,8 +64,11 @@ func TestBuildFormalMatchSeedRejectsAmbiguousOrInvalidConfiguration(t *testing.T
 		mutate    func(room *domain.Room, red, blue *domain.Team, pool *domain.Mappool)
 		wantError bool
 	}{
-		{name: "seven players", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
-			red.Players = red.Players[:7]
+		{name: "three players", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
+			red.Players = red.Players[:3]
+		}, wantError: false},
+		{name: "leader not rostered", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
+			red.Players = nil
 		}, wantError: true},
 		{name: "unready red team", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
 			red.LeaderID = nil

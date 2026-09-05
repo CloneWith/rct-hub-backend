@@ -124,7 +124,10 @@ type Configuration struct {
 	Timers    TimerConfiguration  `json:"timers"`
 }
 
-// Roster is the organizer-approved eight-player team roster.
+// Roster is the organizer-approved team roster. Roster size is intentionally
+// not constrained here — only the leader, positive player ids, and
+// cross-team uniqueness are required. A team with only its leader and
+// strategist may still start.
 type Roster struct {
 	LeaderID  int64   `json:"leaderId"`
 	PlayerIDs []int64 `json:"playerIds"`
@@ -415,8 +418,8 @@ func validateAndCloneRosters(rosters map[TeamSide]Roster) (map[TeamSide]Roster, 
 	seen := make(map[int64]struct{}, 16)
 	for _, side := range []TeamSide{TeamRed, TeamBlue} {
 		roster, ok := rosters[side]
-		if !ok || roster.LeaderID <= 0 || len(roster.PlayerIDs) != 8 {
-			return nil, ruleError(CodeInvalidRequest, "each team requires eight players and one rostered leader")
+		if !ok || roster.LeaderID <= 0 {
+			return nil, ruleError(CodeInvalidRequest, "each team requires a leader")
 		}
 		leaderFound := false
 		for _, playerID := range roster.PlayerIDs {

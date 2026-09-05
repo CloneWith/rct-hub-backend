@@ -12,7 +12,12 @@ import (
 // redTeam / blueTeam are the Team entities referenced by the room settings
 // (nil when not linked); mappool is the linked Mappool entity. Team readiness
 // (leader + strategist) applies to every room type (R1). Match rooms add the
-// roster-size, MP-link, and assigned-referee requirements.
+// MP-link and assigned-referee requirements; the engine itself enforces
+// rosters are valid (per-side roster exists, leader ID > 0, no duplicate
+// players across teams). Roster size is intentionally NOT enforced — a team can
+// in principle start a match as long as it has a leader and a strategist
+// (see Team.IsReady). The runtime MatchEngine allows smaller rosters for the
+// same reason.
 //
 // TB beatmap hard requirement: the engine requires exactly one TB slot per
 // configuration, and match rooms must source that slot from a mappool
@@ -37,9 +42,6 @@ func MissingStartRequirements(room domain.Room, redTeam, blueTeam *domain.Team, 
 	teamReady := func(t *domain.Team) bool {
 		return t != nil && t.IsReady()
 	}
-	playersAtLeast := func(t *domain.Team, n int) bool {
-		return t != nil && len(t.Players) >= n
-	}
 	switch room.Type {
 	case domain.RoomTypeCasual, domain.RoomTypeMatch:
 		require("scheduled_at", room.ScheduledAt != nil)
@@ -49,8 +51,6 @@ func MissingStartRequirements(room domain.Room, redTeam, blueTeam *domain.Team, 
 		require("settings.first_ban", room.Settings.FirstBan != nil)
 		if room.Type == domain.RoomTypeMatch {
 			require("referee_user_id", room.RefereeUserID != nil)
-			require("settings.red_team_id", playersAtLeast(redTeam, 4))
-			require("settings.blue_team_id", playersAtLeast(blueTeam, 4))
 			require("settings.mappool_id", mappool != nil)
 			require("settings.mp_link", room.Settings.MPLink != nil && *room.Settings.MPLink != "")
 		}

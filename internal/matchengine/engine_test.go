@@ -74,14 +74,24 @@ func TestNewReadyStateRejectsInvalidRosters(t *testing.T) {
 		mutate func(*Configuration)
 	}{
 		{name: "missing team", mutate: func(configuration *Configuration) { delete(configuration.Rosters, TeamBlue) }},
-		{name: "seven players", mutate: func(configuration *Configuration) {
+		{name: "no leader", mutate: func(configuration *Configuration) {
 			roster := configuration.Rosters[TeamRed]
-			roster.PlayerIDs = roster.PlayerIDs[:7]
+			roster.LeaderID = 0
+			configuration.Rosters[TeamRed] = roster
+		}},
+		{name: "negative leader", mutate: func(configuration *Configuration) {
+			roster := configuration.Rosters[TeamRed]
+			roster.LeaderID = -1
 			configuration.Rosters[TeamRed] = roster
 		}},
 		{name: "leader not rostered", mutate: func(configuration *Configuration) {
 			roster := configuration.Rosters[TeamRed]
 			roster.LeaderID = 9999
+			configuration.Rosters[TeamRed] = roster
+		}},
+		{name: "non-positive player id", mutate: func(configuration *Configuration) {
+			roster := configuration.Rosters[TeamRed]
+			roster.PlayerIDs[3] = 0
 			configuration.Rosters[TeamRed] = roster
 		}},
 		{name: "duplicate within team", mutate: func(configuration *Configuration) {
@@ -102,6 +112,32 @@ func TestNewReadyStateRejectsInvalidRosters(t *testing.T) {
 			_, err := NewReadyState(configuration)
 			assertErrorCode(t, err, CodeInvalidRequest)
 		})
+	}
+}
+
+func TestNewReadyStateAcceptsUnderRoster(t *testing.T) {
+	t.Parallel()
+
+	// Only the leader needs to belong to the roster; smaller rosters are
+	// accepted so a team can run a match as long as it has a leader and a
+	// strategist.
+	configuration := testConfiguration()
+	configuration.Rosters[TeamRed] = Roster{
+		LeaderID:  1001,
+		PlayerIDs: []int64{1001},
+	}
+	configuration.Rosters[TeamBlue] = Roster{
+		LeaderID:  2001,
+		PlayerIDs: []int64{2001, 2002},
+	}
+	state, err := NewReadyState(configuration)
+	if err != nil {
+		t.Fatalf("NewReadyState: %v", err)
+	}
+	if len(state.Rosters[TeamRed].PlayerIDs) != 1 || len(state.Rosters[TeamBlue].PlayerIDs) != 2 {
+		t.Fatalf("under-roster accepted with mutated sizes: red=%d blue=%d",
+			len(state.Rosters[TeamRed].PlayerIDs),
+			len(state.Rosters[TeamBlue].PlayerIDs))
 	}
 }
 

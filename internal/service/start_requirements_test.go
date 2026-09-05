@@ -34,13 +34,16 @@ func TestMissingStartRequirements(t *testing.T) {
 		},
 	}
 
-	// Match rooms report every missing setting. Red/blue team readiness and
-	// roster size are separate requirements, so an unlinked side is reported
-	// once per requirement (duplicates included).
+	// Match rooms report every missing setting. Red/blue team readiness
+	// are separate requirements, so an unlinked side is reported once per
+	// requirement (duplicates included). The match rooms used to require
+	// each team to carry ≥4 players; that check has been removed so a
+	// match with a leader-only team can start as long as it has a
+	// strategist too (see Team.IsReady).
 	room := domain.Room{Type: domain.RoomTypeMatch}
 	got := MissingStartRequirements(room, nil, nil, nil)
-	if len(got) != 10 {
-		t.Fatalf("expected 10 missing fields for empty match room, got %v", got)
+	if len(got) != 8 {
+		t.Fatalf("expected 8 missing fields for empty match room, got %v", got)
 	}
 
 	// Casual rooms require the shared baseline only; the explicitly-assigned
@@ -90,5 +93,34 @@ func TestMissingStartRequirements(t *testing.T) {
 	}
 	if got = MissingStartRequirements(complete, &redTeam, &blueTeam, &pool); len(got) != 0 {
 		t.Fatalf("expected complete room to start, missing %v", got)
+	}
+
+	// A match room is allowed to start even when neither team has a full
+	// eight-player roster — only leader + strategist is required. This
+	// mirrors the engine's relaxed roster-size validation.
+	skeleton := func() (domain.Team, domain.Team) {
+		rLeader, bLeader := redLeader, blueLeader
+		rStrat, bStrat := redStrategist, blueStrategist
+		return domain.Team{
+			LeaderID:     &rLeader,
+			StrategistID: &rStrat,
+			Players:      []int64{redLeader, redStrategist},
+		}, domain.Team{
+			LeaderID:     &bLeader,
+			StrategistID: &bStrat,
+			Players:      []int64{blueLeader, blueStrategist},
+		}
+	}
+	smallRed, smallBlue := skeleton()
+	if got = MissingStartRequirements(complete, &smallRed, &smallBlue, &pool); len(got) != 0 {
+		t.Fatalf("expected under-roster match room to start, missing %v", got)
+	}
+
+	// A team with only a strategist (no leader) must still block start —
+	// IsReady demands both.
+	stratOnly := smallRed
+	stratOnly.LeaderID = nil
+	if got = MissingStartRequirements(complete, &stratOnly, &smallBlue, &pool); len(got) != 1 || got[0] != "settings.red_team_id" {
+		t.Fatalf("expected red leader-missing room to block on red_team_id, got %v", got)
 	}
 }
