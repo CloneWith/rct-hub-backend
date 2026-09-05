@@ -124,10 +124,11 @@ type Configuration struct {
 	Timers    TimerConfiguration  `json:"timers"`
 }
 
-// Roster is the organizer-approved team roster. Roster size is intentionally
-// not constrained here — only the leader, positive player ids, and
-// cross-team uniqueness are required. A team with only its leader and
-// strategist may still start.
+// Roster is the organizer-approved team roster. PlayerIDs hold the team's
+// pure players only (the leader is recorded separately in LeaderID and is
+// not a regular player). Roster size is intentionally not constrained here —
+// only positive leader / player ids and cross-team uniqueness are required.
+// A team with only its leader and strategist may still start.
 type Roster struct {
 	LeaderID  int64   `json:"leaderId"`
 	PlayerIDs []int64 `json:"playerIds"`
@@ -415,25 +416,29 @@ func validateAndCloneRosters(rosters map[TeamSide]Roster) (map[TeamSide]Roster, 
 	if len(rosters) != 2 {
 		return nil, ruleError(CodeInvalidRequest, "configuration requires RED and BLUE rosters")
 	}
+	// seen tracks every participant — leaders and pure players — so a leader
+	// cannot share an osu id with any player on either side.
 	seen := make(map[int64]struct{}, 16)
 	for _, side := range []TeamSide{TeamRed, TeamBlue} {
 		roster, ok := rosters[side]
 		if !ok || roster.LeaderID <= 0 {
 			return nil, ruleError(CodeInvalidRequest, "each team requires a leader")
 		}
-		leaderFound := false
+		if _, duplicate := seen[roster.LeaderID]; duplicate {
+			return nil, ruleError(CodeInvalidRequest, "roster leader ids must be unique across teams")
+		}
+		seen[roster.LeaderID] = struct{}{}
 		for _, playerID := range roster.PlayerIDs {
 			if playerID <= 0 {
 				return nil, ruleError(CodeInvalidRequest, "roster player ids must be positive")
+			}
+			if playerID == roster.LeaderID {
+				return nil, ruleError(CodeInvalidRequest, "roster leader must not double as a pure player")
 			}
 			if _, duplicate := seen[playerID]; duplicate {
 				return nil, ruleError(CodeInvalidRequest, "roster player ids must be unique across teams")
 			}
 			seen[playerID] = struct{}{}
-			leaderFound = leaderFound || playerID == roster.LeaderID
-		}
-		if !leaderFound {
-			return nil, ruleError(CodeInvalidRequest, "team leader must belong to its roster")
 		}
 	}
 	return cloneRosters(rosters), nil

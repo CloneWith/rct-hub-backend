@@ -164,7 +164,7 @@ func TestCreateTeamMutationValidatesAndMaps(t *testing.T) {
 		Name:         "Alpha",
 		LeaderID:     &leader,
 		StrategistID: &strategist,
-		PlayerIDs:    []int{1, 2, 3},
+		PlayerIDs:    []int{3, 4, 5},
 	})
 	if err != nil {
 		t.Fatalf("createTeam failed: %v", err)
@@ -176,11 +176,11 @@ func TestCreateTeamMutationValidatesAndMaps(t *testing.T) {
 		t.Fatalf("persisted teams = %+v", repo.created)
 	}
 
-	// 队长不在名单内 → 字段级校验错误，且不落库。
-	outside := 99
+	// 队长在 players 名单里 → 字段级校验错误，且不落库（Players 只允许纯玩家）。
+	overlap := 1
 	_, err = resolver.Mutation().CreateTeam(ctx, TeamInput{
 		Name:      "Beta",
-		LeaderID:  &outside,
+		LeaderID:  &overlap,
 		PlayerIDs: []int{1, 2},
 	})
 	if err == nil || !strings.Contains(err.Error(), "leader_id") {

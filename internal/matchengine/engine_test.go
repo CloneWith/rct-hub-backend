@@ -84,10 +84,16 @@ func TestNewReadyStateRejectsInvalidRosters(t *testing.T) {
 			roster.LeaderID = -1
 			configuration.Rosters[TeamRed] = roster
 		}},
-		{name: "leader not rostered", mutate: func(configuration *Configuration) {
+		{name: "leader listed as player", mutate: func(configuration *Configuration) {
+			// Leader must not double as a pure player.
 			roster := configuration.Rosters[TeamRed]
-			roster.LeaderID = 9999
+			roster.PlayerIDs = append([]int64{roster.LeaderID}, roster.PlayerIDs...)
 			configuration.Rosters[TeamRed] = roster
+		}},
+		{name: "leader clashes with blue player", mutate: func(configuration *Configuration) {
+			roster := configuration.Rosters[TeamBlue]
+			roster.PlayerIDs[0] = configuration.Rosters[TeamRed].LeaderID
+			configuration.Rosters[TeamBlue] = roster
 		}},
 		{name: "non-positive player id", mutate: func(configuration *Configuration) {
 			roster := configuration.Rosters[TeamRed]
@@ -96,12 +102,12 @@ func TestNewReadyStateRejectsInvalidRosters(t *testing.T) {
 		}},
 		{name: "duplicate within team", mutate: func(configuration *Configuration) {
 			roster := configuration.Rosters[TeamRed]
-			roster.PlayerIDs[7] = roster.PlayerIDs[6]
+			roster.PlayerIDs[6] = roster.PlayerIDs[5]
 			configuration.Rosters[TeamRed] = roster
 		}},
 		{name: "duplicate across teams", mutate: func(configuration *Configuration) {
 			roster := configuration.Rosters[TeamBlue]
-			roster.PlayerIDs[7] = 1008
+			roster.PlayerIDs[6] = configuration.Rosters[TeamRed].PlayerIDs[0]
 			configuration.Rosters[TeamBlue] = roster
 		}},
 	}
@@ -118,23 +124,23 @@ func TestNewReadyStateRejectsInvalidRosters(t *testing.T) {
 func TestNewReadyStateAcceptsUnderRoster(t *testing.T) {
 	t.Parallel()
 
-	// Only the leader needs to belong to the roster; smaller rosters are
-	// accepted so a team can run a match as long as it has a leader and a
-	// strategist.
+	// A team needs only its leader — a strategist is not enforced here; the
+	// service layer guards that invariant. Smaller rosters are accepted so
+	// a team can run a match as long as it has a leader and a strategist.
 	configuration := testConfiguration()
 	configuration.Rosters[TeamRed] = Roster{
 		LeaderID:  1001,
-		PlayerIDs: []int64{1001},
+		PlayerIDs: []int64{},
 	}
 	configuration.Rosters[TeamBlue] = Roster{
 		LeaderID:  2001,
-		PlayerIDs: []int64{2001, 2002},
+		PlayerIDs: []int64{2002},
 	}
 	state, err := NewReadyState(configuration)
 	if err != nil {
 		t.Fatalf("NewReadyState: %v", err)
 	}
-	if len(state.Rosters[TeamRed].PlayerIDs) != 1 || len(state.Rosters[TeamBlue].PlayerIDs) != 2 {
+	if len(state.Rosters[TeamRed].PlayerIDs) != 0 || len(state.Rosters[TeamBlue].PlayerIDs) != 1 {
 		t.Fatalf("under-roster accepted with mutated sizes: red=%d blue=%d",
 			len(state.Rosters[TeamRed].PlayerIDs),
 			len(state.Rosters[TeamBlue].PlayerIDs))
@@ -578,11 +584,11 @@ func testConfiguration() Configuration {
 		Rosters: map[TeamSide]Roster{
 			TeamRed: {
 				LeaderID:  1001,
-				PlayerIDs: []int64{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008},
+				PlayerIDs: []int64{1002, 1003, 1004, 1005, 1006, 1007, 1008},
 			},
 			TeamBlue: {
 				LeaderID:  2001,
-				PlayerIDs: []int64{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008},
+				PlayerIDs: []int64{2002, 2003, 2004, 2005, 2006, 2007, 2008},
 			},
 		},
 		Timers: StandardTimerConfiguration(),

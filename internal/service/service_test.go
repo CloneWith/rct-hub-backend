@@ -79,8 +79,9 @@ func readyTestTeam(strategist int64) domain.Team {
 		ID:           bson.NewObjectID(),
 		LeaderID:     &leader,
 		StrategistID: &strategist,
+		// Players are pure roster members; the leader and the strategist live
+		// in their own columns and must not appear here.
 		Players: []int64{
-			leader, strategist,
 			strategist + 1, strategist + 2, strategist + 3,
 			strategist + 4, strategist + 5, strategist + 6,
 		},

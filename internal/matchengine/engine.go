@@ -846,7 +846,11 @@ func recordSurrender(state *State, actor Actor, command RecordSurrender) ([]Even
 }
 
 func validateSurrenderEvidence(roster Roster, submitted []int64) ([]int64, bool) {
-	rostered := make(map[int64]struct{}, len(roster.PlayerIDs))
+	// Rostered participants = leader ∪ pure players. The leader is stored in
+	// its own field and is never recorded in PlayerIDs; both must be
+	// accepted as a valid confirmant for surrender.
+	rostered := make(map[int64]struct{}, len(roster.PlayerIDs)+1)
+	rostered[roster.LeaderID] = struct{}{}
 	for _, playerID := range roster.PlayerIDs {
 		rostered[playerID] = struct{}{}
 	}

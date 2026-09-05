@@ -147,8 +147,8 @@ func fixtureConfiguration() matchengine.Configuration {
 	return matchengine.Configuration{
 		FirstBan: matchengine.TeamRed, FirstPick: matchengine.TeamBlue, PoolSlots: slots,
 		Rosters: map[matchengine.TeamSide]matchengine.Roster{
-			matchengine.TeamRed:  {LeaderID: 1001, PlayerIDs: []int64{1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008}},
-			matchengine.TeamBlue: {LeaderID: 2001, PlayerIDs: []int64{2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008}},
+			matchengine.TeamRed:  {LeaderID: 1001, PlayerIDs: []int64{1002, 1003, 1004, 1005, 1006, 1007, 1008}},
+			matchengine.TeamBlue: {LeaderID: 2001, PlayerIDs: []int64{2002, 2003, 2004, 2005, 2006, 2007, 2008}},
 		},
 		Timers: matchengine.StandardTimerConfiguration(),
 	}

@@ -64,11 +64,14 @@ func TestBuildFormalMatchSeedRejectsAmbiguousOrInvalidConfiguration(t *testing.T
 		mutate    func(room *domain.Room, red, blue *domain.Team, pool *domain.Mappool)
 		wantError bool
 	}{
-		{name: "three players", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
+		{name: "three pure players", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
 			red.Players = red.Players[:3]
 		}, wantError: false},
-		{name: "leader not rostered", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
+		{name: "no pure players", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
 			red.Players = nil
+		}, wantError: false},
+		{name: "leader listed as player", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
+			red.Players = append([]int64{*red.LeaderID}, red.Players...)
 		}, wantError: true},
 		{name: "unready red team", mutate: func(room *domain.Room, red, _ *domain.Team, _ *domain.Mappool) {
 			red.LeaderID = nil
@@ -82,7 +85,7 @@ func TestBuildFormalMatchSeedRejectsAmbiguousOrInvalidConfiguration(t *testing.T
 			})
 		}, wantError: false},
 		{name: "duplicate player", mutate: func(room *domain.Room, red, blue *domain.Team, _ *domain.Mappool) {
-			blue.Players[7] = red.Players[0]
+			blue.Players[6] = red.Players[0]
 		}, wantError: true},
 		{name: "casual room type", mutate: func(room *domain.Room, _, _ *domain.Team, _ *domain.Mappool) {
 			room.Type = domain.RoomTypeCasual
@@ -171,14 +174,14 @@ func formalSeedFixture() (domain.Room, domain.Team, domain.Team, domain.Mappool)
 		Name:         "Fixture Red",
 		LeaderID:     &redLeader,
 		StrategistID: &redStrategist,
-		Players:      []int64{1, 2, 3, 4, 5, 6, 7, 8},
+		Players:      []int64{2, 3, 4, 5, 6, 7, 8},
 	}
 	blueTeam := domain.Team{
 		ID:           bson.NewObjectID(),
 		Name:         "Fixture Blue",
 		LeaderID:     &blueLeader,
 		StrategistID: &blueStrategist,
-		Players:      []int64{11, 12, 13, 14, 15, 16, 17, 18},
+		Players:      []int64{12, 13, 14, 15, 16, 17, 18},
 	}
 
 	beatmap := int64(1000000)

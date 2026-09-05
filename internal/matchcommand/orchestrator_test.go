@@ -404,13 +404,13 @@ func newCommandFixture(t *testing.T) *commandFixture {
 		ID:           bson.NewObjectID(),
 		LeaderID:     &redLeader,
 		StrategistID: &redStrategist,
-		Players:      []int64{1101, 1102, 1103, 1104, 1105, 1106, 1107, 1108},
+		Players:      []int64{1102, 1103, 1104, 1105, 1106, 1107, 1108},
 	}
 	blueTeam := &domain.Team{
 		ID:           bson.NewObjectID(),
 		LeaderID:     &blueLeader,
 		StrategistID: &blueStrategist,
-		Players:      []int64{2101, 2102, 2103, 2104, 2105, 2106, 2107, 2108},
+		Players:      []int64{2102, 2103, 2104, 2105, 2106, 2107, 2108},
 	}
 	room := &domain.Room{
 		ID: roomID, Type: domain.RoomTypeMatch, OwnerID: refereeOsuID, RefereeUserID: func() *int64 { v := refereeOsuID; return &v }(), MatchID: &matchID,
@@ -555,8 +555,8 @@ func commandReadyState(t *testing.T) matchengine.State {
 	state, err := matchengine.NewReadyState(matchengine.Configuration{
 		FirstBan: matchengine.TeamRed, FirstPick: matchengine.TeamBlue, PoolSlots: pool,
 		Rosters: map[matchengine.TeamSide]matchengine.Roster{
-			matchengine.TeamRed:  {LeaderID: 1101, PlayerIDs: []int64{1101, 1102, 1103, 1104, 1105, 1106, 1107, 1108}},
-			matchengine.TeamBlue: {LeaderID: 2101, PlayerIDs: []int64{2101, 2102, 2103, 2104, 2105, 2106, 2107, 2108}},
+			matchengine.TeamRed:  {LeaderID: 1101, PlayerIDs: []int64{1102, 1103, 1104, 1105, 1106, 1107, 1108}},
+			matchengine.TeamBlue: {LeaderID: 2101, PlayerIDs: []int64{2102, 2103, 2104, 2105, 2106, 2107, 2108}},
 		},
 		Timers: matchengine.StandardTimerConfiguration(),
 	})

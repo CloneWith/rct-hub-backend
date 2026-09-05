@@ -10,7 +10,9 @@ import (
 )
 
 // teamCreateRequest is the wire format for creating a team. Only the name is
-// required; every other field is optional.
+// required; every other field is optional. Players is the list of pure
+// roster members and must exclude the leader and the strategist — those two
+// already occupy dedicated fields on the entity.
 type teamCreateRequest struct {
 	Name         string  `json:"name" binding:"required"`
 	Description  *string `json:"description"`

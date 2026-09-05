@@ -77,7 +77,7 @@ func BuildSeedData(now time.Time) SeedData {
 		Seed:         new(string("1")),
 		LeaderID:     new(int64(1)),
 		StrategistID: new(int64(1)),
-		Players:      []int64{1, 2},
+		Players:      []int64{2},
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -89,7 +89,7 @@ func BuildSeedData(now time.Time) SeedData {
 		Seed:         new(string("2")),
 		LeaderID:     new(int64(3)),
 		StrategistID: new(int64(2)),
-		Players:      []int64{3, 4},
+		Players:      []int64{4},
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -141,7 +141,7 @@ func BuildSeedData(now time.Time) SeedData {
 			Color:        "#ef4444",
 			LeaderID:     1,
 			StrategistID: 1,
-			Players:      []int64{1, 2},
+			Players:      []int64{2},
 		},
 		TeamBlue: domain.TeamSnapshot{
 			ID:           seedBlueTeamID,
@@ -152,7 +152,7 @@ func BuildSeedData(now time.Time) SeedData {
 			Color:        "#3b82f6",
 			LeaderID:     3,
 			StrategistID: 2,
-			Players:      []int64{3, 4},
+			Players:      []int64{4},
 		},
 		Mappool:   domain.NewPool(),
 		Board:     domain.NewBoard(),

@@ -8,7 +8,9 @@ import (
 
 // Team is the manageable team entity. A team becomes referenceable by a room
 // only once it is ready (see IsReady): it must have both a leader and a
-// strategist. Regular players are optional.
+// strategist. Players are pure roster members and intentionally exclude the
+// leader and the strategist — the latter two occupy dedicated fields and
+// must never appear in Players.
 type Team struct {
 	ID           bson.ObjectID `json:"id" bson:"_id,omitempty"`
 	Name         string        `json:"name" bson:"name"` // required
@@ -16,7 +18,7 @@ type Team struct {
 	Seed         *string       `json:"seed,omitempty" bson:"seed,omitempty"` // seed string (e.g. "A1")
 	LeaderID     *int64        `json:"leader_id,omitempty" bson:"leader_id,omitempty"`
 	StrategistID *int64        `json:"strategist_id,omitempty" bson:"strategist_id,omitempty"`
-	Players      []int64       `json:"players" bson:"players"` // osu uids, leader/strategist included when set
+	Players      []int64       `json:"players" bson:"players"` // osu uids of pure players (leader/strategist must NOT appear here)
 	CreatedAt    time.Time     `json:"created_at" bson:"created_at"`
 	UpdatedAt    time.Time     `json:"updated_at" bson:"updated_at"`
 }

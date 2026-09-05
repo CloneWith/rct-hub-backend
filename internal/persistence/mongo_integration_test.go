@@ -880,8 +880,8 @@ func integrationReadyState(t *testing.T) matchengine.State {
 			{ID: "SHIRO", Mod: matchengine.ModShiro}, {ID: "TB", Mod: matchengine.ModTB},
 		},
 		Rosters: map[matchengine.TeamSide]matchengine.Roster{
-			matchengine.TeamRed:  {LeaderID: 1, PlayerIDs: []int64{1, 2, 3, 4, 5, 6, 7, 8}},
-			matchengine.TeamBlue: {LeaderID: 11, PlayerIDs: []int64{11, 12, 13, 14, 15, 16, 17, 18}},
+			matchengine.TeamRed:  {LeaderID: 1, PlayerIDs: []int64{2, 3, 4, 5, 6, 7, 8}},
+			matchengine.TeamBlue: {LeaderID: 11, PlayerIDs: []int64{12, 13, 14, 15, 16, 17, 18}},
 		},
 		Timers: matchengine.StandardTimerConfiguration(),
 	})

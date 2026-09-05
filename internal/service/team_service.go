@@ -46,7 +46,10 @@ type TeamPatch struct {
 // validateTeam applies the shared entity invariants:
 //   - name must be non-empty
 //   - players must not contain duplicates
-//   - when leader/strategist are set they must be listed in players
+//   - players must not overlap with the leader or the strategist (Players is
+//     the dedicated field for pure roster members; the leader and the
+//     strategist already live in their own columns and must not double as
+//     regular players).
 //
 // The caller passes the effective post-patch values.
 func validateTeam(name string, leaderID, strategistID *int64, players []int64) []errs.FieldError {
@@ -66,11 +69,11 @@ func validateTeam(name string, leaderID, strategistID *int64, players []int64) [
 		_, ok := seen[id]
 		return ok
 	}
-	if leaderID != nil && !contains(*leaderID) {
-		fields = append(fields, errs.FieldError{Field: "leader_id", Rule: "in_players", Message: "leader_id must be listed in players"})
+	if leaderID != nil && contains(*leaderID) {
+		fields = append(fields, errs.FieldError{Field: "players", Rule: "pure_players", Message: "leader_id must not appear in players"})
 	}
-	if strategistID != nil && !contains(*strategistID) {
-		fields = append(fields, errs.FieldError{Field: "strategist_id", Rule: "in_players", Message: "strategist_id must be listed in players"})
+	if strategistID != nil && contains(*strategistID) {
+		fields = append(fields, errs.FieldError{Field: "players", Rule: "pure_players", Message: "strategist_id must not appear in players"})
 	}
 	return fields
 }

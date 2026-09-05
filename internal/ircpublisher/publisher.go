@@ -99,7 +99,18 @@ func (p *Publisher) plan(ctx context.Context, document persistence.MatchOutboxDo
 	poolSlotID, _ := document.Payload.Lookup("poolSlotId").StringValueOK()
 	switch document.Type {
 	case matchengine.EventMatchStarted:
-		ids := append(append([]int64{}, match.TeamRed.Players...), match.TeamBlue.Players...)
+		// Invite every match participant. Players now lists only pure roster
+		// members; the leader and strategist still belong to the team and
+		// must be invited alongside.
+		ids := make([]int64, 0, len(match.TeamRed.Players)+len(match.TeamBlue.Players)+2)
+		if match.TeamRed.LeaderID > 0 {
+			ids = append(ids, match.TeamRed.LeaderID)
+		}
+		if match.TeamBlue.LeaderID > 0 {
+			ids = append(ids, match.TeamBlue.LeaderID)
+		}
+		ids = append(ids, match.TeamRed.Players...)
+		ids = append(ids, match.TeamBlue.Players...)
 		jobs := make([]irc.Job, 0, len(ids))
 		seen := make(map[int64]struct{}, len(ids))
 		for _, id := range ids {
