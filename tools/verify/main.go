@@ -24,17 +24,18 @@ type check struct {
 }
 
 func main() {
+	hasFailed := new(false)
 	if err := checkFormatting(); err != nil {
-		fail("format", err)
+		markFail("format", err, hasFailed)
 	}
 	if err := checkMatchEngineDependencies(); err != nil {
-		fail("matchengine-purity", err)
+		markFail("matchengine-purity", err, hasFailed)
 	}
 	if err := checkMatchCommandBoundaries(); err != nil {
-		fail("match-command-boundaries", err)
+		markFail("match-command-boundaries", err, hasFailed)
 	}
 	if err := checkErrorContract(); err != nil {
-		fail("error-contract", err)
+		markFail("error-contract", err, hasFailed)
 	}
 
 	checks := []check{
@@ -52,10 +53,14 @@ func main() {
 		command.Stderr = os.Stderr
 		command.Stdin = os.Stdin
 		if err := command.Run(); err != nil {
-			fail(item.name, err)
+			markFail(item.name, err, hasFailed)
 		}
 	}
 
+	if *hasFailed {
+		fmt.Println("verification failed. Check console output for details.")
+		os.Exit(1)
+	}
 	fmt.Println("verification passed")
 }
 
@@ -229,7 +234,7 @@ func goFiles(root string) ([]string, error) {
 	return files, err
 }
 
-func fail(name string, err error) {
+func markFail(name string, err error, status *bool) {
+	*status = true
 	fmt.Fprintf(os.Stderr, "verification failed during %s: %v\n", name, err)
-	os.Exit(1)
 }
